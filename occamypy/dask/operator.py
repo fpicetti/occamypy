@@ -2,7 +2,7 @@ import numpy as np
 import dask.distributed as daskD
 
 from occamypy import Vector, Operator
-from .dask_vector import DaskVector
+from .vector import DaskVector
 from .utils import DaskClient
 
 

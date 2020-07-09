@@ -4,8 +4,8 @@ import cupy as cp
 from cupyx.scipy.ndimage import convolve, correlate
 
 from occamypy import Operator, Vstack, Dstack, Vector, superVector
-from occamypy.vector import sep
-from . import VectorCupy
+from occamypy.utils import sep
+from occamypy.cupy import VectorCupy
 
 
 class MatrixOp(Operator):

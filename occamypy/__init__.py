@@ -20,3 +20,6 @@ from .solver import Solver
 from .solver.linear import LCGsolver, LSQRsolver, SymLCGsolver
 from .solver.nonlinear import NLCGsolver, LBFGSsolver, TNewtonsolver, MCMCsolver
 from .solver.sparsity import ISTAsolver, ISTCsolver, SplitBregmanSolver
+
+# TODO should we rename all Cupy Operator with "Cupy" at first?
+# TODO should we remove np operator and switch to Cupy that is able to handle both cupy and numpy?

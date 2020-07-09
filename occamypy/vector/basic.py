@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from . import sep
+from ..utils import sep
 
 
 class Vector:

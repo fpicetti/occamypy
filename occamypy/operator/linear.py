@@ -1,4 +1,5 @@
-from occamypy.vector import Vector, VectorIC, superVector, sep
+from occamypy.vector import Vector, VectorIC, superVector
+from ..utils import sep
 from . import Operator, Vstack, Dstack
 import numpy as np
 from scipy.signal import convolve, correlate

@@ -13,8 +13,7 @@ import pickle
 import re
 import numpy as np
 
-from occamypy.vector import sep
-from occamypy.utils import mkdir
+from occamypy.utils import mkdir, sep
 
 from shutil import rmtree
 from copy import deepcopy

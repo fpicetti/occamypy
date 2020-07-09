@@ -2,7 +2,7 @@
 import re
 import os
 import numpy as np
-from occamypy.utils import RunShellCmd
+from occamypy.utils.os import RunShellCmd
 
 # Assigning datapath
 HOME = os.environ["HOME"]

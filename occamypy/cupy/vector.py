@@ -3,16 +3,9 @@ import os
 from sys import version_info
 import numpy as np
 import cupy as cp
-try:
-    from GPUtil import getFirstAvailable, getGPUs
-except ModuleNotFoundError:
-    import subprocess
-    import sys
-    subprocess.call([sys.executable, "-m", "pip", "install", "gputil"])
-    from GPUtil import getFirstAvailable, getGPUs
-
+from GPUtil import getGPUs
 from occamypy import Vector, VectorOC
-from occamypy.vector import sep
+from occamypy.utils import sep
 
 
 class VectorCupy(Vector):

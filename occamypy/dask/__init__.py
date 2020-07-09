@@ -1,2 +1,2 @@
-from .dask_vector import DaskVector
-from .dask_operator import DaskOperator, DaskSpreadOp, DaskCollectOp
+from .vector import DaskVector
+from .operator import DaskOperator, DaskSpreadOp, DaskCollectOp

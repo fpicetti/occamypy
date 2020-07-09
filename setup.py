@@ -8,6 +8,7 @@ def src(pth):
 
 setup(name='occamypy',
       version='0.1',
+      url="https://github.com/fpicetti/occamypy",  # used for the documentation. TODO switch to readthedocs?
       description='An Object-Oriented Optimization Framework for Large-Scale Inverse Problems',
       long_description=open(src('README.md')).read(),
       long_description_content_type='text/markdown',
@@ -27,7 +28,10 @@ setup(name='occamypy',
       author='Ettore Biondi, Guillame Barnier, Robert Clapp, Francesco Picetti, Stuart Farris',  # TODO they should be our github nicknames
       author_email='ettore88@stanford.edu',  # TODO it should be a definitive email, maybe a gmail one?
       
-      install_requires=['numpy >= 1.15.0', 'scipy', 'cupy'],  # todo add hdf5
-      extras_require={'advanced': ['numba', 'pyfftw', 'PyWavelets']},
+      install_requires=['numpy >= 1.15.0', 'scipy', 'cupy>=7.3', 'gputil'],  # todo add hdf5
+      extras_require={
+          'plotting': ['matplotlib', 'imageio'],
+          'distributed': ['dask', 'dask-jobqueue'],
+          'advanced': ['numba', 'pyfftw', 'PyWavelets']},
       packages=find_packages(),
       zip_safe=True)

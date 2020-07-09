@@ -2,7 +2,7 @@ import numpy as np
 from copy import deepcopy
 from sys import version_info
 from . import Vector, VectorOC
-from occamypy.vector import sep
+from ..utils import sep
 
 
 class VectorIC(Vector):
@@ -39,9 +39,6 @@ class VectorIC(Vector):
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
         return self.arr
-    
-    def size(self):
-        return self.getNdArray().size
     
     def norm(self, N=2):
         """Function to compute vector N-norm using Numpy"""

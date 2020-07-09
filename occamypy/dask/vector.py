@@ -2,9 +2,8 @@ import numpy as np
 import os
 import dask.distributed as daskD
 
-from occamypy.utils import BUF_SIZE
+from occamypy.utils import BUF_SIZE, sep
 from occamypy import Vector
-from occamypy.vector import sep
 from .utils import DaskClient
 
 # Verify if SepVector modules are presents
