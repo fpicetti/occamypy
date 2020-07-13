@@ -3,7 +3,7 @@ import time
 from copy import deepcopy
 import numpy as np
 from occamypy.vector import Vector, superVector
-from occamypy.solver import BasicStopper, LCGsolver
+from occamypy.solver import BasicStopper, CG
 from occamypy.problem import LeastSquares
 
 
@@ -49,7 +49,7 @@ class Operator:
 
         Stop = BasicStopper(niter=niter)
         problem = LeastSquares(model=self.domain.clone(), data=other, op=self)
-        solver = LCGsolver(Stop)
+        solver = CG(Stop)
         solver.run(problem, verbose=False)
 
         return problem.model

@@ -1,11 +1,10 @@
 from math import isnan
-from . import Problem
-from occamypy import NonLinearOperator, IdentityOp, VstackNonLinearOperator, VpOperator
-from occamypy.vector import  superVector
-from occamypy.problem.linear import LeastSquares, RegularizedL2
+from occamypy import NonLinearOperator, IdentityOp, VstackNonLinearOperator, VpOperator, superVector
+from occamypy.problem import Problem, LeastSquares
+from occamypy.problem.linear import LeastSquaresRegularizedL2
 
 
-class ProblemL2NonLinear(Problem):
+class NonlinearLeastSquares(Problem):
     """Non-linear inverse problem of the form 1/2*|f(m)-d|_2"""
 
     def __init__(self, model, data, op, grad_mask=None,
@@ -21,7 +20,7 @@ class ProblemL2NonLinear(Problem):
            boundProj	= [None] - Bounds class; Class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(ProblemL2NonLinear, self).__init__(minBound, maxBound, boundProj)
+        super(NonlinearLeastSquares, self).__init__(minBound, maxBound, boundProj)
         # Setting internal vector
         self.model = model
         self.dmodel = model.clone()
@@ -88,7 +87,7 @@ class ProblemL2NonLinear(Problem):
         return obj
 
 
-class ProblemL2NonLinearReg(Problem):
+class NonlinearLeastSquaresRegularized(Problem):
     """
        Linear inverse problem regularized of the form
             1/2*|f(m)-d|_2 + epsilon^2/2*|Am - m_prior|_2
@@ -112,7 +111,7 @@ class ProblemL2NonLinearReg(Problem):
            boundProj	= [None] - Bounds class; Class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(ProblemL2NonLinearReg, self).__init__(minBound, maxBound, boundProj)
+        super(NonlinearLeastSquaresRegularized, self).__init__(minBound, maxBound, boundProj)
         # Setting internal vector
         self.model = model
         self.dmodel = model.clone()
@@ -287,11 +286,11 @@ class ProblemL2NonLinearReg(Problem):
 
 
 # Variable Projection Problem
-class ProblemL2VpReg(Problem):
+class RegularizedVariableProjection(Problem):
     """
-       Non-linear inverse problem in which part of the model parameters define a quadratic function
-       The non-linear component is solved using the variable-projection method (Golub and Pereyra, 1973)
-       Problem form: phi(m) = 1/2*|g(m_nl) + h(m_nl)m_lin - d|_2 + epsilon^2/2*|g'(m_nl) + h'(m_nl)m_lin - d'|_2
+    Non-linear inverse problem in which part of the model parameters define a quadratic function
+    The non-linear component is solved using the variable-projection method (Golub and Pereyra, 1973)
+    Problem form: phi(m) = 1/2*|g(m_nl) + h(m_nl)m_lin - d|_2 + epsilon^2/2*|g'(m_nl) + h'(m_nl)m_lin - d'|_2
     """
 
     def __init__(self, model_nl, lin_model, h_op, data, lin_solver, g_op=None, g_op_reg=None, h_op_reg=None,
@@ -321,7 +320,7 @@ class ProblemL2VpReg(Problem):
         if not isinstance(h_op, VpOperator):
             raise TypeError("ERROR! Not provided an operator class for the variable projection problem")
         # Setting the bounds (if any)
-        super(ProblemL2VpReg, self).__init__(minBound, maxBound, boundProj)
+        super(RegularizedVariableProjection, self).__init__(minBound, maxBound, boundProj)
         # Setting internal vector
         self.model = model_nl
         self.dmodel = model_nl.clone()
@@ -369,9 +368,9 @@ class ProblemL2VpReg(Problem):
             self.res = data.clone()
         # Instantiating linear inversion problem
         if self.h_op_reg is not None:
-            self.vp_linear_prob = RegularizedL2(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
-                                                reg_op=self.h_op_reg.h_lin, prior_model=self.data_reg,
-                                                prec=prec)
+            self.vp_linear_prob = LeastSquaresRegularizedL2(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
+                                                            reg_op=self.h_op_reg.h_lin, prior_model=self.data_reg,
+                                                            prec=prec)
         else:
             self.vp_linear_prob = LeastSquares(self.lin_model, self.data, self.h_op.h_lin, prec=prec)
         # Zeroing out the residual vector
@@ -484,14 +483,14 @@ class ProblemL2VpReg(Problem):
             self.lin_solver.setPrefix(self.lin_solver_prefix + "_feval%s" % fevals)
 
         # Printing non-linear inversion information
-        if self.lin_solver.logger is not None:
+        if self.lin_solver.Logger is not None:
             # Writing linear inversion log information if requested (i.e., a logger is present in the solver)
             msg = "NON_LINEAR INVERSION INFO:\n	objective function evaluation\n"
             msg += "#########################################################################################\n"
-            self.lin_solver.logger.addToLog(msg + "Linear inversion for non-linear function evaluation # %s" % (fevals))
+            self.lin_solver.Logger.addToLog(msg + "Linear inversion for non-linear function evaluation # %s" % (fevals))
         self.lin_solver.run(self.vp_linear_prob, verbose=False)
-        if self.lin_solver.logger is not None:
-            self.lin_solver.logger.addToLog(
+        if self.lin_solver.Logger is not None:
+            self.lin_solver.Logger.addToLog(
                 "#########################################################################################\n")
         # Copying inverted linear optimal model
         self.lin_model.copy(self.vp_linear_prob.get_model())
@@ -541,8 +540,8 @@ class ProblemL2VpReg(Problem):
             self.g_op.lin_op.adjoint(True, self.grad, res)
         # H(m_nl,m_lin_opt)' r_d
         self.h_op.h_nl.lin_op.adjoint(True, self.grad, res)
-        if self.lin_solver.logger is not None:
-            self.lin_solver.logger.addToLog(
+        if self.lin_solver.Logger is not None:
+            self.lin_solver.Logger.addToLog(
                 "NON_LINEAR INVERSION INFO:\n	Gradient has been evaluated, current objective function value: %s;\n 	"
                 "Stepping!" % (
                     self.get_obj(model)))

@@ -160,7 +160,7 @@ class LeastSquaresSymmetric(Problem):
         return obj
 
 
-class RegularizedL2(Problem):
+class LeastSquaresRegularizedL2(Problem):
     """Linear inverse problem regularized of the form 1/2*|Lm-d|_2 + epsilon^2/2*|Am-m_prior|_2"""
 
     def __init__(self, model, data, op, epsilon, grad_mask=None, reg_op=None, prior_model=None, prec=None,
@@ -180,7 +180,7 @@ class RegularizedL2(Problem):
         prec       	= [None] - linear operator class; Preconditioning matrix
         """
         # Setting the bounds (if any)
-        super(RegularizedL2, self).__init__(minBound, maxBound, boundProj)
+        super(LeastSquaresRegularizedL2, self).__init__(minBound, maxBound, boundProj)
         # Setting internal vector
         self.model = model
         self.dmodel = model.clone()
