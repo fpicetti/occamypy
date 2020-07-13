@@ -20,7 +20,7 @@ def mkdir(directory):
         print('Error: Creating directory. ' + directory)
 
 
-class logger:
+class Logger:
     """System logger class"""
 
     def __init__(self, file, bufsize=1):
@@ -67,7 +67,7 @@ def RunShellCmd(cmd, print_cmd=False, print_output=False, synch=True, check_code
             print_output = True
             # Printing command to be run if requested
         info = "RunShellCmd running: \'%s\'" % cmd
-        if (isinstance(debug_log, logger)): debug_log.addToLog(info)
+        if (isinstance(debug_log, Logger)): debug_log.addToLog(info)
         if print_cmd: print(info)
         # Starting the process (Using PIPE to streaming output)
         proc = subprocess.Popen([cmd], stdout=subprocess.PIPE,
@@ -84,7 +84,7 @@ def RunShellCmd(cmd, print_cmd=False, print_output=False, synch=True, check_code
                 line = line.rstrip()
                 if line != '':
                     # Print to debug file?
-                    if isinstance(debug_log, logger): debug_log.addToLog(line)
+                    if isinstance(debug_log, Logger): debug_log.addToLog(line)
                     # Print to screen?
                     if print_output: print(line)
                     sys.stdout.flush()
@@ -106,7 +106,7 @@ def RunShellCmd(cmd, print_cmd=False, print_output=False, synch=True, check_code
     if (check_code and err_code != 0):
         # Writing error code to debug file if any
         info = "ERROR! Command failed: %s; Error code: %s" % (cmd, err_code)
-        if (isinstance(debug_log, logger)): debug_log.addToLog(info)
+        if (isinstance(debug_log, Logger)): debug_log.addToLog(info)
         raise SystemError("ERROR! Command failed: %s; Error code: %s; Output: %s" % (cmd, err_code, stdout))
     # Returning
     return return_var
