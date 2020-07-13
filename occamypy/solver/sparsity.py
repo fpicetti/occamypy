@@ -1,12 +1,10 @@
 from math import isnan
 import numpy as np
-import pyOperator as pyOp
-import pyVector as pyVec
-from pySolver import Solver
-from pyProblem import ProblemL1Lasso, ProblemL2LinearReg, ProblemLinearReg, ProblemL2Linear
-from pyLinearSolver import LCGsolver, LSQRsolver
-from pyStopper import BasicStopper
-from sys_util import logger as logger_class
+
+from occamypy import Vstack, superVector
+from occamypy.solver import Solver, BasicStopper, CG, LSQR, SD
+from occamypy.problem import LeastSquares, Lasso, RegularizedLeastSquares
+from occamypy.utils import Logger
 
 zero = 10 ** (np.floor(np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
 
@@ -51,7 +49,7 @@ def _proximal_L2(x, thresh, eps=1e-10):
     return x.clone().scale(c)
 
 
-class ISTAsolver(Solver):
+class ISTA(Solver):
     """
     Iterative Shrikage-Thresholding Algorithm (ISTA) solver to solve:
         1/2*| y - Am |_2 + lambda*| m |_1
@@ -65,13 +63,13 @@ class ISTAsolver(Solver):
         :param logger: Logger, object to write inversion log file
         """
         # Calling parent construction
-        super(ISTAsolver, self).__init__()
+        super(ISTA, self).__init__()
         # Defining stopper object
         self.stopper = stopper
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        self.stopper.Logger = self.logger
         # Setting the fast flag
         self.fast = fast
         # print formatting
@@ -88,7 +86,7 @@ class ISTAsolver(Solver):
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if the provided problem is L1-LASSO
-        if not isinstance(problem, ProblemL1Lasso):
+        if not isinstance(problem, Lasso):
             raise TypeError("Provided inverse problem not ProblemL1Lasso!")
         # Checking if the regularization weight was set
         if problem.lambda_value is None:
@@ -240,7 +238,7 @@ class ISTAsolver(Solver):
         self.restart.clear_restart()
 
 
-class ISTCsolver(Solver):
+class ISTC(Solver):
     """ISTC solver to solve: convex problem 1/2*| y - Am |_2 + lambda*| m |_1"""
     
     def __init__(self, stopper, inner_it, cooling_start, cooling_end, logger=None):
@@ -253,13 +251,13 @@ class ISTCsolver(Solver):
         :param cooling_end  : float; End of cooling continuation as fraction of size of sorted array |A'y|
         """
         # Calling parent construction
-        super(ISTCsolver, self).__init__()
+        super(ISTC, self).__init__()
         # Defining stopper object
         self.stopper = stopper
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        self.stopper.Logger = self.logger
         self.iter_msg = "Inner_iter = %s, obj = %.5e, resnorm = %.2e, gradnorm= %.2e, feval = %d"
         
         # ISTC parameters
@@ -284,7 +282,7 @@ class ISTCsolver(Solver):
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if the provided problem is L1-LASSO
-        if not isinstance(problem, ProblemL1Lasso):
+        if not isinstance(problem, Lasso):
             raise TypeError("Provided inverse problem not ProblemL1Lasso!")
         # Computing preconditioning
         scale_precond = 0.99 * np.sqrt(2) / problem.op_norm  # scaling factor applied to operator A for preconditioning
@@ -305,7 +303,8 @@ class ISTCsolver(Solver):
             prblm_mdl = problem.get_model()
             istc_mdl = prblm_mdl.clone()
             
-            # Inversion always starts from m = 0 (I need to understand if it is possible to start from m different than 0)
+            # Inversion always starts from m = 0
+            # (I need to understand if it is possible to start from m different than 0)
             istc_mdl.zero()  # modl = 0
             # Other internal variables
             iiter = 0
@@ -473,7 +472,7 @@ class ISTCsolver(Solver):
         self.restart.clear_restart()
 
 
-class SplitBregmanSolver(Solver):
+class SplitBregman(Solver):
     """Split-Bregman solver for L1 and L2 regularized problems"""
     
     # Default class methods/functions
@@ -491,13 +490,13 @@ class SplitBregmanSolver(Solver):
         :param mod_tol          : float; stop criterion for relative change of model norm
         """
         # Calling parent construction
-        super(SplitBregmanSolver, self).__init__()
+        super(SplitBregman, self).__init__()
         # Defining stopper object
         self.stopper = stopper
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        self.stopper.Logger = self.logger
         # Model norm change stop criterion
         self.mod_tol = mod_tol
         
@@ -509,7 +508,7 @@ class SplitBregmanSolver(Solver):
             else:
                 folder = ""
             filename = "inner_inv_" + logger.file.name.split("/")[-1]
-            self.logger_lin_solv = logger_class(folder + filename)
+            self.logger_lin_solv = Logger(folder + filename)
         
         self.niter_inner = niter_inner  # number of iterations for the shrinkage
         self.niter_solver = niter_solver  # number of iterations for the internal problem
@@ -519,13 +518,11 @@ class SplitBregmanSolver(Solver):
         self.breg_weight = float(abs(breg_weight))
         
         if linear_solver == 'CG':
-            self.linear_solver = LCGsolver(BasicStopper(niter=self.niter_solver), steepest=False,
-                                           logger=self.logger_lin_solv)
+            self.linear_solver = CG(BasicStopper(niter=self.niter_solver), logger=self.logger_lin_solv)
         elif linear_solver == 'SD':
-            self.linear_solver = LCGsolver(BasicStopper(niter=self.niter_solver), steepest=True,
-                                           logger=self.logger_lin_solv)
+            self.linear_solver = SD(BasicStopper(niter=self.niter_solver), logger=self.logger_lin_solv)
         elif linear_solver == 'LSQR':
-            self.linear_solver = LSQRsolver(BasicStopper(niter=self.niter_solver), logger=self.logger_lin_solv)
+            self.linear_solver = LSQR(BasicStopper(niter=self.niter_solver), logger=self.logger_lin_solv)
         else:
             raise ValueError('ERROR! Solver has to be CG, SD or LSQR')
         self.linear_solver.setDefaults(iter_sampling=1, flush_memory=True)
@@ -536,7 +533,7 @@ class SplitBregmanSolver(Solver):
     
     def run(self, problem, verbose=False, inner_verbose=False, restart=False):
         """Running SplitBregman solver"""
-        if type(problem) != ProblemLinearReg:
+        if type(problem) != RegularizedLeastSquares:
             raise TypeError("Input problem object must be a ProblemLinearReg")
         if problem.regL1_op is None:
             raise ValueError("ERROR! Problem has to include at least one L1 Regularizer")
@@ -564,18 +561,18 @@ class SplitBregmanSolver(Solver):
         #  we must convert reg_op to a scaled version and epsilon to 1.
         regL2_op_scaled_list = [np.sqrt(problem.epsL2[i]) * problem.regL2_op.ops[i] for i in range(problem.nregsL2)]
         regL1_op_scaled_list = [np.sqrt(problem.epsL1[i]) * problem.regL1_op.ops[i] for i in range(problem.nregsL1)]
-        reg_op = pyOp.Vstack(pyOp.Vstack(regL2_op_scaled_list) if len(regL2_op_scaled_list) != 0 else None,
-                             pyOp.Vstack(regL1_op_scaled_list) if len(regL1_op_scaled_list) != 0 else None)
+        reg_op = Vstack(Vstack(regL2_op_scaled_list) if len(regL2_op_scaled_list) != 0 else None,
+                        Vstack(regL1_op_scaled_list) if len(regL1_op_scaled_list) != 0 else None)
         
         # inner problem
-        prior = pyVec.superVector(problem.dataregsL2, breg_d.clone())  # Note: d = 0. TODO is the clone() needed?
+        prior = superVector(problem.dataregsL2, breg_d.clone())  # Note: d = 0. TODO is the clone() needed?
         
-        linear_problem = ProblemL2Linear(model=sb_mdl.clone(),
-                                         data=pyVec.superVector(problem.data, prior),
-                                         op=pyOp.Vstack(problem.op, reg_op),
-                                         minBound=problem.minBound,
-                                         maxBound=problem.maxBound,
-                                         boundProj=problem.boundProj)
+        linear_problem = LeastSquares(model=sb_mdl.clone(),
+                                      data=superVector(problem.data, prior),
+                                      op=Vstack(problem.op, reg_op),
+                                      minBound=problem.minBound,
+                                      maxBound=problem.maxBound,
+                                      boundProj=problem.boundProj)
         
         if restart:
             self.restart.read_restart()

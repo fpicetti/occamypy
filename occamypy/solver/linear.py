@@ -8,7 +8,7 @@ zero = 10 ** (np.floor(np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2) 
 from occamypy.problem import LeastSquaresSymmetric
 
 
-class LCGsolver(Solver):
+class CG(Solver):
     """Linear-Conjugate Gradient and Steepest-Descent Solver parent object"""
 
     # Default class methods/functions
@@ -20,7 +20,7 @@ class LCGsolver(Solver):
         :param logger: Logger, object to write inversion log file [None]
         """
         # Calling parent construction
-        super(LCGsolver, self).__init__()
+        super(CG, self).__init__()
         # Defining stopper object
         self.stopper = stopper
         # Whether to run steepest descent or not
@@ -28,7 +28,7 @@ class LCGsolver(Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        self.stopper.Logger = self.logger
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
 
@@ -332,6 +332,11 @@ class LCGsolver(Solver):
         return
 
 
+class SD(CG):
+    def __init__(self, stopper, logger=None):
+        super(SD, self).__init__(stopper, steepest=True, logger=logger)
+    
+    
 def _sym_ortho(a, b):
     """
     Stable implementation of Givens rotation.
@@ -364,7 +369,7 @@ def _sym_ortho(a, b):
     return c, s, r
 
 
-class LSQRsolver(Solver):
+class LSQR(Solver):
     """
        LSQR Solver parent object following algorithm in Paige and Saunders (1982)
        Find the least-squares solution to a large, sparse, linear system
@@ -388,7 +393,7 @@ class LSQRsolver(Solver):
         :param logger           : Logger, object to write inversion log file [None]
         """
         # Calling parent construction
-        super(LSQRsolver, self).__init__()
+        super(LSQR, self).__init__()
         # Defining stopper object
         self.stopper = stopper
         # Logger object to write on log file
@@ -397,7 +402,7 @@ class LSQRsolver(Solver):
         self.est_cond = True if estimate_cond or estimate_var else False
         self.var = estimate_var
         # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        self.stopper.Logger = self.logger
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
 
@@ -682,14 +687,14 @@ class LSQRsolver(Solver):
         return
 
 
-class SymLCGsolver(Solver):
+class CGsym(Solver):
     """Linear-Conjugate Gradient Solver (for symmetric systems) parent object"""
 
     # Default class methods/functions
     def __init__(self, stopper, steepest=False, logger=None):
         """Constructor for LCG Solver for symmetric systems"""
         # Calling parent construction
-        super(SymLCGsolver, self).__init__()
+        super(CGsym, self).__init__()
         # Defining stopper object
         self.stopper = stopper
         # Whether to run steepest descent or not
@@ -697,7 +702,7 @@ class SymLCGsolver(Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        self.stopper.Logger = self.logger
         # Setting defaults for saving results
         self.setDefaults()
         # print formatting

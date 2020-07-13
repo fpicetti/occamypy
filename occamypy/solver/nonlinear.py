@@ -1,13 +1,12 @@
 from collections import deque
 from math import isnan
 import numpy as np
-import pySolver
-import pyOperator as pyOp
-from pyStepper import CvSrchStep, ParabolicStep
-from pyStopper import BasicStopper
-from pyProblem import ProblemLinearSymmetric
-from pyLinearSolver import SymLCGsolver
 from copy import deepcopy
+
+from occamypy import scalingOp
+from occamypy.problem import LeastSquaresSymmetric
+from occamypy.solver import Solver, BasicStopper, CGsym
+from occamypy.solver.stepper import CvSrchStep, ParabolicStep
 
 # Check for avoid Overflow or Underflow
 zero = 10 ** (np.floor(np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)
@@ -160,14 +159,14 @@ def _betaSD(grad, grad0, dir, logger):
     return beta
 
 
-class NLCGsolver(pySolver.Solver):
+class NLCG(Solver):
     """Non-Linear Conjugate Gradient and Steepest-Descent Solver object"""
 
     # Default class methods/functions
     def __init__(self, stoppr, stepper=None, beta_type="FR", logger=None):
         """Constructor for NLCG Solver"""
         # Calling parent construction
-        super(NLCGsolver, self).__init__()
+        super(NLCG, self).__init__()
         # Defining stopper object
         self.stoppr = stoppr
         # Defining stepper object
@@ -177,7 +176,7 @@ class NLCGsolver(pySolver.Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stoppr.logger = self.logger
+        self.stoppr.Logger = self.logger
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d, geval = %d"
         return
@@ -391,7 +390,7 @@ class NLCGsolver(pySolver.Solver):
         return
 
 
-class TNewtonsolver(pySolver.Solver):
+class TNewton(Solver):
     """Truncated Newton/Gauss-Newton solver object"""
 
     def __init__(self, stopper, niter_max, HessianOp, stepper=None, niter_min=None, warm_start=True, Newton_prefix=None,
@@ -427,8 +426,8 @@ class TNewtonsolver(pySolver.Solver):
                 raise AttributeError("Hessian operator must have a set_background function.")
         # Setting linear solver for solving Newton system and problem class
         StopLin = BasicStopper(niter=self.niter_max)
-        self.lin_solver = SymLCGsolver(StopLin)
-        self.NewtonPrblm = ProblemLinearSymmetric(HessianOp.domain.clone(), HessianOp.domain.clone(), HessianOp)
+        self.lin_solver = CGsym(StopLin)
+        self.NewtonPrblm = LeastSquaresSymmetric(HessianOp.domain.clone(), HessianOp.domain.clone(), HessianOp)
         return
 
     def run(self, problem, verbose=False, restart=False):
@@ -436,7 +435,7 @@ class TNewtonsolver(pySolver.Solver):
         return
 
 
-class LBFGSsolver(pySolver.Solver):
+class LBFGS(Solver):
     """L-BFGS (Limited-memory Broyden-Fletcher-Goldfarb-Shanno) Solver object"""
 
     def __init__(self, stopper, stepper=None, save_alpha=False, m_steps=None, H0=None, logger=None, save_est=False):
@@ -451,7 +450,7 @@ class LBFGSsolver(pySolver.Solver):
 		:param save_est   : bool, save inverse Hessian estimate vectors (self.prefix must not be None) [False]
 		"""
         # Calling parent construction
-        super(LBFGSsolver, self).__init__()
+        super(LBFGS, self).__init__()
         # Defining stopper object
         self.stopper = stopper
         # Defining stepper object
@@ -459,7 +458,7 @@ class LBFGSsolver(pySolver.Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        self.stopper.Logger = self.logger
         # LBFGS-specific parameters
         self.save_alpha = save_alpha
         self.H0 = H0
@@ -740,8 +739,7 @@ class LBFGSsolver(pySolver.Solver):
             # Making first step-length value Hessian guess if not provided by user
             if iiter == 0 and alpha != 1.0:
                 self.restart.save_parameter("fist_alpha", alpha)
-                self.H0 = pyOp.scalingOp(bfgs_dmodl, alpha) if self.H0 is None else self.H0 * pyOp.scalingOp(bfgs_dmodl,
-                                                                                                             alpha)
+                self.H0 = scalingOp(bfgs_dmodl, alpha) if self.H0 is None else self.H0 * scalingOp(bfgs_dmodl, alpha)
                 if self.logger:
                     self.logger.addToLog("First step-length value added to first Hessian inverse estimate!")
                 self.stepper.alpha = 1.0
@@ -806,7 +804,7 @@ class LBFGSsolver(pySolver.Solver):
         self.tmp_vector = None
 
 
-class MCMCsolver(pySolver.Solver):
+class MCMC(Solver):
     """Markov chain Monte Carlo sampling algorithm"""
 
     def __init__(self, **kwargs):
@@ -819,7 +817,7 @@ class MCMCsolver(pySolver.Solver):
         :param logger: Logger, object to save inversion information at runtime [None]
         """
         # Calling parent construction
-        super(MCMCsolver, self).__init__()
+        super(MCMC, self).__init__()
         # Defining stopper object
         self.stopper = kwargs.get("stopper")
         # Logger object to write on log file

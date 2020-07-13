@@ -1,15 +1,16 @@
 from .basic import Solver
 from .stopper import BasicStopper
 
-from .linear import LCGsolver
-from .linear import LSQRsolver
-from .linear import SymLCGsolver
+from .linear import CG
+from .linear import SD
+from .linear import LSQR
+from .linear import CGsym
 
-from .nonlinear import NLCGsolver
-from .nonlinear import LBFGSsolver
-from .nonlinear import TNewtonsolver
-from .nonlinear import MCMCsolver
+from .nonlinear import NLCG
+from .nonlinear import LBFGS
+from .nonlinear import TNewton
+from .nonlinear import MCMC
 
-from .sparsity import ISTAsolver
-from .sparsity import ISTCsolver
-from .sparsity import SplitBregmanSolver
+from .sparsity import ISTA
+from .sparsity import ISTC
+from .sparsity import SplitBregman
