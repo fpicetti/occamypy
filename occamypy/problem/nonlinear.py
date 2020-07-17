@@ -1,12 +1,12 @@
 from math import isnan
-from occamypy import NonLinearOperator, IdentityOp, VstackNonLinearOperator, VpOperator, superVector
-from occamypy.problem import Problem, LeastSquares
-from occamypy.problem.linear import LeastSquaresRegularizedL2
+from occamypy.vector import superVector
+from occamypy import problem as P
+from occamypy import operator as O
 
 
-class NonlinearLeastSquares(Problem):
+class NonlinearLeastSquares(P.Problem):
     """Non-linear inverse problem of the form 1/2*|f(m)-d|_2"""
-
+    
     def __init__(self, model, data, op, grad_mask=None,
                  minBound=None, maxBound=None, boundProj=None):
         """
@@ -35,7 +35,7 @@ class NonlinearLeastSquares(Problem):
         # Dresidual vector
         self.dres = self.res.clone()
         # Setting non-linear and linearized operators
-        if isinstance(op, NonLinearOperator):
+        if isinstance(op, O.NonLinearOperator):
             self.op = op
         else:
             raise TypeError("Not provided a non-linear operator!")
@@ -49,18 +49,18 @@ class NonlinearLeastSquares(Problem):
         self.setDefaults()
         self.linear = False
         return
-
+    
     def __del__(self):
         """Default destructor"""
         return
-
+    
     def resf(self, model):
         """Method to return residual vector r = f(m) - d"""
         self.op.nl_op.forward(False, model, self.res)
         # Computing f(m) - d
         self.res.scaleAdd(self.data, 1., -1.)
         return self.res
-
+    
     def gradf(self, model, res):
         """Method to return gradient vector g = F'r = F'(f(m) - d)"""
         # Setting model point on which the F is evaluated
@@ -71,7 +71,7 @@ class NonlinearLeastSquares(Problem):
         if self.grad_mask is not None:
             self.grad.multiply(self.grad_mask)
         return self.grad
-
+    
     def dresf(self, model, dmodel):
         """Method to return residual vector dres = Fdm"""
         # Setting model point on which the F is evaluated
@@ -79,7 +79,7 @@ class NonlinearLeastSquares(Problem):
         # Computing Fdm = dres
         self.op.lin_op.forward(False, dmodel, self.dres)
         return self.dres
-
+    
     def objf(self, residual):
         """Method to return objective function value 1/2|f(m)-d|_2"""
         val = residual.norm()
@@ -87,14 +87,14 @@ class NonlinearLeastSquares(Problem):
         return obj
 
 
-class NonlinearLeastSquaresRegularized(Problem):
+class NonlinearLeastSquaresRegularized(P.Problem):
     """
        Linear inverse problem regularized of the form
             1/2*|f(m)-d|_2 + epsilon^2/2*|Am - m_prior|_2
                 or with a non-linear regularization
             1/2*|f(m)-d|_2 + epsilon^2/2*|g(m) - m_prior|_2
     """
-
+    
     def __init__(self, model, data, op, epsilon, grad_mask=None, reg_op=None, prior_model=None,
                  minBound=None, maxBound=None, boundProj=None):
         """
@@ -125,17 +125,17 @@ class NonlinearLeastSquaresRegularized(Problem):
         # Setting linear operators
         # Assuming identity operator if regularization operator was not provided
         if reg_op is None:
-            Id_op = IdentityOp(self.model)
-            reg_op = NonLinearOperator(Id_op, Id_op)
+            Id_op = O.IdentityOp(self.model)
+            reg_op = O.NonLinearOperator(Id_op, Id_op)
         # Checking if space of the prior model is constistent with range of regularization operator
         if self.prior_model is not None:
             if not self.prior_model.checkSame(reg_op.range):
                 raise ValueError("Prior model space no constistent with range of regularization operator")
         # Setting non-linear and linearized operators
-        if not isinstance(op, NonLinearOperator):
+        if not isinstance(op, O.NonLinearOperator):
             raise TypeError("Not provided a non-linear operator!")
         # Setting non-linear stack of operators
-        self.op = VstackNonLinearOperator(op, reg_op)
+        self.op = O.NonLinearVstack(op, reg_op)
         self.epsilon = epsilon  # Regularization weight
         # Residual vector (data and model residual vectors)
         self.res = self.op.nl_op.range.clone()
@@ -154,11 +154,11 @@ class NonlinearLeastSquaresRegularized(Problem):
         # Objective function terms (useful to analyze each term)
         self.obj_terms = [None, None]
         return
-
+    
     def __del__(self):
         """Default destructor"""
         return
-
+    
     def estimate_epsilon(self, verbose=False, logger=None):
         """Method returning epsilon that balances the two terms of the objective function"""
         msg = "Epsilon Scale evaluation"
@@ -223,7 +223,7 @@ class NonlinearLeastSquaresRegularized(Problem):
         if logger:
             logger.addToLog(msg + "\nREGULARIZED PROBLEM end log file")
         return epsilon_balance
-
+    
     def resf(self, model):
         """
         Method to return residual vector r = [r_d; r_m]:
@@ -239,7 +239,7 @@ class NonlinearLeastSquaresRegularized(Problem):
         # Scaling by epsilon epsilon*r_m
         self.res.vecs[1].scale(self.epsilon)
         return self.res
-
+    
     def gradf(self, model, res):
         """
         Method to return gradient vector
@@ -256,7 +256,7 @@ class NonlinearLeastSquaresRegularized(Problem):
         if self.grad_mask is not None:
             self.grad.multiply(self.grad_mask)
         return self.grad
-
+    
     def dresf(self, model, dmodel):
         """
         Method to return residual vector
@@ -269,7 +269,7 @@ class NonlinearLeastSquaresRegularized(Problem):
         # Scaling by epsilon
         self.dres.vecs[1].scale(self.epsilon)
         return self.dres
-
+    
     def objf(self, residual):
         """
         Method to return objective function value
@@ -285,14 +285,13 @@ class NonlinearLeastSquaresRegularized(Problem):
         return obj
 
 
-# Variable Projection Problem
-class RegularizedVariableProjection(Problem):
+class RegularizedVariableProjection(P.Problem):
     """
     Non-linear inverse problem in which part of the model parameters define a quadratic function
     The non-linear component is solved using the variable-projection method (Golub and Pereyra, 1973)
     Problem form: phi(m) = 1/2*|g(m_nl) + h(m_nl)m_lin - d|_2 + epsilon^2/2*|g'(m_nl) + h'(m_nl)m_lin - d'|_2
     """
-
+    
     def __init__(self, model_nl, lin_model, h_op, data, lin_solver, g_op=None, g_op_reg=None, h_op_reg=None,
                  data_reg=None, epsilon=None, minBound=None, maxBound=None, boundProj=None, prec=None):
         """
@@ -317,7 +316,7 @@ class RegularizedVariableProjection(Problem):
             Note that to save the results of the linear inversion the user has to specify the saving parameters within the setDefaults of the
             linear solver. The results can only be saved on files. To the prefix specified within the lin_solver f_eval_# will be added.
         """
-        if not isinstance(h_op, VpOperator):
+        if not isinstance(h_op, O.VpOperator):
             raise TypeError("ERROR! Not provided an operator class for the variable projection problem")
         # Setting the bounds (if any)
         super(RegularizedVariableProjection, self).__init__(minBound, maxBound, boundProj)
@@ -331,7 +330,7 @@ class RegularizedVariableProjection(Problem):
         # Copying the pointer to data vector
         self.data = data
         # Setting non-linear/linear operator
-        if not isinstance(h_op, VpOperator):
+        if not isinstance(h_op, O.VpOperator):
             raise TypeError("ERROR! Provide a VpOperator operator class for h_op")
         self.h_op = h_op
         # Setting non-linear operator (if any)
@@ -353,7 +352,7 @@ class RegularizedVariableProjection(Problem):
             if self.g_op_reg is not None:
                 res_reg = self.g_op_reg.nl_op.range.clone()
             elif self.h_op_reg is not None:
-                if not isinstance(h_op_reg, VpOperator):
+                if not isinstance(h_op_reg, O.VpOperator):
                     raise TypeError("ERROR! Provide a VpOperator operator class for h_op_reg")
                 res_reg = self.h_op_reg.h_lin.range.clone()
             elif self.data_reg is not None:
@@ -368,11 +367,11 @@ class RegularizedVariableProjection(Problem):
             self.res = data.clone()
         # Instantiating linear inversion problem
         if self.h_op_reg is not None:
-            self.vp_linear_prob = LeastSquaresRegularizedL2(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
-                                                            reg_op=self.h_op_reg.h_lin, prior_model=self.data_reg,
-                                                            prec=prec)
+            self.vp_linear_prob = P.LeastSquaresRegularizedL2(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
+                                                              reg_op=self.h_op_reg.h_lin, prior_model=self.data_reg,
+                                                              prec=prec)
         else:
-            self.vp_linear_prob = LeastSquares(self.lin_model, self.data, self.h_op.h_lin, prec=prec)
+            self.vp_linear_prob = P.LeastSquares(self.lin_model, self.data, self.h_op.h_lin, prec=prec)
         # Zeroing out the residual vector
         self.res.zero()
         # Dresidual vector
@@ -388,11 +387,11 @@ class RegularizedVariableProjection(Problem):
         self.lin_solver_prefix = self.lin_solver.prefix
         self.vp_linear_prob.linear = True
         return
-
+    
     def __del__(self):
         """Default destructor"""
         return
-
+    
     def estimate_epsilon(self, verbose=False, logger=None):
         """Method returning epsilon that balances the two terms of the objective function"""
         if self.epsilon is None:
@@ -434,7 +433,7 @@ class RegularizedVariableProjection(Problem):
             # Problem is linearly regularized (fixing non-linear part and evaluating the epsilon on the linear
             # component)
         return self.vp_linear_prob.estimate_epsilon(verbose, logger)
-
+    
     def resf(self, model):
         """Method to return residual vector"""
         # Zero-out residual vector
@@ -449,14 +448,14 @@ class RegularizedVariableProjection(Problem):
         # Computing non-linear part g_reg(m) (if any)
         if self.g_op_reg is not None:
             self.g_op_reg.nl_op.forward(False, model, self.res.vecs[1])
-
+        
         ##################################
         # Setting data for linear inversion
         # data term = data - [g(m) if any]
         res.scaleAdd(self.data, -1.0, 1.0)
         # Setting data within first term
         self.vp_linear_prob.data = res
-
+        
         # regularization data term = [g_reg(m) - data_reg if any]
         if self.data_reg is not None:
             self.res.vecs[1].scaleAdd(self.data_reg, 1.0, -1.0)
@@ -464,7 +463,7 @@ class RegularizedVariableProjection(Problem):
         if "epsilon" in dir(self.vp_linear_prob):
             self.res.vecs[1].scale(-1.0)
             self.vp_linear_prob.prior_model = self.res.vecs[1]
-
+        
         ##################################
         # Running linear inversion
         # Getting fevals for saving linear inversion results
@@ -481,7 +480,7 @@ class RegularizedVariableProjection(Problem):
         # Saving linear inversion results if requested
         if self.lin_solver_prefix is not None:
             self.lin_solver.setPrefix(self.lin_solver_prefix + "_feval%s" % fevals)
-
+        
         # Printing non-linear inversion information
         if self.lin_solver.Logger is not None:
             # Writing linear inversion log information if requested (i.e., a logger is present in the solver)
@@ -496,7 +495,7 @@ class RegularizedVariableProjection(Problem):
         self.lin_model.copy(self.vp_linear_prob.get_model())
         # Flushing internal saved results of the linear inversion
         self.lin_solver.flush_results()
-
+        
         ##################################
         # Obtaining the residuals
         if (self.epsilon is not None) and not ("epsilon" in dir(self.vp_linear_prob)):
@@ -506,7 +505,7 @@ class RegularizedVariableProjection(Problem):
         else:
             self.res.copy(self.vp_linear_prob.get_res(self.lin_model))
         return self.res
-
+    
     def gradf(self, model, res):
         """
            Method to return gradient vector
@@ -546,14 +545,17 @@ class RegularizedVariableProjection(Problem):
                 "Stepping!" % (
                     self.get_obj(model)))
         return self.grad
-
+    
     def dresf(self, model, dmodel):
         """Method to return residual vector dres (Not currently supported)"""
         raise NotImplementedError(
             "ERROR! dresf is not currently supported! Provide an initial step-length value different than zero.")
-
+    
     def objf(self, residual):
-        """Method to return objective function value 1/2*|g(m_nl) + h(m_nl)m_lin - d|_2 + epsilon^2/2*|g'(m_nl) + h'(m_nl)m_lin - d'|_2"""
+        """
+        Method to return objective function value
+        1/2*|g(m_nl) + h(m_nl)m_lin - d|_2 + epsilon^2/2*|g'(m_nl) + h'(m_nl)m_lin - d'|_2'
+        """
         if "obj_terms" in dir(self):
             # data term
             val = residual.vecs[0].norm()

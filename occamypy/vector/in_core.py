@@ -1,11 +1,12 @@
 import numpy as np
 from copy import deepcopy
 from sys import version_info
-from . import Vector, VectorOC
-from ..utils import sep
+
+from occamypy import vector as V
+from occamypy.utils import sep
 
 
-class VectorIC(Vector):
+class VectorIC(V.Vector):
     """In-core python vector class"""
     
     def __init__(self, in_vec):
@@ -14,10 +15,10 @@ class VectorIC(Vector):
         This class stores array with C memory order (i.e., row-wise sorting)
         """
         
-        # Verify that input is a numpy array or header file or vectorOC
-        if isinstance(in_vec, VectorOC):  # VectorOC passed to constructor
+        # Verify that input is a numpy array or header file or vectorOC TODO fix import loop
+        if isinstance(in_vec, V.VectorOC):  # VectorOC passed to constructor
             self.arr, self.ax_info = sep.read_file(in_vec.vecfile)
-        elif isinstance(in_vec, str):  # Header file passed to constructor
+        if isinstance(in_vec, str):  # Header file passed to constructor
             self.arr, self.ax_info = sep.read_file(in_vec)
         elif isinstance(in_vec, np.ndarray):  # Numpy array passed to constructor
             if np.isfortran(in_vec):

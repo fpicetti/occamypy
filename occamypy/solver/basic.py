@@ -1,23 +1,16 @@
 # Module containing generic Solver and Restart definitions
-
-from sys import path
-path.insert(0, '.')
-from occamypy.problem import Problem
-from occamypy.vector import VectorSet
-from occamypy.vector.out_core import VectorOC
-
 import atexit
 import os
-# Functions and modules necessary for writing on disk
 import pickle
 import re
 import numpy as np
-
-from occamypy.utils import mkdir, sep
-
 from shutil import rmtree
 from copy import deepcopy
 import datetime
+
+from occamypy.utils import mkdir, sep
+from occamypy import problem as P
+from occamypy import vector as V
 
 
 class Solver:
@@ -45,9 +38,9 @@ class Solver:
         self.model = list()
         self.res = list()
         self.grad = list()
-        self.modelSet = VectorSet()
-        self.resSet = VectorSet()
-        self.gradSet = VectorSet()
+        self.modelSet = V.VectorSet()
+        self.resSet = V.VectorSet()
+        self.gradSet = V.VectorSet()
         self.inv_model = None
         self.iter_written = 0
 
@@ -104,9 +97,9 @@ class Solver:
         self.model = list()                 # List for model vectors (to save results in-core)
         self.res = list()                   # List for residual vectors (to save results in-core)
         self.grad = list()                  # List for gradient vectors (to save results in-core)
-        self.modelSet = VectorSet()     # Set for model vectors
-        self.resSet = VectorSet()       # Set for residual vectors
-        self.gradSet = VectorSet()      # Set for gradient vectors
+        self.modelSet = V.VectorSet()     # Set for model vectors
+        self.resSet = V.VectorSet()       # Set for residual vectors
+        self.gradSet = V.VectorSet()      # Set for gradient vectors
         self.inv_model = None               # Temporary saved inverted model
 
     def flush_results(self):
@@ -117,9 +110,9 @@ class Solver:
         self.model = list()  # List for model vectors (to save results in-core)
         self.res = list()  # List for residual vectors (to save results in-core)
         self.grad = list()  # List for gradient vectors (to save results in-core)
-        self.modelSet = VectorSet()  # Set for model vectors
-        self.resSet = VectorSet()  # Set for residual vectors
-        self.gradSet = VectorSet()  # Set for gradient vectors
+        self.modelSet = V.VectorSet()  # Set for model vectors
+        self.resSet = V.VectorSet()  # Set for residual vectors
+        self.gradSet = V.VectorSet()  # Set for gradient vectors
         self.inv_model = None  # Temporary saved inverted model
 
     def get_restart(self, log_file):
@@ -155,7 +148,7 @@ class Solver:
         - model : [problem.model] model to be saved and/or written
         - obj : [problem.obj] objective function to be saved
         """
-        if not isinstance(problem, Problem):
+        if not isinstance(problem, P.Problem):
             raise TypeError("Input variable is not a Problem object")
         force_save = kwargs.get("force_save", False)
         force_write = kwargs.get("force_write", False)
@@ -277,7 +270,7 @@ class Restart:
                 pickle.dump(self, out_file, pickle.HIGHEST_PROTOCOL)
             # Checking if a vectorOC was in the restart and preventing the removal of the vector file
             for vec_name, vec in self.vec_dict.items():
-                if isinstance(vec, VectorOC):
+                if isinstance(vec, V.VectorOC):
                     vec.remove_file = False
 
     def read_restart(self):
@@ -289,7 +282,7 @@ class Restart:
             self.vec_dict = restart.vec_dict
             # Checking if a vectorOC was in the restart and setting the removal of the vector file
             for vec_name, vec in self.vec_dict.items():
-                if isinstance(vec, VectorOC):
+                if isinstance(vec, V.VectorOC):
                     vec.remove_file = True
             # Removing previous restart and deleting read object
             restart.clear_restart()

@@ -1,9 +1,10 @@
-from occamypy.vector import Vector, VectorIC, superVector
-from ..utils import sep
-from . import Operator, Vstack, Dstack
 import numpy as np
 from scipy.signal import convolve, correlate
 from scipy.ndimage import gaussian_filter
+
+from occamypy.vector import Vector, VectorIC, superVector
+from occamypy.utils import sep
+from occamypy.operator import Operator, Vstack, Dstack
 
 
 class MatrixOp(Operator):
@@ -65,7 +66,7 @@ class MatrixOp(Operator):
 
 
 class FirstDerivative(Operator):
-    def __init__(self, model, sampling=1., axis=0, kind='centered'):
+    def __init__(self, model, sampling=1., axis=0, stencil='centered'):
         r"""
         First Derivative with a stencil
             1) 2nd order centered:
@@ -86,20 +87,20 @@ class FirstDerivative(Operator):
         :param model    : vector class; domain vector
         :param sampling : scalar; sampling step [1.]
         :param axis     : int; axis along which to compute the derivative [0]
-        :param kind     : str; derivative kind (centered, forward, backward)
+        :param stencil  : str; derivative kind (centered, forward, backward)
         """
         self.sampling = sampling
         self.dims = model.getNdArray().shape
         self.axis = axis if axis >= 0 else len(self.dims) + axis
-        self.kind = kind
+        self.stencil = stencil
         
-        if self.kind == 'centered':
+        if self.stencil == 'centered':
             self.forward = self._forwardC
             self.adjoint = self._adjointC
-        elif self.kind == 'backward':
+        elif self.stencil == 'backward':
             self.forward = self._forwardB
             self.adjoint = self._adjointB
-        elif self.kind == 'forward':
+        elif self.stencil == 'forward':
             self.forward = self._forwardF
             self.adjoint = self._adjointF
         else:
@@ -308,7 +309,7 @@ class SecondDerivative(Operator):
 class Gradient(Operator):
     def __init__(self, model, sampling=None):
         r"""
-        N-Dimensional Gradient operator with 2nd order centered stencils
+        N-Dimensional Gradient operator
 
         :param model    : vector class; domain vector
         :param sampling : tuple; sampling step [1]
@@ -319,7 +320,7 @@ class Gradient(Operator):
         assert len(self.sampling) != 0, "There is something wrong with the dimensions"
         
         self.op = Vstack([FirstDerivative(model, sampling=self.sampling[d], axis=d)
-                               for d in range(len(self.dims))])
+                          for d in range(len(self.dims))])
         super(Gradient, self).__init__(domain=self.op.domain, range=self.op.range)
     
     def __str__(self):
@@ -447,7 +448,7 @@ class ConvND(Operator):
             pad_width.append(padding)
         self.kernel = np.pad(self.kernel, pad_width, mode='constant')
         
-        if len(domain.shape()) != len(self.kernel.shape):
+        if len(domain.shape) != len(self.kernel.shape):
             raise ValueError("Domain and kernel number of dimensions mismatch")
         
         assert method in ["auto", "direct", "fft"], "method has to be auto, direct or fft"

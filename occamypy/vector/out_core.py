@@ -1,24 +1,25 @@
 import numpy as np
 import os
-from . import Vector, VectorIC
 from time import time
-import occamypy.utils_sep as sep
-from occamypy.utils_sys import RunShellCmd, hashfile, BUF_SIZE
 from copy import deepcopy
 from shutil import copyfile
 
+from occamypy import vector as V
+from occamypy.utils import sep
+from occamypy.utils.os import RunShellCmd, hashfile, BUF_SIZE
 
 from re import compile
 re_dpr = compile("DOT RESULT(.*)")
 
 
-class VectorOC(Vector):
+class VectorOC(V.Vector):
     """Out-of-core python vector class"""
     
     def __init__(self, input):
         """VectorOC constructor: input= numpy array, header file, vectorIC"""
         # Verify that input is a numpy array or header file or vectorOC
-        if isinstance(input, VectorIC):
+        super(VectorOC).__init__()
+        if isinstance(input, V.VectorIC):
             # VectorIC passed to constructor
             # Placing temporary file into datapath folder
             tmp_vec = sep.datapath + "tmp_vectorOC" + str(int(time() * 1000000)) + ".H"

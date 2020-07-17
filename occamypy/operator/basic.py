@@ -2,9 +2,10 @@ from __future__ import division, print_function, absolute_import
 import time
 from copy import deepcopy
 import numpy as np
+
 from occamypy.vector import Vector, superVector
-from occamypy.solver import BasicStopper, CG
-from occamypy.problem import LeastSquares
+from occamypy import solver as S
+from occamypy import problem as P
 
 
 class Operator:
@@ -47,10 +48,10 @@ class Operator:
         if not self.range.checkSame(other):
             raise ValueError('Operator range and data domain mismatch')
 
-        Stop = BasicStopper(niter=niter)
-        problem = LeastSquares(model=self.domain.clone(), data=other, op=self)
-        solver = CG(Stop)
-        solver.run(problem, verbose=False)
+        stopper = S.BasicStopper(niter=niter)
+        problem = P.LeastSquares(model=self.domain.clone(), data=other, op=self)
+        CGsolver = S.CG(stopper)
+        CGsolver.run(problem, verbose=False)
 
         return problem.model
 

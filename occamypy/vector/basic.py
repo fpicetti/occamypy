@@ -1,6 +1,7 @@
 import os
 import numpy as np
-from ..utils import sep
+
+from occamypy.utils import sep
 
 
 class Vector:
@@ -120,7 +121,7 @@ class Vector:
         """Function to clone vector space"""
         raise NotImplementedError("cloneSpace must be overwritten")
     
-    def checkSame(self):
+    def checkSame(self, other):
         """Function to check to make sure the vectors exist in the same space"""
         raise NotImplementedError("checkSame must be overwritten")
     

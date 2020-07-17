@@ -14,3 +14,8 @@ from .nonlinear import MCMC
 from .sparsity import ISTA
 from .sparsity import ISTC
 from .sparsity import SplitBregman
+
+from .stepper import Stepper
+from .stepper import CvSrchStep
+from .stepper import ParabolicStep
+from .stepper import ParabolicStepConst

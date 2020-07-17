@@ -1,7 +1,8 @@
-from occamypy.problem import Problem
 import time
 from timeit import default_timer as timer
 import numpy as np
+
+from occamypy import problem as P
 
 
 class Stopper:
@@ -73,7 +74,7 @@ class BasicStopper(Stopper):
 
     # Beware stopper is going to change the gradient/obj/res files
     def run(self, problem, niter, initial_obj_value=None, verbose=False):
-        if not isinstance(problem, Problem):
+        if not isinstance(problem, P.Problem):
             raise TypeError("Input variable is not a Problem object")
         # Variable to impose stopping to solver
         stop = False
@@ -215,7 +216,7 @@ class SamplingStopper(Stopper):
 
     # Beware stopper is going to change the gradient/obj/res files
     def run(self, problem, nsamples, verbose=False):
-        if not isinstance(problem, Problem):
+        if not isinstance(problem, P.Problem):
             raise TypeError("Input variable is not a Problem object")
         # Variable to impose stopping to solver
         stop = False

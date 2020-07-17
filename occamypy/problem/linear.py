@@ -1,6 +1,8 @@
 from math import isnan
-from . import Problem
-from occamypy import IdentityOp, Vstack, superVector
+
+from occamypy.problem import Problem
+from occamypy import operator as O
+from occamypy.vector import superVector
 
 
 class LeastSquares(Problem):
@@ -194,13 +196,13 @@ class LeastSquaresRegularizedL2(Problem):
         # Setting linear operators
         # Assuming identity operator if regularization operator was not provided
         if reg_op is None:
-            reg_op = IdentityOp(self.model)
-        # Checking if space of the prior model is constistent with range of
+            reg_op = O.IdentityOp(self.model)
+        # Checking if space of the prior model is consistent with range of
         # regularization operator
         if self.prior_model is not None:
             if not self.prior_model.checkSame(reg_op.range):
-                raise ValueError("Prior model space no constistent with range of regularization operator")
-        self.op = Vstack(op, reg_op)  # Modeling operator
+                raise ValueError("Prior model space no consistent with range of regularization operator")
+        self.op = O.Vstack(op, reg_op)  # Modeling operator
         self.epsilon = epsilon  # Regularization weight
         # Checking if a gradient mask was provided
         self.grad_mask = grad_mask
@@ -224,7 +226,8 @@ class LeastSquaresRegularizedL2(Problem):
     def __del__(self):
         """Default destructor"""
         return
-
+    
+    # TODO make estimate_epsilon a function that takes a problem as input
     def estimate_epsilon(self, verbose=False, logger=None):
         """
         Method returning epsilon that balances the first gradient in the 'extended-data' space or initial data residuals
@@ -443,7 +446,7 @@ class RegularizedLeastSquares(Problem):
         self.boundProj = boundProj
 
         # L1 Regularizations
-        self.regL1_op = None if regsL1 is None else Vstack(regsL1)
+        self.regL1_op = None if regsL1 is None else O.Vstack(regsL1)
         self.nregsL1 = self.regL1_op.n if self.regL1_op is not None else 0
         self.epsL1 = epsL1 if epsL1 is not None else []
         if type(self.epsL1) in [int, float]:
@@ -451,7 +454,7 @@ class RegularizedLeastSquares(Problem):
         assert len(self.epsL1) == self.nregsL1, 'The number of L1 regs and related weights mismatch!'
 
         # L2 Regularizations
-        self.regL2_op = None if regsL2 is None else Vstack(regsL2)
+        self.regL2_op = None if regsL2 is None else O.Vstack(regsL2)
         self.nregsL2 = self.regL2_op.n if self.regL2_op is not None else 0
         self.epsL2 = epsL2 if epsL2 is not None else []
         if type(self.epsL2) in [int, float]:

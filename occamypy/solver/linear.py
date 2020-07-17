@@ -1,11 +1,11 @@
 # Module containing Linear Solver classes
 from math import isnan
 import numpy as np
-from . import Solver
+
+from occamypy.solver import Solver
+from occamypy import problem as P
 
 zero = 10 ** (np.floor(np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
-
-from occamypy.problem import LeastSquaresSymmetric
 
 
 class CG(Solver):
@@ -49,12 +49,12 @@ class CG(Solver):
             if self.create_msg:
                 msg = 90 * "#" + "\n"
                 msg += "\t\t\t\tPRECONDITIONED " if precond else "\t\t\t\t"
-                msg += "LINEAR %s SOLVER\n" % ("STEEPEST-DESCENT" if self.steepest else "CONJUGATE GRADIENT log file")
+                msg += "LINEAR %s SOLVER\n" % ("STEEPEST-DESCENT log file" if self.steepest else "CONJUGATE GRADIENT log file")
                 msg += "\tRestart folder: %s\n" % self.restart.restart_folder
                 msg += "\tModeling Operator:\t\t%s\n" % problem.op
                 msg += 90 * "#" + "\n"
                 if verbose:
-                    print(msg.replace("log file", ""))
+                    print(msg.replace(" log file", ""))
                 if self.logger:
                     self.logger.addToLog(msg)
 
@@ -720,7 +720,7 @@ class CGsym(Solver):
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if we are solving a linear square problem
-        if not isinstance(problem, LeastSquaresSymmetric):
+        if not isinstance(problem, P.LeastSquaresSymmetric):
             raise TypeError("ERROR! Provided problem object not a linear symmetric problem")
         # Check for preconditioning
         precond = False
@@ -801,7 +801,7 @@ class CGsym(Solver):
             # Saving results
             self.save_results(iiter, problem, force_save=False)
             # Copying current model in case of early stop
-            prev_mdl.copy(prev_mdl)
+            prev_mdl.copy(cg_mdl)
 
             # Applying preconditioning to gradient (first time)
             if iiter == 0 and precond:

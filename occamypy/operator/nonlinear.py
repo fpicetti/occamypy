@@ -1,6 +1,7 @@
 import numpy as np
-from occamypy import Operator, Vstack
-from .linear import _prodOperator
+
+from occamypy.operator import Operator, Vstack
+from occamypy.operator.basic import _prodOperator
 
 
 def dummy_set_background(dummy_arg):
@@ -139,7 +140,7 @@ def CombNonlinearOp(g, f):
     return _combNonLinearOperator(f, g)
 
 
-class VstackNonLinearOperator(NonLinearOperator):
+class NonLinearVstack(NonLinearOperator):
     """
     Stack of operators class
             | d1 |   | f(m) |
@@ -161,7 +162,7 @@ class VstackNonLinearOperator(NonLinearOperator):
         # Defining internal set_background functions
         self.set_background1 = nl_op1.set_background
         self.set_background2 = nl_op2.set_background
-        super(VstackNonLinearOperator, self).__init__(self.nl_op, self.lin_op, self.set_background)
+        super(NonLinearVstack, self).__init__(self.nl_op, self.lin_op, self.set_background)
 
     def __str__(self):
         return "NLVstack"

@@ -4,22 +4,59 @@ from .vector import superVector
 from .vector import VectorIC
 from .vector import VectorOC
 
-from .operator import Operator
-from .operator.basic import ZeroOp, IdentityOp, scalingOp, DiagonalOp, Vstack, Hstack, Dstack, ChainOperator
-from .operator.linear import MatrixOp, FirstDerivative, SecondDerivative, Gradient, Laplacian, GaussianFilter, ConvND, ZeroPad
-from .operator.nonlinear import NonLinearOperator, CombNonlinearOp, VstackNonLinearOperator, VpOperator
+from .operator.basic import Operator
+from .operator.basic import Vstack
+from .operator.basic import Hstack
+from .operator.basic import Dstack
+from .operator.basic import ChainOperator
+from .operator.basic import ZeroOp
+from .operator.basic import IdentityOp
+from .operator.basic import scalingOp
+from .operator.basic import DiagonalOp
+from .operator.linear import MatrixOp
+from .operator.linear import FirstDerivative
+from .operator.linear import SecondDerivative
+from .operator.linear import Gradient
+from .operator.linear import Laplacian
+from .operator.linear import GaussianFilter
+from .operator.linear import ConvND
+from .operator.linear import ZeroPad
+from .operator.nonlinear import NonLinearOperator
+from .operator.nonlinear import CombNonlinearOp
+from .operator.nonlinear import NonLinearVstack
+from .operator.nonlinear import VpOperator
+from .operator.nonlinear import cosOperator
+from .operator.nonlinear import cosJacobian
 
-from .problem import Problem
-from .problem import Bounds
-from .problem import LeastSquares
-from .problem import LeastSquaresSymmetric
-from .problem import Lasso
-from .problem import RegularizedLeastSquares
+from .problem.basic import Problem
+from .problem.basic import Bounds
+from .problem.linear import LeastSquares
+from .problem.linear import LeastSquaresSymmetric
+from .problem.linear import LeastSquaresRegularizedL2
+from .problem.linear import Lasso
+from .problem.linear import RegularizedLeastSquares
+from .problem.nonlinear import NonlinearLeastSquares
+from .problem.nonlinear import NonlinearLeastSquaresRegularized
+from .problem.nonlinear import RegularizedVariableProjection
 
-from .solver import Solver
-from .solver.linear import LCGsolver, LSQRsolver, SymLCGsolver
-from .solver.nonlinear import NLCGsolver, LBFGSsolver, TNewtonsolver, MCMCsolver
-from .solver.sparsity import ISTAsolver, ISTCsolver, SplitBregmanSolver
+from .solver.basic import Solver
+from .solver.stopper import BasicStopper
 
-# TODO should we rename all Cupy Operator with "Cupy" at first?
-# TODO should we remove np operator and switch to Cupy that is able to handle both cupy and numpy?
+from .solver.linear import CG
+from .solver.linear import SD
+from .solver.linear import LSQR
+from .solver.linear import CGsym
+
+from .solver.nonlinear import NLCG
+from .solver.nonlinear import LBFGS
+from .solver.nonlinear import TNewton
+from .solver.nonlinear import MCMC
+
+from .solver.sparsity import ISTA
+from .solver.sparsity import ISTC
+from .solver.sparsity import SplitBregman
+
+from .solver.stepper import Stepper
+from .solver.stepper import CvSrchStep
+from .solver.stepper import ParabolicStep
+from .solver.stepper import ParabolicStepConst

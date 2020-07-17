@@ -1,9 +1,10 @@
 from math import isnan
 import numpy as np
 
-from occamypy import Vstack, superVector
+from occamypy import operator as O
+from occamypy import vector as V
+from occamypy import problem as P
 from occamypy.solver import Solver, BasicStopper, CG, LSQR, SD
-from occamypy.problem import LeastSquares, Lasso, RegularizedLeastSquares
 from occamypy.utils import Logger
 
 zero = 10 ** (np.floor(np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
@@ -86,7 +87,7 @@ class ISTA(Solver):
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if the provided problem is L1-LASSO
-        if not isinstance(problem, Lasso):
+        if not isinstance(problem, P.Lasso):
             raise TypeError("Provided inverse problem not ProblemL1Lasso!")
         # Checking if the regularization weight was set
         if problem.lambda_value is None:
@@ -282,7 +283,7 @@ class ISTC(Solver):
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if the provided problem is L1-LASSO
-        if not isinstance(problem, Lasso):
+        if not isinstance(problem, P.Lasso):
             raise TypeError("Provided inverse problem not ProblemL1Lasso!")
         # Computing preconditioning
         scale_precond = 0.99 * np.sqrt(2) / problem.op_norm  # scaling factor applied to operator A for preconditioning
@@ -533,7 +534,7 @@ class SplitBregman(Solver):
     
     def run(self, problem, verbose=False, inner_verbose=False, restart=False):
         """Running SplitBregman solver"""
-        if type(problem) != RegularizedLeastSquares:
+        if type(problem) != P.RegularizedLeastSquares:
             raise TypeError("Input problem object must be a ProblemLinearReg")
         if problem.regL1_op is None:
             raise ValueError("ERROR! Problem has to include at least one L1 Regularizer")
@@ -561,18 +562,18 @@ class SplitBregman(Solver):
         #  we must convert reg_op to a scaled version and epsilon to 1.
         regL2_op_scaled_list = [np.sqrt(problem.epsL2[i]) * problem.regL2_op.ops[i] for i in range(problem.nregsL2)]
         regL1_op_scaled_list = [np.sqrt(problem.epsL1[i]) * problem.regL1_op.ops[i] for i in range(problem.nregsL1)]
-        reg_op = Vstack(Vstack(regL2_op_scaled_list) if len(regL2_op_scaled_list) != 0 else None,
-                        Vstack(regL1_op_scaled_list) if len(regL1_op_scaled_list) != 0 else None)
+        reg_op = O.Vstack(O.Vstack(regL2_op_scaled_list) if len(regL2_op_scaled_list) != 0 else None,
+                          O.Vstack(regL1_op_scaled_list) if len(regL1_op_scaled_list) != 0 else None)
         
         # inner problem
-        prior = superVector(problem.dataregsL2, breg_d.clone())  # Note: d = 0. TODO is the clone() needed?
+        prior = V.superVector(problem.dataregsL2, breg_d.clone())  # Note: d = 0. TODO is the clone() needed?
         
-        linear_problem = LeastSquares(model=sb_mdl.clone(),
-                                      data=superVector(problem.data, prior),
-                                      op=Vstack(problem.op, reg_op),
-                                      minBound=problem.minBound,
-                                      maxBound=problem.maxBound,
-                                      boundProj=problem.boundProj)
+        linear_problem = P.LeastSquares(model=sb_mdl.clone(),
+                                        data=V.superVector(problem.data, prior),
+                                        op=O.Vstack(problem.op, reg_op),
+                                        minBound=problem.minBound,
+                                        maxBound=problem.maxBound,
+                                        boundProj=problem.boundProj)
         
         if restart:
             self.restart.read_restart()
