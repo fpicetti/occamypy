@@ -10,28 +10,28 @@ setup(name='occamypy',
       version='0.1',
       url="https://github.com/fpicetti/occamypy",  # used for the documentation. TODO switch to readthedocs?
       description='An Object-Oriented Optimization Framework for Large-Scale Inverse Problems',
-      long_description=open(src('README.md')).read(),
+      long_description=open(src('README.md'), "r").read(),
       long_description_content_type='text/markdown',
-      keywords=['algebra', 'inverse problems', 'large-scale optimiziation'],
+      keywords=['algebra', 'inverse problems', 'large-scale optimization'],
       classifiers=[
           # 'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',
           'Intended Audience :: Science/Research',
           # 'License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)',
           'Natural Language :: English',
-          'Programming Language :: Python :: >3.6',
+          'Programming Language :: Python :: 3.6',
+          'Programming Language :: Python :: 3.7',
+          'Programming Language :: Python :: 3.8',
           'Topic :: Scientific/Engineering :: Mathematics'
       ],
       license='GNU',
-
-      # url='http://ictshore.com/',
-      author='Ettore Biondi, Guillame Barnier, Robert Clapp, Francesco Picetti, Stuart Farris',  # TODO they should be our github nicknames
-      author_email='ettore88@stanford.edu',  # TODO it should be a definitive email, maybe a gmail one?
-      
-      install_requires=['numpy >= 1.15.0', 'scipy', 'cupy>=7.3', 'gputil'],  # todo add hdf5
-      extras_require={
-          'plotting': ['matplotlib', 'imageio'],
-          'distributed': ['dask', 'dask-jobqueue'],
-          'advanced': ['numba', 'pyfftw', 'PyWavelets']},
+      author='Ettore Biondi, Guillame Barnier, Robert Clapp, fpicetti, Stuart Farris',  # TODO they should be our github nicknames
+      author_email='francesco.picetti@polimi.it',
+      install_requires=['numpy >= 1.15.0', 'scipy', 'matplotlib', 'imageio', 'numba'],
+      extras_require={  # one can install two of them with pip install occamypy[cuda,cluster]
+          'devel': ['pyfftw', 'PyWavelets'],
+          'cluster': ['dask', 'dask-jobqueue'],
+          'cuda': ['cupy>=7.3', 'gputil']},
       packages=find_packages(),
+      
       zip_safe=True)
