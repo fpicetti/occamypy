@@ -7,7 +7,7 @@ def src(pth):
 
 
 setup(name='occamypy',
-      version='0.1',
+      version='0.0.2',
       url="https://github.com/fpicetti/occamypy",  # used for the documentation. TODO switch to readthedocs?
       description='An Object-Oriented Optimization Framework for Large-Scale Inverse Problems',
       long_description=open(src('README.md'), "r").read(),
@@ -25,13 +25,13 @@ setup(name='occamypy',
           'Topic :: Scientific/Engineering :: Mathematics'
       ],
       license='GNU',
-      author='Ettore Biondi, Guillame Barnier, Robert Clapp, fpicetti, Stuart Farris',  # TODO they should be our github nicknames
+      author='Ettore Biondi, Guillame Barnier, Robert Clapp, Francesco Picetti, Stuart Farris',
       author_email='francesco.picetti@polimi.it',
       install_requires=['numpy >= 1.15.0', 'scipy', 'matplotlib', 'imageio', 'numba'],
       extras_require={  # one can install two of them with pip install occamypy[cuda,cluster]
-          'devel': ['pyfftw', 'PyWavelets'],
+          'dev': ['pyfftw', 'PyWavelets'],
           'cluster': ['dask', 'dask-jobqueue'],
           'cuda': ['cupy>=7.3', 'gputil']},
       packages=find_packages(),
       
-      zip_safe=True)
+      zip_safe=False)
