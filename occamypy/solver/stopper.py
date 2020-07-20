@@ -194,7 +194,7 @@ class SamplingStopper(Stopper):
     def __init__(self, nsamples, maxhours=0.0, logger=None):
         """
         Constructor for Sampling Stopper:
-        nsamples - integer; Number of samples to test
+        nsamples - integer; Number of samples to tests
         maxhours - float; Maximum total running time in hours (must be greater than 0.0 to be checked) [0.0]
         """
         # Criteria to evaluate whether or not to stop the solver

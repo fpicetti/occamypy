@@ -217,7 +217,7 @@ class Operator:
 
     def dotTest(self, verbose=False, tol=1e-4):
         """
-        Function to perform dot-product test.
+        Function to perform dot-product tests.
         :param verbose  : boolean; Flag to print information to screen as the method is being run [False]
         :param tol      : float; The function throws a Warning if the relative error is greater than maxError [1e-4]
         """
@@ -238,9 +238,9 @@ class Operator:
                               % (str(add), err_rel, tol))
 
         if verbose:
-            print("Dot-product test of forward and adjoint operators")
+            print("Dot-product tests of forward and adjoint operators")
             print('-' * 49)
-        # Allocating temporary vectors for dot-product test
+        # Allocating temporary vectors for dot-product tests
         d1 = self.domain.clone()
         d2 = self.domain.clone()
         r1 = self.range.clone()

@@ -89,8 +89,8 @@ class CvSrchStep(Stepper):
            CvSrch constructor:
            alpha 		 = [0.] - float; Initial step-length guess
            xtol  	 	 = [1e-16] - float; Relative width tolerance: convergence is reached if width falls below xtol * maximum step size.
-           ftol  	 	 = [1e-16] - float; c1 value to test first Wolfe condition (should be between 0 and 1)
-           gtol  	 	 = [0.95] - float; c2 value to test second Wolfe condition (should be between c1 or ftol and 1). For Quasi-Newton (e.g., L-BFGS) choose default. Otherwise, for other methods (e.g., NLCG) choose 0.1
+           ftol  	 	 = [1e-16] - float; c1 value to tests first Wolfe condition (should be between 0 and 1)
+           gtol  	 	 = [0.95] - float; c2 value to tests second Wolfe condition (should be between c1 or ftol and 1). For Quasi-Newton (e.g., L-BFGS) choose default. Otherwise, for other methods (e.g., NLCG) choose 0.1
            alpha_min  	 = [1e-20] - float; Minimum step length value of the step length interval
            alpha_max  	 = [1e20] - float; Maximum step length value of the step length interval
            maxfev  	     = [20] - int; Maximum number of function evaluation to step length
@@ -575,7 +575,7 @@ class ParabolicStep(Stepper):
         itry = 1
         total_trials = deepcopy(self.ntry)
         if alpha != 0.:
-            # If initial step length is different than zero, we test twice in case we need to re-estimate initial alpha
+            # If initial step length is different than zero, we tests twice in case we need to re-estimate initial alpha
             total_trials *= 2
         while itry <= total_trials:
             # Writing info to log file
@@ -844,7 +844,7 @@ class ParabolicStepConst(Stepper):
         itry = 1
         total_trials = deepcopy(self.ntry)
         if alpha != 0.:
-            # If initial step length is different than zero, we test twice in case we need to re-estimate initial alpha
+            # If initial step length is different than zero, we tests twice in case we need to re-estimate initial alpha
             total_trials *= 2
         while itry <= total_trials:
             # Writing info to log file
