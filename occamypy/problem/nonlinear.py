@@ -35,7 +35,7 @@ class NonlinearLeastSquares(P.Problem):
         # Dresidual vector
         self.dres = self.res.clone()
         # Setting non-linear and linearized operators
-        if isinstance(op, O.NonLinearOperator):
+        if isinstance(op, O.NonlinearOperator):
             self.op = op
         else:
             raise TypeError("Not provided a non-linear operator!")
@@ -126,16 +126,16 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         # Assuming identity operator if regularization operator was not provided
         if reg_op is None:
             Id_op = O.IdentityOp(self.model)
-            reg_op = O.NonLinearOperator(Id_op, Id_op)
+            reg_op = O.NonlinearOperator(Id_op, Id_op)
         # Checking if space of the prior model is constistent with range of regularization operator
         if self.prior_model is not None:
             if not self.prior_model.checkSame(reg_op.range):
                 raise ValueError("Prior model space no constistent with range of regularization operator")
         # Setting non-linear and linearized operators
-        if not isinstance(op, O.NonLinearOperator):
+        if not isinstance(op, O.NonlinearOperator):
             raise TypeError("Not provided a non-linear operator!")
         # Setting non-linear stack of operators
-        self.op = O.NonLinearVstack(op, reg_op)
+        self.op = O.NonlinearVstack(op, reg_op)
         self.epsilon = epsilon  # Regularization weight
         # Residual vector (data and model residual vectors)
         self.res = self.op.nl_op.range.clone()

@@ -11,7 +11,7 @@ def dummy_set_background(dummy_arg):
     return
 
 
-class NonLinearOperator(Operator):
+class NonlinearOperator(Operator):
     """
     Non-linear operator class
     """
@@ -37,21 +37,21 @@ class NonLinearOperator(Operator):
             raise ValueError("ERROR! The two provided operators have different domains")
         if not self.nl_op.range.checkSame(self.lin_op.range):
             raise ValueError("ERROR! The two provided operators have different ranges")
-        super(NonLinearOperator, self).__init__(self.nl_op.domain, self.nl_op.range)
+        super(NonlinearOperator, self).__init__(self.nl_op.domain, self.nl_op.range)
 
     def dotTest(self, **kwargs):
         """
-        Raising an exception, dot-product test must be performed directly onto linear operator.
+        Raising an exception, dot-product tests must be performed directly onto linear operator.
         """
-        raise NotImplementedError("Perform dot-product test directly on the linear operator.")
+        raise NotImplementedError("Perform dot-product tests directly on the linear operator.")
 
     def linTest(self, background, pert=None, alpha=np.logspace(-6, 0, 100), plot=False):
         """
-        Linearization test function. It plots the model-perturbation norm vs linearization error norm
-        :param background: vector class - Background model used during the linearization test
-        :param pert: vector class - Model-perturbation vector to be used during linearization test [None]
+        Linearization tests function. It plots the model-perturbation norm vs linearization error norm
+        :param background: vector class - Background model used during the linearization tests
+        :param pert: vector class - Model-perturbation vector to be used during linearization tests [None]
                      if not provided a random perturbation is employed
-        :param alpha: array - array of scalars to scale the pert vector during the test [np.logspace(-6,0,100)]
+        :param alpha: array - array of scalars to scale the pert vector during the tests [np.logspace(-6,0,100)]
         :param plot: boolean - whether to plot the linearization error vs perturbation scale or not
         :return:
         :param scale
@@ -99,7 +99,7 @@ class NonLinearOperator(Operator):
         return alpha, lin_err
 
 
-class _combNonLinearOperator(NonLinearOperator):
+class _combNonlinearOperator(NonlinearOperator):
     """
     Combination of non-linear opeartors: f(g(m))
     """
@@ -109,7 +109,7 @@ class _combNonLinearOperator(NonLinearOperator):
         Constructor for non-linear operator class
         """
         # Checking if non-linear operators were provided
-        if not (isinstance(f, NonLinearOperator) and isinstance(g, NonLinearOperator)):
+        if not (isinstance(f, NonlinearOperator) and isinstance(g, NonlinearOperator)):
             raise TypeError("Provided operators must be NonLinearOperator instances")
         # Defining f(g(m))
         self.nl_op = _prodOperator(f.nl_op, g.nl_op)
@@ -121,7 +121,7 @@ class _combNonLinearOperator(NonLinearOperator):
         # Defining non_linear operator g(m) for Jacobian definition
         self.g_nl_op = g.nl_op
         self.g_range_tmp = g.nl_op.range.clone()
-        super(_combNonLinearOperator, self).__init__(self.nl_op, self.lin_op, self.set_background)
+        super(_combNonlinearOperator, self).__init__(self.nl_op, self.lin_op, self.set_background)
 
     def set_background(self, model):
         """
@@ -137,10 +137,10 @@ class _combNonLinearOperator(NonLinearOperator):
 # Necessary for backward compatibility
 def CombNonlinearOp(g, f):
     """Combination of non-linear opeartors: f(g(m))"""
-    return _combNonLinearOperator(f, g)
+    return _combNonlinearOperator(f, g)
 
 
-class NonLinearVstack(NonLinearOperator):
+class NonlinearVstack(NonlinearOperator):
     """
     Stack of operators class
             | d1 |   | f(m) |
@@ -151,7 +151,7 @@ class NonLinearVstack(NonLinearOperator):
     def __init__(self, nl_op1, nl_op2):
         """Constructor for the stacked operator"""
         # Checking if domain of the operators is the same
-        if not (isinstance(nl_op1, NonLinearOperator) and isinstance(nl_op2, NonLinearOperator)):
+        if not (isinstance(nl_op1, NonlinearOperator) and isinstance(nl_op2, NonlinearOperator)):
             raise TypeError("Provided operators must be NonLinearOperator instances")
         self.nl_op1 = nl_op1  # f(m)
         self.nl_op2 = nl_op2  # g(m)
@@ -162,7 +162,7 @@ class NonLinearVstack(NonLinearOperator):
         # Defining internal set_background functions
         self.set_background1 = nl_op1.set_background
         self.set_background2 = nl_op2.set_background
-        super(NonLinearVstack, self).__init__(self.nl_op, self.lin_op, self.set_background)
+        super(NonlinearVstack, self).__init__(self.nl_op, self.lin_op, self.set_background)
 
     def __str__(self):
         return "NLVstack"
@@ -194,7 +194,7 @@ class VpOperator(Operator):
             #Optional arguments:
             set_lin 	= [None] - class function pointer; Class function to set linear part within h_nl (not used during an inversion if ProblemL2VpReg is used)
         """
-        if not isinstance(h_nl, NonLinearOperator):
+        if not isinstance(h_nl, NonlinearOperator):
             raise TypeError("ERROR! Not provided a non-linear operator class for h_nl")
         self.h_nl = h_nl
         self.h_lin = h_lin
@@ -207,13 +207,13 @@ class VpOperator(Operator):
 
     def dotTest(self, verb=False, maxError=.0001):
         """
-           Raising an exception, dot-product test must be performed directly onto linear operator and the Jacobian of h(m_nl).
+           Raising an exception, dot-product tests must be performed directly onto linear operator and the Jacobian of h(m_nl).
         """
         raise NotImplementedError(
-            "ERROR! Perform dot-product test directly onto linear operator and Jacobian of h(m_nl).")
+            "ERROR! Perform dot-product tests directly onto linear operator and Jacobian of h(m_nl).")
 
 
-# simple non-linear operator to test linTest method
+# simple non-linear operator to tests linTest method
 class cosOperator(Operator):
     """Cosine non-linear operator"""
     def __init__(self, domain):

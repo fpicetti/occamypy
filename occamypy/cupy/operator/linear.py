@@ -8,7 +8,7 @@ from occamypy.utils import sep
 from occamypy.cupy import VectorCupy
 
 
-class MatrixOp(Operator):
+class Matrix(Operator):
     """Operator built upon a matrix"""
     
     def __init__(self, matrix, domain, range, outcore=False):
@@ -68,7 +68,7 @@ class MatrixOp(Operator):
 
 
 class FirstDerivative(Operator):
-    def __init__(self, model, sampling=1., axis=0, kind='centered'):
+    def __init__(self, model, sampling=1., axis=0, stencil='centered'):
         r"""
         First Derivative with a stencil
             1) 2nd order centered:
@@ -89,24 +89,24 @@ class FirstDerivative(Operator):
         :param model    : vector class; domain vector
         :param sampling : scalar; sampling step [1.]
         :param axis     : int; axis along which to compute the derivative [0]
-        :param kind     : str; derivative kind (centered, forward, backward)
+        :param stencil  : str; derivative kind (centered, forward, backward)
         """
         self.sampling = sampling
         self.dims = model.getNdArray().shape
         self.axis = axis if axis >= 0 else len(self.dims) + axis
-        self.kind = kind
+        self.stencil = stencil
         
-        if self.kind == 'centered':
+        if self.stencil == 'centered':
             self.forward = self._forwardC
             self.adjoint = self._adjointC
-        elif self.kind == 'backward':
+        elif self.stencil == 'backward':
             self.forward = self._forwardB
             self.adjoint = self._adjointB
-        elif self.kind == 'forward':
+        elif self.stencil == 'forward':
             self.forward = self._forwardF
             self.adjoint = self._adjointF
         else:
-            raise ValueError("Derivative kind must be centered, forward or backward")
+            raise ValueError("Derivative stencil must be centered, forward or backward")
         
         super(FirstDerivative, self).__init__(model, model)
     
@@ -309,20 +309,27 @@ class SecondDerivative(Operator):
 
 
 class Gradient(Operator):
-    def __init__(self, model, sampling=None):
+    def __init__(self, model, sampling=None, stencil=None):
         r"""
         N-Dimensional Gradient operator.
 
         :param model    : vector class; domain vector
         :param sampling : tuple; sampling step [1]
+        :param stencil  : str or list of str; stencil kind for each direction ['centered']
         """
         self.dims = model.getNdArray().shape
         self.sampling = sampling if sampling is not None else tuple([1] * len(self.dims))
         
-        assert len(self.sampling) != 0, "There is something wrong with the dimensions"
-        
+        if stencil is None:
+            self.stencil = tuple(['centered'] * len(self.dims))
+        elif isinstance(stencil, str):
+            self.stencil = tuple([stencil] * len(self.dims))
+        elif isinstance(stencil, tuple) or isinstance(stencil, list):
+            self.stencil = stencil
+        assert len(self.sampling) == len(self.stencil) != 0, "There is something wrong with the dimensions"
+
         self.op = Vstack([FirstDerivative(model, sampling=self.sampling[d], axis=d)
-                               for d in range(len(self.dims))])
+                          for d in range(len(self.dims))])
         
         super(Gradient, self).__init__(domain=self.op.domain, range=self.op.range)
     

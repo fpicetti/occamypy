@@ -8,7 +8,7 @@ from .basic import IdentityOp
 from .basic import scalingOp
 from .basic import DiagonalOp
 
-from .linear import MatrixOp
+from .linear import Matrix
 from .linear import FirstDerivative
 from .linear import SecondDerivative
 from .linear import Gradient
@@ -17,9 +17,9 @@ from .linear import GaussianFilter
 from .linear import ConvND
 from .linear import ZeroPad
 
-from .nonlinear import NonLinearOperator
+from .nonlinear import NonlinearOperator
 from .nonlinear import CombNonlinearOp
-from .nonlinear import NonLinearVstack
+from .nonlinear import NonlinearVstack
 from .nonlinear import VpOperator
 from .nonlinear import cosOperator
 from .nonlinear import cosJacobian

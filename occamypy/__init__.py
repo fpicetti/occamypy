@@ -13,7 +13,7 @@ from .operator.basic import ZeroOp
 from .operator.basic import IdentityOp
 from .operator.basic import scalingOp
 from .operator.basic import DiagonalOp
-from .operator.linear import MatrixOp
+from .operator.linear import Matrix
 from .operator.linear import FirstDerivative
 from .operator.linear import SecondDerivative
 from .operator.linear import Gradient
@@ -21,9 +21,9 @@ from .operator.linear import Laplacian
 from .operator.linear import GaussianFilter
 from .operator.linear import ConvND
 from .operator.linear import ZeroPad
-from .operator.nonlinear import NonLinearOperator
+from .operator.nonlinear import NonlinearOperator
 from .operator.nonlinear import CombNonlinearOp
-from .operator.nonlinear import NonLinearVstack
+from .operator.nonlinear import NonlinearVstack
 from .operator.nonlinear import VpOperator
 from .operator.nonlinear import cosOperator
 from .operator.nonlinear import cosJacobian
@@ -41,6 +41,7 @@ from .problem.nonlinear import RegularizedVariableProjection
 
 from .solver.basic import Solver
 from .solver.stopper import BasicStopper
+from .solver.stopper import SamplingStopper
 
 from .solver.linear import CG
 from .solver.linear import SD

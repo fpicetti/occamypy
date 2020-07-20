@@ -7,7 +7,7 @@ from occamypy.utils import sep
 from occamypy.operator import Operator, Vstack, Dstack
 
 
-class MatrixOp(Operator):
+class Matrix(Operator):
     """Operator built upon a matrix"""
     
     def __init__(self, matrix, domain, range, outcore=False):
@@ -104,7 +104,7 @@ class FirstDerivative(Operator):
             self.forward = self._forwardF
             self.adjoint = self._adjointF
         else:
-            raise ValueError("Derivative kind must be centered, forward or backward")
+            raise ValueError("Derivative stencil must be centered, forward or backward")
         
         super(FirstDerivative, self).__init__(model, model)
     
@@ -307,17 +307,24 @@ class SecondDerivative(Operator):
 
 
 class Gradient(Operator):
-    def __init__(self, model, sampling=None):
+    def __init__(self, model, sampling=None, stencil=None):
         r"""
         N-Dimensional Gradient operator
 
         :param model    : vector class; domain vector
         :param sampling : tuple; sampling step [1]
+        :param stencil  : str or list of str; stencil kind for each direction ['centered']
         """
         self.dims = model.getNdArray().shape
         self.sampling = sampling if sampling is not None else tuple([1] * len(self.dims))
         
-        assert len(self.sampling) != 0, "There is something wrong with the dimensions"
+        if stencil is None:
+            self.stencil = tuple(['centered'] * len(self.dims))
+        elif isinstance(stencil, str):
+            self.stencil = tuple([stencil] * len(self.dims))
+        elif isinstance(stencil, tuple) or isinstance(stencil, list):
+            self.stencil = stencil
+        assert len(self.sampling) == len(self.stencil) != 0, "There is something wrong with the dimensions"
         
         self.op = Vstack([FirstDerivative(model, sampling=self.sampling[d], axis=d)
                           for d in range(len(self.dims))])
@@ -389,12 +396,14 @@ class GaussianFilter(Operator):
     def __init__(self, model, sigma):
         """
         Gaussian smoothing operator using scipy smoothing:
-        model    = [no default] - vector class; domain vector
-        sigma   = [no default] - scalar or sequence of scalars; standard deviation along the model directions
+        :param model : vector class;
+            domain vector
+        :param sigma : scalar or sequence of scalars;
+            standard deviation along the model directions
         """
-        self.setDomainRange(model, model)
         self.sigma = sigma
         self.scaling = np.sqrt(np.prod(np.array(self.sigma) / np.pi))  # in order to have the max amplitude 1
+        super(GaussianFilter, self).__init__(model, model)
         return
     
     def __str__(self):
@@ -417,18 +426,17 @@ class GaussianFilter(Operator):
         return
 
 
-# TODO Fix ConvNDscipy for Matching Filters applications
 class ConvND(Operator):
     """
     ND convolution square operator in the domain space
 
-    :param domain   : [no default] - vector class; domain vector
-    :param kernel   : [no default] - vector class; kernel vector
-    :param method   : [auto] - str; how to compute the convolution [auto, direct, fft]
-    :return         : Convolution Operator
+    :param model  : [no default] - vector class; domain vector
+    :param kernel : [no default] - vector class; kernel vector
+    :param method : [auto] - str; how to compute the convolution [auto, direct, fft]
+    :return       : Convolution Operator
     """
     
-    def __init__(self, domain, kernel, method='auto'):
+    def __init__(self, model, kernel, method='auto'):
         
         if isinstance(kernel, Vector):
             self.kernel = kernel.clone().getNdArray()
@@ -448,13 +456,13 @@ class ConvND(Operator):
             pad_width.append(padding)
         self.kernel = np.pad(self.kernel, pad_width, mode='constant')
         
-        if len(domain.shape) != len(self.kernel.shape):
+        if len(model.shape) != len(self.kernel.shape):
             raise ValueError("Domain and kernel number of dimensions mismatch")
         
         assert method in ["auto", "direct", "fft"], "method has to be auto, direct or fft"
         self.method = method
         
-        super(ConvND, self).__init__(domain, domain)
+        super(ConvND, self).__init__(model, model)
     
     def __str__(self):
         return "ConvScipy"
@@ -478,12 +486,12 @@ class ConvND(Operator):
         return
 
 
-def ZeroPad(domain, pad):
-    if isinstance(domain, VectorIC):
-        return _ZeroPadIC(domain, pad)
-    elif isinstance(domain, superVector):
+def ZeroPad(model, pad):
+    if isinstance(model, VectorIC):
+        return _ZeroPadIC(model, pad)
+    elif isinstance(model, superVector):
         # TODO add the possibility to have different padding for each sub-vector
-        return Dstack([_ZeroPadIC(v, pad) for v in domain.vecs])
+        return Dstack([_ZeroPadIC(v, pad) for v in model.vecs])
     else:
         raise ValueError("ERROR! Provided domain has to be either vector or superVector")
 
@@ -499,23 +507,23 @@ def _pad_vectorIC(vec, pad):
 
 class _ZeroPadIC(Operator):
     
-    def __init__(self, domain, pad):
+    def __init__(self, model, pad):
         """ Zero Pad operator.
 
         To pad 2 values to each side of the first dim, and 3 values to each side of the second dim, use:
             pad=((2,2), (3,3))
-        :param domain: vectorIC class
+        :param model: vectorIC class
         :param pad: scalar or sequence of scalars
             Number of samples to pad in each dimension.
             If a single scalar is provided, it is assigned to every dimension.
         """
-        if isinstance(domain, VectorIC):
-            self.dims = domain.shape
+        if isinstance(model, VectorIC):
+            self.dims = model.shape
             pad = [(pad, pad)] * len(self.dims) if pad is np.isscalar else list(pad)
             if (np.array(pad) < 0).any():
                 raise ValueError('Padding must be positive or zero')
             self.pad = pad
-            super(_ZeroPadIC, self).__init__(domain, _pad_vectorIC(domain, self.pad))
+            super(_ZeroPadIC, self).__init__(model, _pad_vectorIC(model, self.pad))
     
     def __str__(self):
         return "ZeroPad "

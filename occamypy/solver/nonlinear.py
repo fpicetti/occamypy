@@ -330,7 +330,7 @@ class NLCG(S.Solver):
             # Increasing iteration counter
             iiter = iiter + 1
             obj1 = problem.get_obj(cg_mdl)  # Compute objective function value
-            # Redundant test on verifying convergence
+            # Redundant tests on verifying convergence
             if obj0 <= obj1:
                 if self.create_msg:
                     msg = "Objective function at new point greater or equal than previous one:\n\t" \
@@ -700,7 +700,7 @@ class LBFGS(S.Solver):
                 break
             
             obj1 = problem.get_obj(bfgs_mdl)  # Compute objective function value
-            # Redundant test on verifying convergence
+            # Redundant tests on verifying convergence
             if obj0 <= obj1:
                 msg = "Objective function at new point greater or equal than previous one: obj_fun_old=%s obj_fun_new=%s\n" \
                       "Potential issue in the stepper or in revaluation of objective function!" % (obj0, obj1)
