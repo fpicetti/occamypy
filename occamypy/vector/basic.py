@@ -131,7 +131,7 @@ class Vector:
     def writeVec(self, filename, mode='w'):
         """Function to write vector to file"""
         # Check writing mode
-        if not mode in 'wa':
+        if mode not in 'wa':
             raise ValueError("Mode must be appending 'a' or writing 'w' ")
         # Construct ax_info if the object has getHyper
         if hasattr(self, "getHyper"):
