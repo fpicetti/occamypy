@@ -1,14 +1,10 @@
 import numpy as np
 import dask.distributed as daskD
+from collections.abc import Iterable
 
 from occamypy import Vector, Operator
 from .vector import DaskVector
 from .utils import DaskClient
-
-
-# For checking if a single argument was passed to a constructor
-from collections.abc import Iterable
-import time  # DEBUG
 
 
 def call_constructor(constr, args):
@@ -57,7 +53,7 @@ def call_func_name(opObj, func_name, *args):
     return res
 
 
-def add_from_NdArray(vecObj, NdArray):
+def _add_from_NdArray(vecObj, NdArray):
     """Function to add vector values from numpy array"""
     vecObj.getNdArray()[:] += NdArray
     return
@@ -65,21 +61,35 @@ def add_from_NdArray(vecObj, NdArray):
 
 class DaskOperator(Operator):
     """
-	   Class to apply multiple operators in parallel through Dask and DaskVectors
-	"""
+    Class to apply multiple operators in parallel through Dask and DaskVectors
+    """
     
     def __init__(self, dask_client, op_constructor, op_args, chunks, **kwargs):
         """
-		   Dask Operator constructor
-		   dask_client = [no default] - DaskClient; client object to use when submitting tasks (see dask_util module)
-		   op_constructor = [no default] - pointer to function; Pointer to constructor
-		   op_args = [no default] - list; List containing lists of arguments to run the constructor. It can instantiate the same operator on multiple workers or different ones if requested by passing a list of list of arguments (e.g., [(arg1,arg2,arg3,...)])
-		   chunks = [no default] - list; List defininig how many operators wants to instantiated. Note, the list must contain the same number of elements as the number of Dask workers present in the DaskClient.
-		   setbackground_func_name = [None] - string; Name of the function to set the model point on which the Jacobian is computed. See NonLinearOperator in pyOperator module.
-		   spread_op = [None] - DaskSpreadOp; Spreading operator to distribute a model vector to the set_background functions
-		   set_aux_name = [None] - string; Name of the function to set the auxiliary vector. Useful for VpOperator.
-		   spread_op_aux = [None] - DaskSpreadOp; Spreading operator to distribute a auxiliary vector to the set_aux functions
-		"""
+        Dask Operator constructor
+        
+        :param dask_client: [no default] - DaskClient;
+            client object to use when submitting tasks (see dask_util module)
+        :param op_constructor: [no default] - pointer to function;
+            Pointer to constructor
+        :param op_args: [no default] - list;
+            List containing lists of arguments to run the constructor.
+            It can instantiate the same operator on multiple workers or different ones if requested
+            by passing a list of list of arguments (e.g., [(arg1,arg2,arg3,...)])
+        :param chunks: [no default] - list;
+            List defininig how many operators wants to instantiated.
+            Note, the list must contain the same number of elements as the number of
+            Dask workers present in the DaskClient.
+        :param setbackground_func_name: [None] - string;
+            Name of the function to set the model point on which the Jacobian is computed.
+            See NonLinearOperator in operator module.
+        :param spread_op: [None] - DaskSpreadOp;
+            Spreading operator to distribute a model vector to the set_background functions
+        :param set_aux_name: [None] - string;
+            Name of the function to set the auxiliary vector. Useful for VpOperator.
+        :param spread_op_aux: [None] - DaskSpreadOp;
+            Spreading operator to distribute an auxiliary vector to the set_aux functions
+        """
         # Client to submit tasks
         if not isinstance(dask_client, DaskClient):
             raise TypeError("Passed client is not a Dask Client object!")
@@ -90,7 +100,7 @@ class DaskOperator(Operator):
         wrkIds = self.dask_client.getWorkerIds()
         N_wrk = self.dask_client.getNworkers()
         # Check if number of provided chunks is the same as workers
-        if (len(chunks) != N_wrk):
+        if len(chunks) != N_wrk:
             raise ValueError(
                 "Number of provide chunks (%s) different than the number of workers (%s)" % (len(chunks), N_wrk))
         # Check if many arguments are passed to construct different operators
@@ -110,11 +120,15 @@ class DaskOperator(Operator):
         for iwrk, wrkId in enumerate(wrkIds):
             for iop in range(chunks[iwrk]):
                 self.dask_ops.append(
-                    self.client.submit(call_constructor, op_constructor, op_args.pop(0), workers=[wrkId], pure=False))
+                    self.client.submit(call_constructor,
+                                       op_constructor,
+                                       op_args.pop(0),
+                                       workers=[wrkId],
+                                       pure=False))
         daskD.wait(self.dask_ops)
         for idx in range(len(self.dask_ops)):
             if self.dask_ops[idx].status == 'error':
-                print("Error for dask operator %s" % (idx))
+                print("Error for dask operator %s" % idx)
                 print(self.dask_ops[idx].result())
         # Creating domain and range of the Dask operator
         dom_vecs = []  # List of remote domain vectors
@@ -146,7 +160,7 @@ class DaskOperator(Operator):
         return
     
     def __str__(self):
-        return " DaskOp"
+        return " DaskOp "
     
     def forward(self, add, model, data):
         """Forward Dask operator"""
@@ -178,11 +192,13 @@ class DaskOperator(Operator):
         """Function to call set_background function of each dask operator"""
         if self.set_background_name == None:
             raise NameError("setbackground_func_name was not defined when constructing the operator!")
-        if (self.Sprd):
+        if self.Sprd:
             self.Sprd.forward(False, model, self.model_tmp)
             model = self.model_tmp
-        setbkg_ftr = self.client.map(call_func_name, self.dask_ops,
-                                     [self.set_background_name] * self.dask_client.getNworkers(), model.vecDask,
+        setbkg_ftr = self.client.map(call_func_name,
+                                     self.dask_ops,
+                                     [self.set_background_name] * self.dask_client.getNworkers(),
+                                     model.vecDask,
                                      pure=False)
         daskD.wait(setbkg_ftr)
         return
@@ -191,11 +207,14 @@ class DaskOperator(Operator):
         """Function to call set_nl or set_lin_jac functions of each dask operator"""
         if self.set_aux_name == None:
             raise NameError("set_aux_name was not defined when constructing the operator!")
-        if (self.SprdAux):
+        if self.SprdAux:
             self.SprdAux.forward(False, aux_vec, self.tmp_aux)
             aux_vec = self.tmp_aux
-        setaux_ftr = self.client.map(call_func_name, self.dask_ops,
-                                     [self.set_aux_name] * self.dask_client.getNworkers(), aux_vec.vecDask, pure=False)
+        setaux_ftr = self.client.map(call_func_name,
+                                     self.dask_ops,
+                                     [self.set_aux_name] * self.dask_client.getNworkers(),
+                                     aux_vec.vecDask,
+                                     pure=False)
         daskD.wait(setaux_ftr)
         return
 
@@ -203,17 +222,22 @@ class DaskOperator(Operator):
 class DaskSpreadOp(Operator):
     """
     Class to spread/stack single vector to/from multiple copies on different workers:
-        | v1 |   | I |
-    fwd: | v2 | = | I | v  adj: | v | = | I | v1 + | I | v2 + | I | v3
-        | v3 |   | I |
+         | v1 |   | I |
+    fwd: | v2 | = | I | v       adj: | v | = | I | v1 + | I | v2 + | I | v3
+         | v3 |   | I |
     """
     
     def __init__(self, dask_client, domain, chunks):
         """
         Dask Operator constructor
-        dask_client = [no default] - DaskClient; client object to use when submitting tasks (see dask_util module)
-        domain = [no default] - vector class; Vector template to be spread/stack (note this is also the domain of the operator)
-        chunks = [no default] - list; List defininig how many operators wants to instantiated. Note, the list must contain the same number of elements as the number of Dask workers present in the DaskClient.
+        
+        :param dask_client: [no default] - DaskClient;
+            client object to use when submitting tasks (see dask_util module)
+        :param domain: [no default] - vector class;
+            Vector template to be spread/stack (note this is also the domain of the operator)
+        :param chunks: [no default] - list;
+            List defininig how many operators wants to instantiated.
+            It must have the same number of elements as the number of Dask workers present in the DaskClient.
         """
         if not isinstance(dask_client, DaskClient):
             raise TypeError("Passed client is not a Dask Client object!")
@@ -226,7 +250,7 @@ class DaskSpreadOp(Operator):
         return
     
     def __str__(self):
-        return " DaskSpr"
+        return "DaskSprd"
     
     def forward(self, add, model, data):
         """Forward operator"""
@@ -251,10 +275,13 @@ class DaskSpreadOp(Operator):
                 daskD.wait(arrD)
                 for ii in range(self.chunks[iwrk]):
                     daskD.wait(
-                        self.client.submit(add_from_NdArray, dataVecList.pop(0), arrD, workers=[wrkId], pure=False))
+                        self.client.submit(_add_from_NdArray, dataVecList.pop(0), arrD, workers=[wrkId], pure=False))
         else:
             # Letting Dask handling the scattering of the data (not ideal)
-            futures = self.client.map(add_from_NdArray, data.vecDask, [modelNd] * len(data.vecDask), pure=False)
+            futures = self.client.map(_add_from_NdArray,
+                                      data.vecDask,
+                                      [modelNd] * len(data.vecDask),
+                                      pure=False)
             daskD.wait(futures)
         return
     
@@ -271,7 +298,7 @@ class DaskSpreadOp(Operator):
         daskD.wait(sum_array)
         if isinstance(model, DaskVector):
             # Getting the future to the first vector in the Dask vector
-            daskD.wait(self.client.submit(add_from_NdArray, model, sum_array, pure=False))
+            daskD.wait(self.client.submit(_add_from_NdArray, model, sum_array, pure=False))
         else:
             # Getting the numpy array to the local model vector
             modelNd = model.getNdArray()
@@ -281,14 +308,17 @@ class DaskSpreadOp(Operator):
 
 class DaskCollectOp(Operator):
     """
-       Class to Collect/Scatter a Dask vector into/from a local vector
+    Class to Collect/Scatter a Dask vector into/from a local vector
     """
     
     def __init__(self, domain, range):
         """
-           Dask Collect constructor
-           :param domain : - DaskVector; Dask vector to be collected from remote
-           :param range : - Vector;  Vector class to be locally stored
+        Dask Collect constructor
+        
+        :param domain : - DaskVector;
+            Dask vector to be collected from remote
+        :param range : - Vector;
+            Vector class to be locally stored
         """
         if not isinstance(domain, DaskVector):
             raise TypeError("domain is not a DaskVector object!")
@@ -336,6 +366,6 @@ class DaskCollectOp(Operator):
             wrkId = list(client.who_has(model.vecDask[idx]).values())[0]
             arrD = client.scatter(dataNd[idx_el:idx_el + n_elem], workers=wrkId)
             daskD.wait(arrD)
-            daskD.wait(client.submit(add_from_NdArray, model.vecDask[idx], arrD, pure=False))
+            daskD.wait(client.submit(_add_from_NdArray, model.vecDask[idx], arrD, pure=False))
             idx_el += n_elem
         return

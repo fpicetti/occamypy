@@ -2,7 +2,8 @@ import numpy as np
 import os
 import dask.distributed as daskD
 
-from occamypy.utils import BUF_SIZE, sep
+from occamypy.utils.os import BUF_SIZE
+from occamypy.utils import sep
 from occamypy import Vector
 from .utils import DaskClient
 
