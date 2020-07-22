@@ -231,7 +231,7 @@ class Operator:
                 print("Dot products add=%s: domain=%.6e range=%.6e " % (str(add), abs(dt1), abs(dt2)))
                 print("Absolute error: %.6e" % abs(abs_err))
                 print("Relative error: %.6e \n" % abs(err_rel))
-            if err_rel > tol:
+            if abs(err_rel) > tol:
                 # # Deleting temporary vectors
                 # del d1, d2, r1, r2
                 raise Warning("\tDot products failure add=%s; relative error %.2e is greater than tolerance %.2e"
