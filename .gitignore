@@ -1,4 +1,6 @@
 .idea
 *.pyc
-
+/occamypy.egg-info
+/build
+/dist
 .DS_Store
