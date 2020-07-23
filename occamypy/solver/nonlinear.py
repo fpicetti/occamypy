@@ -168,6 +168,8 @@ class NLCG(S.Solver):
         super(NLCG, self).__init__()
         # Defining stopper object
         self.stoppr = stoppr
+
+
         # Defining stepper object
         self.stepper = stepper if stepper is not None else S.ParabolicStep()
         # Beta function to use during the inversion
@@ -175,7 +177,7 @@ class NLCG(S.Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stoppr.Logger = self.logger
+        self.stoppr.logger = self.logger
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d, geval = %d"
         return
@@ -457,7 +459,7 @@ class LBFGS(S.Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.Logger = self.logger
+        self.stopper.logger = self.logger
         # LBFGS-specific parameters
         self.save_alpha = save_alpha
         self.H0 = H0

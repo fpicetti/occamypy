@@ -70,7 +70,7 @@ class ISTA(Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.Logger = self.logger
+        self.stopper.logger = self.logger
         # Setting the fast flag
         self.fast = fast
         # print formatting
@@ -258,7 +258,7 @@ class ISTC(Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.Logger = self.logger
+        self.stopper.logger = self.logger
         self.iter_msg = "Inner_iter = %s, obj = %.5e, resnorm = %.2e, gradnorm= %.2e, feval = %d"
         
         # ISTC parameters
@@ -497,7 +497,7 @@ class SplitBregman(Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.Logger = self.logger
+        self.stopper.logger = self.logger
         # Model norm change stop criterion
         self.mod_tol = mod_tol
         

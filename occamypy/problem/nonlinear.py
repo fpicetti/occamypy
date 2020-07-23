@@ -482,14 +482,14 @@ class RegularizedVariableProjection(P.Problem):
             self.lin_solver.setPrefix(self.lin_solver_prefix + "_feval%s" % fevals)
         
         # Printing non-linear inversion information
-        if self.lin_solver.Logger is not None:
+        if self.lin_solver.logger is not None:
             # Writing linear inversion log information if requested (i.e., a logger is present in the solver)
             msg = "NON_LINEAR INVERSION INFO:\n	objective function evaluation\n"
             msg += "#########################################################################################\n"
-            self.lin_solver.Logger.addToLog(msg + "Linear inversion for non-linear function evaluation # %s" % (fevals))
+            self.lin_solver.logger.addToLog(msg + "Linear inversion for non-linear function evaluation # %s" % (fevals))
         self.lin_solver.run(self.vp_linear_prob, verbose=False)
-        if self.lin_solver.Logger is not None:
-            self.lin_solver.Logger.addToLog(
+        if self.lin_solver.logger is not None:
+            self.lin_solver.logger.addToLog(
                 "#########################################################################################\n")
         # Copying inverted linear optimal model
         self.lin_model.copy(self.vp_linear_prob.get_model())
@@ -539,8 +539,8 @@ class RegularizedVariableProjection(P.Problem):
             self.g_op.lin_op.adjoint(True, self.grad, res)
         # H(m_nl,m_lin_opt)' r_d
         self.h_op.h_nl.lin_op.adjoint(True, self.grad, res)
-        if self.lin_solver.Logger is not None:
-            self.lin_solver.Logger.addToLog(
+        if self.lin_solver.logger is not None:
+            self.lin_solver.logger.addToLog(
                 "NON_LINEAR INVERSION INFO:\n	Gradient has been evaluated, current objective function value: %s;\n 	"
                 "Stepping!" % (
                     self.get_obj(model)))

@@ -28,7 +28,7 @@ class CG(Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.Logger = self.logger
+        self.stopper.logger = self.logger
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
 
@@ -402,7 +402,7 @@ class LSQR(Solver):
         self.est_cond = True if estimate_cond or estimate_var else False
         self.var = estimate_var
         # Overwriting logger of the Stopper object
-        self.stopper.Logger = self.logger
+        self.stopper.logger = self.logger
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
 
@@ -702,7 +702,7 @@ class CGsym(Solver):
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stopper.Logger = self.logger
+        self.stopper.logger = self.logger
         # Setting defaults for saving results
         self.setDefaults()
         # print formatting
