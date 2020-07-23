@@ -225,11 +225,11 @@ class Operator:
         def _testing(add, dt1, dt2, tol, verbose=False):
             if isinstance(dt2, np.complex):
                 dt2 = np.conj(dt2)
-            abs_err = dt1 - dt2
-            err_rel = abs_err / abs(dt2)
+            err_abs = dt1 - dt2
+            err_rel = err_abs / abs(dt2)
             if verbose:
                 print("Dot products add=%s: domain=%.6e range=%.6e " % (str(add), abs(dt1), abs(dt2)))
-                print("Absolute error: %.6e" % abs(abs_err))
+                print("Absolute error: %.6e" % abs(err_abs))
                 print("Relative error: %.6e \n" % abs(err_rel))
             if abs(err_rel) > tol:
                 # # Deleting temporary vectors
@@ -238,8 +238,9 @@ class Operator:
                               % (str(add), err_rel, tol))
 
         if verbose:
-            print("Dot-product tests of forward and adjoint operators")
-            print('-' * 49)
+            msg = "Dot-product tests of forward and adjoint operators"
+            print(msg+"\n"+"-"*len(msg))
+
         # Allocating temporary vectors for dot-product tests
         d1 = self.domain.clone()
         d2 = self.domain.clone()
