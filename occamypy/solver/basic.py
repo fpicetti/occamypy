@@ -92,8 +92,8 @@ class Solver:
         self.iter_sampling = iter_sampling  # Sampling of the iteration axis
 
         # Lists of the results (list and vector Sets)
-        self.obj = list()                   # List for objective function value
-        self.obj_terms = list()             # List for objective function value for each terms
+        self.obj = np.array([])  # Array for objective function values
+        self.obj_terms = np.array([])  # Array for objective function values for each terms
         self.model = list()                 # List for model vectors (to save results in-core)
         self.res = list()                   # List for residual vectors (to save results in-core)
         self.grad = list()                  # List for gradient vectors (to save results in-core)
@@ -105,8 +105,8 @@ class Solver:
     def flush_results(self):
         """Flushing internal memory of the saved results"""
         # Lists of the results (list and vector Sets)
-        self.obj = list()  # List for objective function value
-        self.obj_terms = list()  # List for objective function value for each terms
+        self.obj = np.array([])  # Array for objective function values
+        self.obj_terms = np.array([])  # Array for objective function values for each terms
         self.model = list()  # List for model vectors (to save results in-core)
         self.res = list()  # List for residual vectors (to save results in-core)
         self.grad = list()  # List for gradient vectors (to save results in-core)
@@ -160,10 +160,16 @@ class Solver:
         # Save if it is forced to or if the solver hits a sampled iteration number
         # The objective function is saved every iteration if requested
         if self.save_obj:
-            self.obj.append(deepcopy(objf_value))
+            self.obj = np.append(self.obj, deepcopy(objf_value))
             # Checking if the objective function has multiple terms
             if obj_terms is not None:
-                self.obj_terms.append(deepcopy(obj_terms))
+                if len(self.obj_terms) == 0:
+                    # First time obj_terms are saved
+                    self.obj_terms = np.expand_dims(np.append(self.obj_terms, deepcopy(obj_terms)), axis=0)
+                else:
+                    self.obj_terms = np.append(self.obj_terms,
+                                               np.expand_dims(np.array(deepcopy(obj_terms)), axis=0),
+                                               axis=0)
         if iiter % self.iter_sampling == 0 or force_save:
             if self.save_model:
                 self.modelSet.append(mod_save)
@@ -198,13 +204,13 @@ class Solver:
             # Writing objective function value on disk if requested
             if self.save_obj and self.prefix is not None:
                 obj_file = self.prefix + "_obj.H"  # File name in which the objective function is saved
-                sep.write_file(obj_file, np.array(self.obj))
+                sep.write_file(obj_file, self.obj)
                 # Writing each term of the objective function
-                if self.obj_terms:
-                    for iterm in range(len(self.obj_terms[0])):
+                if len(self.obj_terms) != 0:
+                    for iterm in range(self.obj_terms.shape[1]):
                         # File name in which the objective function is saved
                         obj_file = self.prefix + "_obj_comp%s.H" % (iterm + 1)
-                        sep.write_file(obj_file, np.array([objs[iterm] for objs in self.obj_terms]))
+                        sep.write_file(obj_file, self.obj_terms[:, iterm])
             # Writing current inverted model and model vectors on disk if requested
             if self.save_model and self.prefix is not None:
                 inv_mod_file = self.prefix + "_inv_mod.H"  # File name in which the current inverted model is saved
