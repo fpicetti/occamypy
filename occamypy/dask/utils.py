@@ -48,7 +48,10 @@ def client_startup(cluster, n_jobs, total_workers):
     """
     if n_jobs <= 0:
         raise ValueError("n_jobs must equal or greater than 1!")
-    cluster.scale(jobs=n_jobs)
+    if isinstance(cluster, daskD.LocalCluster):
+        cluster.scale(n_jobs)
+    else:
+        cluster.scale(jobs=n_jobs)
     # Creating dask Client
     client = daskD.Client(cluster)
     workers = 0
@@ -70,34 +73,41 @@ class DaskClient:
 
     def __init__(self, **kwargs):
         """
-    Constructor for obtaining a client to be used when Dask is necesary
+    Constructor for obtaining a client to be used when Dask is necessary
     1) Cluster with shared file system and ssh capability:
     :param hostnames : - list; list of strings containing the host names or IP addresses of the machines that
     the user wants to use in their cluster/client (First hostname will be running the scheduler!) [None]
     :param scheduler_file_prefix : string; prefix to used to create dask scheduler-file.
     :param logging : - boolean; Logging scheduler and worker stdout to files within dask_logs folder [True]
     Must be a mounted path on all the machines. Necessary if hostnames are provided [$HOME/scheduler-]
-    2) PBS cluster:
+    2) Local cluster:
+    :param local_params : - dict; dictionary containing Local Cluster options (see help(LocalCluster) for help) [None]
+    :param n_workers: - int; number of workers to start [1]
+    3) PBS cluster:
     :param pbs_params : - dict; dictionary containing PBS Cluster options (see help(PBSCluster) for help) [None]
     :param n_jobs : - int; number of jobs to be submitted to the cluster
     :param n_workers: - int; number of workers per job [1]
-    3) LSF cluster:
+    4) LSF cluster:
     :param lfs_params : - dict; dictionary containing LSF Cluster options (see help(LSFCluster) for help) [None]
-    :param n_workers : - int; number of workers to be submitted to the cluster
+    :param n_jobs : - int; number of jobs to be submitted to the cluster
     :param n_workers: - int; number of workers per job [1]
-    4) SLURM cluster:
+    5) SLURM cluster:
     :param slurm_params : - dict; dictionary containing SLURM Cluster options (see help(SLURMCluster) for help) [None]
-    :param n_workers : - int; number of workers to be submitted to the cluster
+    :param n_jobs : - int; number of jobs to be submitted to the cluster
     :param n_workers: - int; number of workers per job [1]
     """
         hostnames = kwargs.get("hostnames", None)
+        local_params = kwargs.get("local_params", None)
         pbs_params = kwargs.get("pbs_params", None)
         lsf_params = kwargs.get("lsf_params", None)
         slurm_params = kwargs.get("slurm_params", None)
         logging = kwargs.get("logging", True)
         ClusterInit = None
         cluster_params = None
-        if pbs_params:
+        if local_params:
+            cluster_params = local_params
+            ClusterInit = daskD.LocalCluster
+        elif pbs_params:
             cluster_params = pbs_params
             ClusterInit = PBSCluster
         elif lsf_params:
@@ -172,19 +182,26 @@ class DaskClient:
                 wrk_ips.pop(idx)
         elif ClusterInit:
             n_wrks = kwargs.get("n_wrks", 1)
-            n_jobs = kwargs.get("n_jobs")
             if n_wrks <= 0:
                 raise ValueError("n_wrks must equal or greater than 1!")
-            if n_jobs <= 0:
-                raise ValueError("n_jobs must equal or greater than 1!")
-            cluster_params.update({"processes": n_wrks})
-            if n_wrks > 1:
-                # forcing nanny to be true (otherwise, dask-worker command will fail)
-                cluster_params.update({"nanny": True})
+            if "local_params" in kwargs:
+                # Starting local cluster
+                n_jobs = n_wrks
+                n_wrks = 1
+            else:
+                # Starting scheduler-based clusters
+                n_jobs = kwargs.get("n_jobs")
+                if n_jobs <= 0:
+                    raise ValueError("n_jobs must equal or greater than 1!")
+                cluster_params.update({"processes": n_wrks})
+                if n_wrks > 1:
+                    # forcing nanny to be true (otherwise, dask-worker command will fail)
+                    cluster_params.update({"nanny": True})
             self.cluster = ClusterInit(**cluster_params)
             self.client, self.WorkerIds = client_startup(self.cluster, n_jobs, n_jobs*n_wrks)
         else:
-            raise ValueError("Either hostnames or pbs_params or lsf_params or slurm_params must be provided!")
+            raise ValueError("Either hostnames or local_params or pbs_params or lsf_params or slurm_params must be "
+                             "provided!")
         # Closing dask processes
         atexit.register(self.client.shutdown)
 

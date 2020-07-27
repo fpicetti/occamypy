@@ -61,3 +61,9 @@ from .solver.stepper import Stepper
 from .solver.stepper import CvSrchStep
 from .solver.stepper import ParabolicStep
 from .solver.stepper import ParabolicStepConst
+
+from .dask.utils import DaskClient
+from .dask.vector import DaskVector
+from .dask.operator import DaskOperator
+from .dask.operator import DaskSpreadOp
+from .dask.operator import DaskCollectOp

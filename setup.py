@@ -27,10 +27,9 @@ setup(name='occamypy',
       license='GNU',
       author='Ettore Biondi, Guillame Barnier, Robert Clapp, Francesco Picetti, Stuart Farris',
       author_email='francesco.picetti@polimi.it',
-      install_requires=['numpy >= 1.15.0', 'scipy', 'matplotlib', 'imageio', 'numba'],
+      install_requires=['numpy >= 1.15.0', 'scipy', 'matplotlib', 'imageio', 'numba', 'dask', 'dask-jobqueue'],
       extras_require={  # one can install two of them with pip install occamypy[cuda,cluster]
           'dev': ['pyfftw', 'PyWavelets'],
-          'cluster': ['dask', 'dask-jobqueue'],
           'cuda': ['cupy>=7.3', 'gputil']},
       packages=find_packages(),
       
