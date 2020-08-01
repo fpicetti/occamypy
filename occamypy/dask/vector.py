@@ -195,7 +195,7 @@ def call_isDifferent(vecObj, vec2):
 
 def call_clipVector(vecObj, low, high):
     """Function to call multiply method"""
-    res = vecObj.clipVector(vec2, low, high)
+    res = vecObj.clipVector(low, high)
     return res
 
 
