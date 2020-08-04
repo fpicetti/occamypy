@@ -5,6 +5,7 @@ import dask.distributed as daskD
 from occamypy.utils.os import BUF_SIZE
 from occamypy.utils import sep
 from occamypy import Vector
+from occamypy import VectorIC
 from .utils import DaskClient
 
 # Verify if SepVector modules are presents
@@ -610,3 +611,212 @@ class DaskVector(Vector):
                                   high.vecDask, pure=False)
         daskD.wait(futures)
         return self
+
+# DASK I/O TO READ LARGE-SCALE VECTORS DIRECTLY WITHIN EACH WORKER
+def _get_binaries(**kwargs):
+    """
+    Function to obtain associated binary files to each file name
+    :param filenames: list; List/Array containing file names to read
+    :return:
+    binfiles: list; List containing binary files associated to each file
+    Nbytes: list; List containing the number of bytes within binary files
+    """
+    binfiles = list()
+    Nbytes = list()
+    filenames = kwargs.get("filenames")
+    for filename in filenames:
+        _, ext = os.path.splitext(filename)  # Getting file extension
+        if ext == ".H":  # SEPlib file
+            binfiles.append(sep.get_binary(filename))
+            Nbytes.append(os.path.getsize(binfiles[-1]))
+        elif ext == ".h5":
+            raise NotImplementedError("ERROR! h5 files not supported yet.")
+        else:
+            raise ValueError("ERROR! Unknown format for file %s" % filename)
+    return binfiles, Nbytes
+
+
+def _set_binfiles(binfiles, Nbytes, **kwargs):
+    """
+    Function to associate binary file/s for each vector
+    :param shapes: list/array; List/Array containing the shape of each chunk to be read
+    :param binfiles: list; List containing the number of bytes within binary files
+    :param Nbytes: list; List containing the number of bytes within binary files
+    :param format: string; Kind of binary format to read ['>f']
+    :return:
+    bin_chunks: list of lists; binary files associated to each vector
+    counts: list of lists; number of bytes to read per binary file
+    offsets: list of lists; offset to apply when reading given binary file
+    """
+    shapes = kwargs.get("shapes")
+    fmt = kwargs.get("format", ">f")  # Default floating point number
+    esize = np.dtype(fmt).itemsize  # Byte size per vector element
+    # Setting bin_chunks, counts, and offsets
+    bin_chunks = list()
+    counts = list()
+    offsets = list()
+    # Checking total bytes and number of elements
+    totalBytes = np.int(np.sum(Nbytes))
+    rqstBytes = 0
+    for shp in shapes:
+        rqstBytes += np.prod(shp) * esize
+    if rqstBytes > totalBytes:
+        raise ValueError(
+            "ERROR! Total number of bytes needed to be read (%d) greater than bytes in provided file list (%d)"
+            % (rqstBytes, totalBytes))
+    bytesRd = 0  # Number of bytes read so far from a given file
+    for shp in shapes:
+        Nelmnt = np.prod(shp)  # Total number of elements within vector
+        NelmntBt = Nelmnt * esize  # Number of bytes necessary for given vector
+        tmp_bin_files = list()
+        tmp_counts = list()
+        tmp_offsets = list()
+        for _ in range(len(binfiles)):
+            tmp_bin_files.append(binfiles[0])
+            if NelmntBt >= Nbytes[0]:
+                # Entire binary file must be read
+                tmp_counts.append(np.int(Nbytes[0] / esize))
+                tmp_offsets.append(bytesRd)
+                # Updating variables
+                bytesRd = 0
+                NelmntBt -= Nbytes[0]  # Subtracting bytes already read
+                # Removing the current binary file (completely read)
+                binfiles.pop(0)
+                Nbytes.pop(0)
+            else:
+                # Only part of the file needs to be read
+                tmp_counts.append(np.int(NelmntBt / esize))
+                tmp_offsets.append(bytesRd)
+                bytesRd += NelmntBt  # Number of bytes read
+                Nbytes[0] -= NelmntBt
+                NelmntBt = 0  # All necessary bytes are set
+            if NelmntBt == 0:
+                break  # Read all the elements of a vector
+        # For a given vector, placing information on bin files, counts, offset
+        bin_chunks.append(tmp_bin_files)
+        counts.append(tmp_counts)
+        offsets.append(tmp_offsets)
+    return bin_chunks, counts, offsets
+
+
+def _read_vector_dask(shape, binaries, counts, offsets, **kwargs):
+    """
+    Function to read a vector using a Dask worker
+    :param shape : - list/array; Shape of the vector to be instantiated
+    :param binaries : - list; Binary files to read to instantiate a vector
+    :param counts : - list; Number of elements to read per binary file
+    :param offsets : -list; Bytes to be skipped when reading given file
+    :return:
+    vector - vector class; vector instance creates using
+    """
+    vector = None
+    vtype = kwargs.get("vtype")
+    axes = kwargs.get("axes", None)
+    fmt = kwargs.get("format", ">f")  # Default floating point number
+    # Reading binary data into data array
+    data = np.array([])  # Initialize an empty array
+    for ii, filename in enumerate(binaries):
+        _, ext = os.path.splitext(filename)  # Getting file extension
+        if ext == ".H@":
+            fid = open(filename, 'r+b')
+            # Default formatting big-ending floating point number
+            data = np.append(data, np.fromfile(fid, count=counts[ii], offset=offsets[ii], dtype=fmt))
+            fid.close()
+        else:
+            raise ValueError("ERROR! Unknown extension for binary file: %s" % filename)
+    # Reshaping array and forcing memory continuity
+    data = np.ascontiguousarray(np.reshape(data, shape))
+    if vtype == "VectorIC":
+        vector = VectorIC(data)
+    elif vtype == "SepVector":
+        if SepVector:
+            if axes:
+                # Instantiate using axis
+                vector = SepVector.getSepVector(axes=axes)
+            else:
+                # Instantiate using shape
+                shape.reverse()  # Reversing order of axis
+                vector = SepVector.getSepVector(ns=shape)
+            vector.getNdArray()[:] = data  # Copying data into SepVector instance
+            del data  # Removing data
+        else:
+            raise ImportError("ERROR! SepVector module not found!")
+    else:
+        raise ValueError("ERROR! Unknown vtype (%s)" % vtype)
+    return vector
+
+
+def readDaskVector(dask_client, **kwargs):
+    """
+    Function to read files in parallel and store within Dask vector
+    :param dask_client : - DaskClient; client object to use when submitting tasks (see dask_util module)
+    :param filenames : - list; List/Array containing file names to read
+    :param shapes : - list/array; List/Array containing the shape of each chunk to be read
+    :param chunks : - list/array; List/Array defining how each vector should be spread. Note that len(chunks) must be
+                                  equal to dask_client.getNworkers(), len(shape) must be equal np.sum(chunks)
+    :param vtype : - string; Type of vectors to be instantiated. Supported (VectorIC,SepVector)
+    :return:
+    daskVec - Dask Vector object
+    """
+    # Getting dask client components
+    Nwrks = dask_client.getNworkers()
+    client = dask_client.getClient()
+    wrkIds = dask_client.getWorkerIds()
+    # Args
+    shapes = kwargs.get("shapes")
+    chunks = kwargs.get("chunks")
+    vtype = kwargs.get("vtype")
+    axes = kwargs.get("axes", None)  # Necessary for SepVector
+    # Q/C steps
+    if len(chunks) != Nwrks:
+        raise ValueError(
+            "ERROR! Number of workers in client (%d) inconsistent with chunks length (%d)" % (Nwrks, len(chunks)))
+    if np.sum(chunks) != len(shapes):
+        raise ValueError(
+            "ERROR! Total number of chunks (%s) inconsistent with shapes length (%d)" % (np.sum(chunks), len(shapes)))
+    if vtype not in "VectorIC SepVector":
+        raise ValueError("ERROR! Provided vtype (%s) not currently supported" % vtype)
+    # Pre-processing: for each chunk associate necessary files, bytes to read (count), offset (if file goes onto two
+    # or more chunks).
+    # Get binary files (Necessary to use header-based formats)
+    binfiles, Nbytes = _get_binaries(**kwargs)
+    # Associate binary files with each vector using shapes and
+    # set count and offset for each of them
+    bin_shps, counts, offsets = _set_binfiles(binfiles, Nbytes, **kwargs)
+    # Split lists/arrays into chunks for parallel processing
+    shps2read = list()
+    bin2read = list()
+    count2read = list()
+    offset2read = list()
+    # Preprocessing for vector-specific arguments
+    # must be done in the next for loop
+    axes2read = list()  # List of axes
+    for chunk in chunks:
+        shps2read.append(shapes[:chunk])
+        bin2read.append(bin_shps[:chunk])
+        count2read.append(counts[:chunk])
+        offset2read.append(offsets[:chunk])
+        del shapes[:chunk], bin_shps[:chunk], counts[:chunk], offsets[:chunk]
+        # Checking if axis list was provided
+        if axes and vtype == "SepVector":
+            axes2read.append(axes[:chunk])
+            del axes[:chunk]
+    # Loop over workers/chunks
+    # Read binary files and place within vector objects
+    fut_vec = []
+    for iWrk, wrkId in enumerate(wrkIds):
+        for ivec in range(len(shps2read[iWrk])):
+            if len(axes2read) > 0 and vtype == "SepVector":
+                kwargs.update({"axes": axes2read[iWrk][ivec]})
+            fut_vec.append(client.submit(_read_vector_dask, shps2read[iWrk][ivec], bin2read[iWrk][ivec],
+                                         count2read[iWrk][ivec], offset2read[iWrk][ivec], **kwargs,
+                                         workers=[wrkId], pure=False))
+    # Waiting for all vector chunks to be instantiated
+    daskD.wait(fut_vec)
+    # Checking for errors
+    for idx, vec in enumerate(fut_vec):
+        if (vec.status == 'error'):
+            print("Error for when instantiating vector %s" % idx)
+            print(vec.result())
+    daskVec = DaskVector(dask_client, dask_vectors=fut_vec)
+    return daskVec
