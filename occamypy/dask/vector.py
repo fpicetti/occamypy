@@ -776,6 +776,10 @@ def readDaskVector(dask_client, **kwargs):
             "ERROR! Total number of chunks (%s) inconsistent with shapes length (%d)" % (np.sum(chunks), len(shapes)))
     if vtype not in "VectorIC SepVector":
         raise ValueError("ERROR! Provided vtype (%s) not currently supported" % vtype)
+    if axes:
+        if len(axes) != len(shapes):
+            raise ValueError(
+                "ERROR! Length of axes (%s) not consistent with length of shapes (%s)" % (len(axes), len(shapes)))
     # Pre-processing: for each chunk associate necessary files, bytes to read (count), offset (if file goes onto two
     # or more chunks).
     # Get binary files (Necessary to use header-based formats)
