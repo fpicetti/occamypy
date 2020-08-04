@@ -51,7 +51,8 @@ def hashfile(binfile):
     with open(binfile, 'rb') as fid:
         while True:
             data = fid.read(BUF_SIZE)
-            if not data: break
+            if not data:
+                break
             md5.update(data)
     return md5.hexdigest()
 
@@ -61,14 +62,16 @@ def RunShellCmd(cmd, print_cmd=False, print_output=False, synch=True, check_code
     # Overwrites any previous definition (when used within other programs)
     global debug, debug_log
     # Running command synchronously or asynchronously?
-    if (synch):
+    if synch:
         if debug:
             print_cmd = True
             print_output = True
             # Printing command to be run if requested
         info = "RunShellCmd running: \'%s\'" % cmd
-        if (isinstance(debug_log, Logger)): debug_log.addToLog(info)
-        if print_cmd: print(info)
+        if isinstance(debug_log, Logger):
+            debug_log.addToLog(info)
+        if print_cmd:
+            print(info)
         # Starting the process (Using PIPE to streaming output)
         proc = subprocess.Popen([cmd], stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
@@ -84,12 +87,14 @@ def RunShellCmd(cmd, print_cmd=False, print_output=False, synch=True, check_code
                 line = line.rstrip()
                 if line != '':
                     # Print to debug file?
-                    if isinstance(debug_log, Logger): debug_log.addToLog(line)
+                    if isinstance(debug_log, Logger):
+                        debug_log.addToLog(line)
                     # Print to screen?
-                    if print_output: print(line)
+                    if print_output:
+                        print(line)
                     sys.stdout.flush()
                 proc.stdout.flush()
-        stdout = ''.join(stdout);
+        stdout = ''.join(stdout)
     else:
         # Running process asynchronously (Avoiding PIPE and removing standard output)
         global DEVNULL
@@ -99,14 +104,17 @@ def RunShellCmd(cmd, print_cmd=False, print_output=False, synch=True, check_code
     err_code = proc.poll()
     return_var = []
     # Returning error code or status
-    if (get_stat): return_var.append(err_code)
+    if get_stat:
+        return_var.append(err_code)
     # Returning output
-    if (get_output): return_var.append(stdout)
+    if get_output:
+        return_var.append(stdout)
     # Checking error code
-    if (check_code and err_code != 0):
+    if check_code and err_code != 0:
         # Writing error code to debug file if any
         info = "ERROR! Command failed: %s; Error code: %s" % (cmd, err_code)
-        if (isinstance(debug_log, Logger)): debug_log.addToLog(info)
+        if isinstance(debug_log, Logger):
+            debug_log.addToLog(info)
         raise SystemError("ERROR! Command failed: %s; Error code: %s; Output: %s" % (cmd, err_code, stdout))
     # Returning
     return return_var
