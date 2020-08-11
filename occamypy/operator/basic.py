@@ -515,7 +515,7 @@ class _sumOperator(Operator):
         self.args = (A, B)
     
     def __str__(self):
-        return self.args[0].__str__()[:3] + "+" + self.args[0].__str__()[:4]
+        return self.args[0].__str__()[:3] + "+" + self.args[1].__str__()[:4]
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -545,7 +545,7 @@ class _prodOperator(Operator):
         self.temp = B.getRange().clone()
     
     def __str__(self):
-        return self.args[0].__str__()[:3] + "*" + self.args[0].__str__()[:4]
+        return self.args[0].__str__()[:3] + "*" + self.args[1].__str__()[:4]
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)

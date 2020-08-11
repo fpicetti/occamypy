@@ -1,7 +1,7 @@
 import numpy as np
 
 from occamypy.operator import Operator, Vstack
-from occamypy.operator.basic import _prodOperator
+from occamypy.operator.basic import _sumOperator, _prodOperator
 
 
 def dummy_set_background(dummy_arg):
@@ -98,6 +98,13 @@ class NonlinearOperator(Operator):
             plt.show()
         return alpha, lin_err
 
+    # unary operators
+    def __add__(self, other):  # self + other
+        if isinstance(other, NonlinearOperator):
+            return _sumNlOperator(self, other)
+        else:
+            raise TypeError('Argument must be an Operator')
+
 
 class _combNonlinearOperator(NonlinearOperator):
     """
@@ -136,8 +143,52 @@ class _combNonlinearOperator(NonlinearOperator):
 
 # Necessary for backward compatibility
 def CombNonlinearOp(g, f):
-    """Combination of non-linear opeartors: f(g(m))"""
+    """Combination of non-linear operators: f(g(m))"""
     return _combNonlinearOperator(f, g)
+
+
+class _sumNlOperator(NonlinearOperator):
+    """
+    Sum of two non-linear operators
+        h = g + f
+    """
+
+    def __init__(self, g, f):
+        """Sum operator constructor"""
+        if not isinstance(g, NonlinearOperator) or not isinstance(f, NonlinearOperator):
+            raise TypeError('Both operands have to be a NonLinearOperator')
+        if not f.range.checkSame(g.range) or not f.domain.checkSame(g.domain):
+            raise ValueError('Cannot add operators: shape mismatch')
+
+        self.args = (g, f)
+        # Defining f(g(m))
+        self.nl_op = _sumOperator(f.nl_op, g.nl_op)
+        # Defining F(g(m0))G(m0)
+        self.lin_op = _sumOperator(f.lin_op, g.lin_op)
+        # Defining internal set_background functions
+        self.set_background_f = f.set_background
+        self.set_background_g = g.set_background
+        # Defining non_linear operator g(m) for Jacobian definition
+        self.g_nl_op = g.nl_op
+        self.g_range_tmp = g.nl_op.range.clone()
+        super(_sumNlOperator, self).__init__(self.nl_op, self.lin_op, self.set_background)
+
+    def __str__(self):
+        return self.args[0].__str__()[:3] + "+" + self.args[1].__str__()[:4]
+
+    def set_background(self, model):
+        """
+        Set background function for the sum of Jacobian matrices
+        """
+        # Setting G(m0)
+        self.set_background_g(model)
+        # Setting F(m0)
+        self.set_background_f(model)
+
+
+def SumNonlinearOp(f, g):
+    """Combination of non-linear operators: f(m) + g(m)"""
+    return _sumNlOperator(f, g)
 
 
 class NonlinearVstack(NonlinearOperator):
@@ -216,6 +267,7 @@ class VpOperator(Operator):
 # simple non-linear operator to tests linTest method
 class cosOperator(Operator):
     """Cosine non-linear operator"""
+
     def __init__(self, domain):
         super(cosOperator, self).__init__(domain, domain)
 
@@ -230,6 +282,7 @@ class cosOperator(Operator):
 
 class cosJacobian(Operator):
     """Jacobian of cosine non-linear operator (i.e., -sin(x0)dx)"""
+
     def __init__(self, domain):
         super(cosJacobian, self).__init__(domain, domain)
         self.background = domain.clone()
@@ -248,7 +301,7 @@ class cosJacobian(Operator):
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
-        model.getNdArray()[:] -= np.sin(self.backgroundNd)*data.getNdArray()
+        model.getNdArray()[:] -= np.sin(self.backgroundNd) * data.getNdArray()
         return
 
     def set_background(self, background):
