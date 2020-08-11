@@ -161,9 +161,9 @@ class _sumNlOperator(NonlinearOperator):
             raise ValueError('Cannot add operators: shape mismatch')
 
         self.args = (g, f)
-        # Defining f(g(m))
+        # Defining f(m) + g(m)
         self.nl_op = _sumOperator(f.nl_op, g.nl_op)
-        # Defining F(g(m0))G(m0)
+        # Defining F(m0) and G(m0)
         self.lin_op = _sumOperator(f.lin_op, g.lin_op)
         # Defining internal set_background functions
         self.set_background_f = f.set_background
