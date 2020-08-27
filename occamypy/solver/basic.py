@@ -94,14 +94,15 @@ class Solver:
 
         # Lists of the results (list and vector Sets)
         self.obj = np.array([])  # Array for objective function values
-        self.obj_terms = np.array([])  # Array for objective function values for each terms
-        self.model = list()                 # List for model vectors (to save results in-core)
-        self.res = list()                   # List for residual vectors (to save results in-core)
-        self.grad = list()                  # List for gradient vectors (to save results in-core)
+        self.obj_terms = np.array([])     # Array for objective function values for each terms
+        self.model = list()               # List for model vectors (to save results in-core)
+        self.res = list()                 # List for residual vectors (to save results in-core)
+        self.grad = list()                # List for gradient vectors (to save results in-core)
         self.modelSet = V.VectorSet()     # Set for model vectors
         self.resSet = V.VectorSet()       # Set for residual vectors
         self.gradSet = V.VectorSet()      # Set for gradient vectors
-        self.inv_model = None               # Temporary saved inverted model
+        self.inv_model = None             # Temporary saved inverted model
+        self.overwrite = True             # Flag to overwrite results if first time writing on disk
 
     def flush_results(self):
         """Flushing internal memory of the saved results"""

@@ -293,7 +293,7 @@ class RegularizedVariableProjection(P.Problem):
     """
     
     def __init__(self, model_nl, lin_model, h_op, data, lin_solver, g_op=None, g_op_reg=None, h_op_reg=None,
-                 data_reg=None, epsilon=None, minBound=None, maxBound=None, boundProj=None, prec=None):
+                 data_reg=None, epsilon=None, minBound=None, maxBound=None, boundProj=None, prec=None, warm_start=False):
         """
             Constructor for solving a inverse problem using the variable-projection method
             Required arguments:
@@ -312,6 +312,7 @@ class RegularizedVariableProjection(P.Problem):
             maxBound	= [None] - vector class; Maximum value bounds
             boundProj	= [None] - Bounds class; Class with a function "apply(input_vec)" to project input_vec onto some convex set
             prec       	= [None] - linear operator class; Preconditioning matrix for VP problem
+            warm_start  = [None] - boolean; Start VP problem from previous linearly inverted model
             ####################################################################################################################################
             Note that to save the results of the linear inversion the user has to specify the saving parameters within the setDefaults of the
             linear solver. The results can only be saved on files. To the prefix specified within the lin_solver f_eval_# will be added.
@@ -386,6 +387,7 @@ class RegularizedVariableProjection(P.Problem):
         self.lin_solver.flush_memory = True
         self.lin_solver_prefix = self.lin_solver.prefix
         self.vp_linear_prob.linear = True
+        self.warm_start = warm_start
         return
     
     def __del__(self):
@@ -469,7 +471,8 @@ class RegularizedVariableProjection(P.Problem):
         # Getting fevals for saving linear inversion results
         fevals = self.get_fevals()
         # Setting initial linear inversion model
-        self.lin_model.zero()
+        if not self.warm_start:
+            self.lin_model.zero()
         self.vp_linear_prob.set_model(self.lin_model)
         # Setting non-linear component of the model
         self.h_op.set_nl(model)
