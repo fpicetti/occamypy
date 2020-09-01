@@ -35,7 +35,6 @@ from .problem.linear import LeastSquaresSymmetric
 from .problem.linear import LeastSquaresRegularizedL2
 from .problem.linear import Lasso
 from .problem.linear import GeneralizedLasso
-from .problem.linear import RegularizedLeastSquares
 from .problem.nonlinear import NonlinearLeastSquares
 from .problem.nonlinear import NonlinearLeastSquaresRegularized
 from .problem.nonlinear import RegularizedVariableProjection

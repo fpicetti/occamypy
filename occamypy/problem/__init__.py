@@ -6,7 +6,6 @@ from .linear import LeastSquaresSymmetric
 from .linear import LeastSquaresRegularizedL2
 from .linear import Lasso
 from .linear import GeneralizedLasso
-from .linear import RegularizedLeastSquares
 
 from .nonlinear import NonlinearLeastSquares
 from .nonlinear import NonlinearLeastSquaresRegularized
