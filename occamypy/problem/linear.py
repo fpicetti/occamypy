@@ -410,6 +410,91 @@ class Lasso(Problem):
         return self.grad
 
 
+class GeneralizedLasso(Problem):
+    def __init__(self, model, data, op, eps=1., reg=None,
+                 minBound=None, maxBound=None, boundProj=None):
+        """
+        Linear Problem with L1 regularizer:
+
+        .. math ::
+            1 / 2 |Op m - d|_2^2 + eps |R m|_1
+
+        :param model        : vector; initial model
+        :param data         : vector; data
+        :param op           : LinearOperator; modeling operator
+        :param eps          : float; weight of L1 regularizer [1.]
+        :param reg          : LinearOperator; L1 regularizer [Identity]
+        :param minBound     : vector; minimum value bounds
+        :param maxBound     : vector; maximum value bounds
+        :param boundProj    : Bounds; object with a method "apply(x)" to project x onto some convex set
+        """
+        super(GeneralizedLasso, self).__init__(minBound, maxBound, boundProj)
+        self.model = model
+        self.dmodel = model.clone().zero()
+        self.grad = self.dmodel.clone()
+        self.data = data
+        self.op = op
+
+        self.minBound = minBound
+        self.maxBound = maxBound
+        self.boundProj = boundProj
+
+        # L1 Regularization
+        self.reg_op = reg if reg is not None else O.IdentityOp(model)
+        self.eps = eps
+
+        # Last settings
+        self.obj_terms = [None] * 2
+        self.linear = True
+        # store the "residuals" (for computing the objective function)
+        self.res_data = self.op.range.clone().zero()
+        self.res_reg = self.reg_op.range.clone().zero()
+        # this last superVector is instantiated with pointers to res_data and res_reg!
+        self.res = superVector(self.res_data, self.res_reg)
+
+    def __del__(self):
+        """Default destructor"""
+        return
+
+    def objf(self, residual, eps=None):
+        """
+        Compute objective function based on the residual (super)vector
+
+        .. math ::
+            1 / 2 |Op m - d|_2^2 + eps |R m|_1
+
+        """
+        res_data = residual.vecs[0]
+        res_reg = residual.vecs[1]
+        eps = eps if eps is not None else self.eps
+
+        # data fidelity
+        self.obj_terms[0] = .5 * res_data.norm(2) ** 2
+
+        # regularization penalty
+        self.obj_terms[1] = eps * res_reg.norm(1)
+
+        return sum(self.obj_terms)
+
+    def resf(self, model):
+        """Compute residuals from current model"""
+
+        # compute data residual: Op * m - d
+        if model.norm() != 0:
+            self.op.forward(False, model, self.res_data)  # rd = Op * m
+        else:
+            self.res_data.zero()
+        self.res_data.scaleAdd(self.data, 1., -1.)  # rd = rd - d
+
+        # compute L1 reg residuals
+        if model.norm() != 0. and self.reg_op is not None:
+            self.reg_op.forward(False, model, self.res_reg)
+        else:
+            self.res_reg.zero()
+
+        return self.res
+
+
 # TODO make it accept L2 reg problems
 class RegularizedLeastSquares(Problem):
     def __init__(self, model, data, op, epsL1=None, regsL1=None, epsL2=None, regsL2=None, dataregsL2=None,
@@ -465,13 +550,6 @@ class RegularizedLeastSquares(Problem):
             self.dataregsL2 = dataregsL2 if dataregsL2 is not None else self.regL2_op.range.clone().zero()
         else:
             self.dataregsL2 = None
-
-        # At this point we should have:
-        # - a list of L1 regularizers;
-        # - a list of L1 weights (with same length of previous);
-        # - a list of L2 regularizers (even empty is ok);
-        # - a list of L2 weights (with same length of previous);
-        # - a list of L2 dataregs (with same length of previous);
 
         # Last settings
         self.obj_terms = [None] * (1 + self.nregsL2 + self.nregsL1)
