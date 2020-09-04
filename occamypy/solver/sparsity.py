@@ -474,7 +474,7 @@ class ISTC(Solver):
 
 
 class SplitBregman(Solver):
-    """Split-Bregman solver for L1 and L2 regularized problems"""
+    """Split-Bregman solver for GeneralizedLasso problems"""
     
     # Default class methods/functions
     def __init__(self, stopper, logger=None, niter_inner=3, niter_solver=5, breg_weight=1., linear_solver='CG',
@@ -530,14 +530,11 @@ class SplitBregman(Solver):
         
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, df_obj = %.2e, reg_obj = %.2e, resnorm = %.2e"
-        # self.iter_msg = "iter = %s, obj = %s, df_obj = %s, reg_obj = %s, resnorm = %s"
     
     def run(self, problem, verbose=False, inner_verbose=False, restart=False):
         """Running SplitBregman solver"""
-        if type(problem) != P.RegularizedLeastSquares:
-            raise TypeError("Input problem object must be a ProblemLinearReg")
-        if problem.regL1_op is None:
-            raise ValueError("ERROR! Problem has to include at least one L1 Regularizer")
+        if type(problem) != P.GeneralizedLasso:
+            raise TypeError("Input problem object must be a GeneralizedLasso")
         
         verbose = True if inner_verbose else verbose
         self.create_msg = verbose or self.logger
@@ -549,7 +546,7 @@ class SplitBregman(Solver):
         self.stopper.reset()
         
         # initialize all the vectors and operators for Split-Bregman
-        breg_b = problem.regL1_op.range.clone().zero()
+        breg_b = problem.reg_op.range.clone().zero()
         breg_d = breg_b.clone()
         RL1x = breg_b.clone()  # store RegL1 * solution
         
@@ -558,18 +555,11 @@ class SplitBregman(Solver):
             self.warm_start = True
         sb_mdl_old = problem.model.clone()
         
-        # TODO linear_solver accepts only one regularizer and one epsilon:
-        #  we must convert reg_op to a scaled version and epsilon to 1.
-        regL2_op_scaled_list = [np.sqrt(problem.epsL2[i]) * problem.regL2_op.ops[i] for i in range(problem.nregsL2)]
-        regL1_op_scaled_list = [np.sqrt(problem.epsL1[i]) * problem.regL1_op.ops[i] for i in range(problem.nregsL1)]
-        reg_op = O.Vstack(O.Vstack(regL2_op_scaled_list) if len(regL2_op_scaled_list) != 0 else None,
-                          O.Vstack(regL1_op_scaled_list) if len(regL1_op_scaled_list) != 0 else None)
+        reg_op = np.sqrt(problem.eps) * problem.reg_op   # TODO can we avoid this?
         
         # inner problem
-        prior = V.superVector(problem.dataregsL2, breg_d.clone())  # Note: d = 0. TODO is the clone() needed?
-        
         linear_problem = P.LeastSquares(model=sb_mdl.clone(),
-                                        data=V.superVector(problem.data, prior),
+                                        data=V.superVector(problem.data, breg_d.clone()),
                                         op=O.Vstack(problem.op, reg_op),
                                         minBound=problem.minBound,
                                         maxBound=problem.maxBound,
@@ -596,12 +586,8 @@ class SplitBregman(Solver):
                 msg += "\tModeling Operator:\t%s\n" % problem.op
                 msg += "\tInner iterations:\t%d\n" % self.niter_inner
                 msg += "\tSolver iterations:\t%d\n" % self.niter_solver
-                if problem.nregsL2 != 0:
-                    msg += "\tL2 Regularizer ops:\t" + ", ".join(["%s" % op for op in problem.regL2_op.ops]) + "\n"
-                    msg += "\tL2 Regularizer weights:\t" + ", ".join(["{:.2e}".format(e) for e in problem.epsL2]) + "\n"
-                if problem.nregsL1 != 0:
-                    msg += "\tL1 Regularizer ops:\t\t" + ", ".join(["%s" % op for op in problem.regL1_op.ops]) + "\n"
-                    msg += "\tL1 Regularizer weights:\t" + ", ".join(["{:.2e}".format(e) for e in problem.epsL1]) + "\n"
+                msg += "\tL1 Regularizer op:\t\t" + ", ".join("%s" % problem.reg_op) + "\n"
+                msg += "\tL1 Regularizer weight:\t" + ", ".join("{:.2e}".format(problem.eps)) + "\n"
                 msg += "\tBregman update weight:\t%.2e\n" % self.breg_weight
                 if self.warm_start:
                     msg += "\tUsing warm start option for inner problem\n"
@@ -660,26 +646,19 @@ class SplitBregman(Solver):
                 if not self.warm_start:
                     linear_problem.model.zero()
                 # prior = d - b
-                linear_problem.data.vecs[-1].vecs[-1].copy(breg_b)
-                linear_problem.data.vecs[-1].vecs[-1].scaleAdd(breg_d, -1., 1.)
-                for ii in range(problem.nregsL1):
-                    # linear_problem.data.vecs[-1].vecs[problem.nregsL2 + ii].scale(np.sqrt(problem.epsL1[ii]))
-                    linear_problem.data.vecs[-1].vecs[-1].vecs[ii].scale(np.sqrt(problem.epsL1[ii]))
+                linear_problem.data.vecs[-1].copy(breg_b)
+                linear_problem.data.vecs[-1].scaleAdd(breg_d, -1., 1.)
+                linear_problem.data.vecs[-1].scale(np.sqrt(problem.eps))  # TODO can we avoid this?
                 linear_problem.setDefaults()
                 
                 # solve inner problem
                 self.linear_solver.run(linear_problem, verbose=inner_verbose)
                 
-                # sb_mdl = linear_problem.model.clone()
-                # sb_mdl.copy(linear_problem.model)
-                
                 # compute RL1*x
-                problem.regL1_op.forward(False, linear_problem.model, RL1x)
+                problem.reg_op.forward(False, linear_problem.model, RL1x)
                 
                 # update breg_d
-                for ii in range(problem.nregsL1):
-                    breg_d.vecs[ii].copy(_soft_thresh(RL1x.vecs[ii].clone() + breg_b.vecs[ii],
-                                                      thresh=(problem.epsL1[ii])))
+                breg_d.copy(_soft_thresh(RL1x.clone() + breg_b, thresh=problem.eps))
                 
                 if self.logger_lin_solv:
                     msg = "\t\tfinished inner iter %d with sb_mdl = %.2e, RL1x = %.2e" \
@@ -693,18 +672,14 @@ class SplitBregman(Solver):
             # Update SB model
             sb_mdl.copy(linear_problem.model)
             
-            outer_iter += 1
             # check objective function
-            # problem.res_regsL1 = RL1x.clone()
-            # problem.res_regsL1_already_computed = True
-            # problem.res_data_already_computed = False
             obj1 = problem.get_obj(sb_mdl)
             sb_mdl_norm = sb_mdl.norm()
             chng_norm = sb_mdl_old.scaleAdd(sb_mdl, 1., -1.).norm()
             if chng_norm <= self.mod_tol * sb_mdl_norm:
                 if self.create_msg:
-                    msg = "Relative model change (%.4e) norm smaller than given tolerance (%.4e)" % (
-                        chng_norm, self.mod_tol * sb_mdl_norm)
+                    msg = "Relative model change (%.4e) norm smaller than given tolerance (%.4e)"\
+                          % (chng_norm, self.mod_tol * sb_mdl_norm)
                     if verbose:
                         print(msg)
                     if self.logger:
@@ -712,6 +687,7 @@ class SplitBregman(Solver):
                 break
             
             # iteration info
+            outer_iter += 1
             if self.create_msg:
                 msg = self.iter_msg % (str(outer_iter).zfill(self.stopper.zfill),
                                        obj1,

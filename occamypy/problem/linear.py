@@ -410,31 +410,25 @@ class Lasso(Problem):
         return self.grad
 
 
-# TODO make it accept L2 reg problems
-class RegularizedLeastSquares(Problem):
-    def __init__(self, model, data, op, epsL1=None, regsL1=None, epsL2=None, regsL2=None, dataregsL2=None,
+class GeneralizedLasso(Problem):
+    def __init__(self, model, data, op, eps=1., reg=None,
                  minBound=None, maxBound=None, boundProj=None):
         """
-        Linear Problem with both L1 and L2 regularizers:
+        Linear Problem with L1 regularizer:
 
         .. math ::
-            1 / 2 |Op m - d|_2^2 +
-            \sum_i epsL2_i |R2_i m - dr|_2^2 +
-            \sum_i epsL1_i |R1_i m|_1
+            1 / 2 |Op m - d|_2^2 + eps |R m|_1
 
         :param model        : vector; initial model
         :param data         : vector; data
-        :param op           : LinearOperator; data fidelity operator
-        :param epsL1        : list; weights of L1 regularizers [None]
-        :param regsL1       : list; L1 regularizers of class LinearOperator [None]
-        :param epsL2        : list; weights of L2 regularizers [None]
-        :param regsL2       : list; L2 regularizers of class LinearOperator [None]
-        :param dataregsL2   : vector; prior model for L2 regularization term [None]
+        :param op           : LinearOperator; modeling operator
+        :param eps          : float; weight of L1 regularizer [1.]
+        :param reg          : LinearOperator; L1 regularizer [Identity]
         :param minBound     : vector; minimum value bounds
         :param maxBound     : vector; maximum value bounds
         :param boundProj    : Bounds; object with a method "apply(x)" to project x onto some convex set
         """
-        super(RegularizedLeastSquares, self).__init__(minBound, maxBound, boundProj)
+        super(GeneralizedLasso, self).__init__(minBound, maxBound, boundProj)
         self.model = model
         self.dmodel = model.clone().zero()
         self.grad = self.dmodel.clone()
@@ -445,80 +439,40 @@ class RegularizedLeastSquares(Problem):
         self.maxBound = maxBound
         self.boundProj = boundProj
 
-        # L1 Regularizations
-        self.regL1_op = None if regsL1 is None else O.Vstack(regsL1)
-        self.nregsL1 = self.regL1_op.n if self.regL1_op is not None else 0
-        self.epsL1 = epsL1 if epsL1 is not None else []
-        if type(self.epsL1) in [int, float]:
-            self.epsL1 = [self.epsL1]
-        assert len(self.epsL1) == self.nregsL1, 'The number of L1 regs and related weights mismatch!'
-
-        # L2 Regularizations
-        self.regL2_op = None if regsL2 is None else O.Vstack(regsL2)
-        self.nregsL2 = self.regL2_op.n if self.regL2_op is not None else 0
-        self.epsL2 = epsL2 if epsL2 is not None else []
-        if type(self.epsL2) in [int, float]:
-            self.epsL2 = [self.epsL2]
-        assert len(self.epsL2) == self.nregsL2, 'The number of L2 regs and related weights mismatch!'
-
-        if self.regL2_op is not None:
-            self.dataregsL2 = dataregsL2 if dataregsL2 is not None else self.regL2_op.range.clone().zero()
-        else:
-            self.dataregsL2 = None
-
-        # At this point we should have:
-        # - a list of L1 regularizers;
-        # - a list of L1 weights (with same length of previous);
-        # - a list of L2 regularizers (even empty is ok);
-        # - a list of L2 weights (with same length of previous);
-        # - a list of L2 dataregs (with same length of previous);
+        # L1 Regularization
+        self.reg_op = reg if reg is not None else O.IdentityOp(model)
+        self.eps = eps
 
         # Last settings
-        self.obj_terms = [None] * (1 + self.nregsL2 + self.nregsL1)
+        self.obj_terms = [None] * 2
         self.linear = True
         # store the "residuals" (for computing the objective function)
         self.res_data = self.op.range.clone().zero()
-        self.res_regsL2 = self.regL2_op.range.clone().zero() if self.nregsL2 != 0 else None
-        self.res_regsL1 = self.regL1_op.range.clone().zero() if self.nregsL1 != 0 else None
-        # this last superVector is instantiated with pointers to res_data and res_regs!
-        self.res = superVector(self.res_data, self.res_regsL2, self.res_regsL1)
-
-        # flags for avoiding extra computations
-        self.res_data_already_computed = False
-        self.res_regsL1_already_computed = False
-        self.res_regsL2_already_computed = False
-
-        # TODO add compatibility with L2 problems and Lasso
+        self.res_reg = self.reg_op.range.clone().zero()
+        # this last superVector is instantiated with pointers to res_data and res_reg!
+        self.res = superVector(self.res_data, self.res_reg)
 
     def __del__(self):
         """Default destructor"""
         return
 
-    def objf(self, residual):
+    def objf(self, residual, eps=None):
         """
         Compute objective function based on the residual (super)vector
 
         .. math ::
-            1 / 2 |Op m - d|_2^2 +
-            \sum_i epsL2_i |R2_i m - dr|_2^2 +
-            \sum_i epsL1_i |R1_i m|_1
+            1 / 2 |Op m - d|_2^2 + eps |R m|_1
 
         """
         res_data = residual.vecs[0]
-        res_regsL2 = residual.vecs[1] if self.res_regsL2 is not None else None
-        if self.res_regsL1 is not None:
-            res_regsL1 = residual.vecs[2] if self.res_regsL2 is not None else residual.vecs[1]
-        else:
-            res_regsL1 = None
+        res_reg = residual.vecs[1]
+        eps = eps if eps is not None else self.eps
 
-        self.obj_terms[0] = .5 * res_data.norm(2) ** 2  # data fidelity
+        # data fidelity
+        self.obj_terms[0] = .5 * res_data.norm(2) ** 2
 
-        if res_regsL2 is not None:
-            for idx in range(self.nregsL2):
-                self.obj_terms[1 + idx] = self.epsL2[idx] * res_regsL2.vecs[idx].norm(2) ** 2
-        if res_regsL1 is not None:
-            for idx in range(self.nregsL1):
-                self.obj_terms[1 + self.nregsL2 + idx] = self.epsL1[idx] * res_regsL1.vecs[idx].norm(1)
+        # regularization penalty
+        self.obj_terms[1] = eps * res_reg.norm(1)
 
         return sum(self.obj_terms)
 
@@ -532,20 +486,10 @@ class RegularizedLeastSquares(Problem):
             self.res_data.zero()
         self.res_data.scaleAdd(self.data, 1., -1.)  # rd = rd - d
 
-        # compute L2 reg residuals
-        if self.res_regsL2 is not None:
-            if model.norm() != 0:
-                self.regL2_op.forward(False, model, self.res_regsL2)
-            else:
-                self.res_regsL2.zero()
-            if self.dataregsL2 is not None and self.dataregsL2.norm() != 0.:
-                self.res_regsL2.scaleAdd(self.dataregsL2, 1., -1.)
-
         # compute L1 reg residuals
-        if self.res_regsL1 is not None:
-            if model.norm() != 0. and self.regL1_op is not None:
-                self.regL1_op.forward(False, model, self.res_regsL1)
-            else:
-                self.res_regsL1.zero()
+        if model.norm() != 0. and self.reg_op is not None:
+            self.reg_op.forward(False, model, self.res_reg)
+        else:
+            self.res_reg.zero()
 
         return self.res

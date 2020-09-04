@@ -1,5 +1,5 @@
 import os
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 
 
 def src(pth):
@@ -14,7 +14,7 @@ setup(name='occamypy',
       long_description_content_type='text/markdown',
       keywords=['algebra', 'inverse problems', 'large-scale optimization'],
       classifiers=[
-          # 'Development Status :: 5 - Production/Stable',
+          'Development Status :: 4 - Beta',
           'Intended Audience :: Developers',
           'Intended Audience :: Science/Research',
           # 'License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)',
@@ -22,7 +22,8 @@ setup(name='occamypy',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
-          'Topic :: Scientific/Engineering :: Mathematics'
+          'Topic :: Scientific/Engineering :: Mathematics',
+          'Operating System :: Unix'
       ],
       license='GNU',
       author='Ettore Biondi, Guillame Barnier, Robert Clapp, Francesco Picetti, Stuart Farris',
@@ -33,4 +34,4 @@ setup(name='occamypy',
           'cuda': ['cupy>=7.3', 'gputil']},
       packages=find_packages(),
       
-      zip_safe=False)
+      zip_safe=True)
