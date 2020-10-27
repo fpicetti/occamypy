@@ -23,3 +23,5 @@ from .nonlinear import NonlinearVstack
 from .nonlinear import VpOperator
 from .nonlinear import cosOperator
 from .nonlinear import cosJacobian
+
+from .transform import FFT
