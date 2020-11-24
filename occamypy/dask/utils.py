@@ -10,6 +10,7 @@ import json
 DEVNULL = open(os.devnull, 'wb')
 import dask.distributed as daskD
 from dask_jobqueue import PBSCluster, LSFCluster, SLURMCluster
+from dask_kubernetes import KubeCluster, make_pod_spec
 
 
 def get_tcp_info(filename):
@@ -48,7 +49,7 @@ def client_startup(cluster, n_jobs, total_workers):
     """
     if n_jobs <= 0:
         raise ValueError("n_jobs must equal or greater than 1!")
-    if isinstance(cluster, daskD.LocalCluster):
+    if isinstance(cluster, daskD.LocalCluster) or isinstance(cluster, KubeCluster):
         cluster.scale(n_jobs)
     else:
         cluster.scale(jobs=n_jobs)
@@ -95,12 +96,16 @@ class DaskClient:
     :param slurm_params : - dict; dictionary containing SLURM Cluster options (see help(SLURMCluster) for help) [None]
     :param n_jobs : - int; number of jobs to be submitted to the cluster
     :param n_workers: - int; number of workers per job [1]
+    6) Kubernetes cluster:
+    :param kube_params : - dict; dictonary containing KubeCluster options (see help(KubeCluster) and help(make_pod_spec) for help) [None]
+    :param n_workers: - int; number of workers to scale the cluster
     """
         hostnames = kwargs.get("hostnames", None)
         local_params = kwargs.get("local_params", None)
         pbs_params = kwargs.get("pbs_params", None)
         lsf_params = kwargs.get("lsf_params", None)
         slurm_params = kwargs.get("slurm_params", None)
+        kube_params = kwargs.get("kube_params", None)
         logging = kwargs.get("logging", True)
         ClusterInit = None
         cluster_params = None
@@ -180,6 +185,11 @@ class DaskClient:
                 self.WorkerIds.append(wrkIds[idx])
                 wrkIds.pop(idx)
                 wrk_ips.pop(idx)
+        elif kube_params:
+            n_wrks = kwargs.get("n_wrks")
+            pod_spec = make_pod_spec(kube_params)
+            self.cluster = KubeCluster(pod_spec, deploy_mode="remote")
+            self.client, self.WorkerIds = client_startup(self.cluster, n_wrks, n_wrks)
         elif ClusterInit:
             n_wrks = kwargs.get("n_wrks", 1)
             if n_wrks <= 0:
@@ -200,7 +210,7 @@ class DaskClient:
             self.cluster = ClusterInit(**cluster_params)
             self.client, self.WorkerIds = client_startup(self.cluster, n_jobs, n_jobs*n_wrks)
         else:
-            raise ValueError("Either hostnames or local_params or pbs_params or lsf_params or slurm_params must be "
+            raise ValueError("Either hostnames or local_params or pbs/lsf/slurm_params or kube_params must be "
                              "provided!")
         # Closing dask processes
         atexit.register(self.client.shutdown)
