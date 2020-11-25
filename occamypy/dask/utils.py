@@ -83,22 +83,25 @@ class DaskClient:
     Must be a mounted path on all the machines. Necessary if hostnames are provided [$HOME/scheduler-]
     2) Local cluster:
     :param local_params : - dict; dictionary containing Local Cluster options (see help(LocalCluster) for help) [None]
-    :param n_workers: - int; number of workers to start [1]
+    :param n_wrks: - int; number of workers to start [1]
     3) PBS cluster:
     :param pbs_params : - dict; dictionary containing PBS Cluster options (see help(PBSCluster) for help) [None]
     :param n_jobs : - int; number of jobs to be submitted to the cluster
-    :param n_workers: - int; number of workers per job [1]
+    :param n_wrks: - int; number of workers per job [1]
     4) LSF cluster:
     :param lfs_params : - dict; dictionary containing LSF Cluster options (see help(LSFCluster) for help) [None]
     :param n_jobs : - int; number of jobs to be submitted to the cluster
-    :param n_workers: - int; number of workers per job [1]
+    :param n_wrks: - int; number of workers per job [1]
     5) SLURM cluster:
     :param slurm_params : - dict; dictionary containing SLURM Cluster options (see help(SLURMCluster) for help) [None]
     :param n_jobs : - int; number of jobs to be submitted to the cluster
-    :param n_workers: - int; number of workers per job [1]
+    :param n_wrks: - int; number of workers per job [1]
     6) Kubernetes cluster:
-    :param kube_params : - dict; dictonary containing KubeCluster options (see help(KubeCluster) and help(make_pod_spec) for help) [None]
-    :param n_workers: - int; number of workers to scale the cluster
+    :param kube_params : - dict; dictonary containing KubeCluster options
+     (see help(KubeCluster) and help(make_pod_spec) for help) [None]
+    :param n_wrks: - int; number of workers to scale the cluster
+    Note that by default the Kubernetes pods are created using the Docker image 'ettore88/occamypy:devel'. To change
+    the image to be use, provide the item image within the kube_params dictionary.
     """
         hostnames = kwargs.get("hostnames", None)
         local_params = kwargs.get("local_params", None)
@@ -130,7 +133,7 @@ class DaskClient:
             self.port = ''.join(["1"] + [str(random.randint(0, 9)) for _ in range(3)])
             # Creating logging interface
             stdout_scheduler = DEVNULL
-            stdout_workers = [DEVNULL]*len(hostnames)
+            stdout_workers = [DEVNULL] * len(hostnames)
             if logging:
                 # Creating logging folder
                 try:
@@ -138,7 +141,7 @@ class DaskClient:
                 except OSError:
                     pass
                 stdout_scheduler = open("dask_logs/dask-scheduler.log", "w")
-                stdout_workers = [open("dask_logs/dask-worker-%s.log"%(ii+1), "w") for ii in range(len(hostnames))]
+                stdout_workers = [open("dask_logs/dask-worker-%s.log" % (ii + 1), "w") for ii in range(len(hostnames))]
             # Starting scheduler
             scheduler_file = "%s%s" % (scheduler_file_prefix, self.port) + ".json"
             cmd = ["ssh"] + [hostnames[0]] + \
@@ -187,7 +190,9 @@ class DaskClient:
                 wrk_ips.pop(idx)
         elif kube_params:
             n_wrks = kwargs.get("n_wrks")
-            pod_spec = make_pod_spec(kube_params)
+            if "image" not in kube_params:
+                kube_params.update({"image": 'ettore88/occamypy:devel'})
+            pod_spec = make_pod_spec(**kube_params)
             self.cluster = KubeCluster(pod_spec, deploy_mode="remote")
             self.client, self.WorkerIds = client_startup(self.cluster, n_wrks, n_wrks)
         elif ClusterInit:
@@ -208,7 +213,7 @@ class DaskClient:
                     # forcing nanny to be true (otherwise, dask-worker command will fail)
                     cluster_params.update({"nanny": True})
             self.cluster = ClusterInit(**cluster_params)
-            self.client, self.WorkerIds = client_startup(self.cluster, n_jobs, n_jobs*n_wrks)
+            self.client, self.WorkerIds = client_startup(self.cluster, n_jobs, n_jobs * n_wrks)
         else:
             raise ValueError("Either hostnames or local_params or pbs/lsf/slurm_params or kube_params must be "
                              "provided!")
