@@ -15,7 +15,7 @@ class NonlinearOperator(Operator):
     """
     Non-linear operator class
     """
-
+    
     def __init__(self, nl_op, lin_op=None, set_background_func=dummy_set_background):
         """
            Constructor for non-linear operator class:
@@ -30,7 +30,7 @@ class NonlinearOperator(Operator):
         """
         # Setting non-linear and linearized operators
         self.nl_op = nl_op
-        self.lin_op = lin_op if lin_op != None else nl_op
+        self.lin_op = lin_op if lin_op is not None else nl_op
         self.set_background = set_background_func
         # Checking if domain of the operators is the same
         if not self.nl_op.domain.checkSame(self.lin_op.domain):
@@ -38,13 +38,13 @@ class NonlinearOperator(Operator):
         if not self.nl_op.range.checkSame(self.lin_op.range):
             raise ValueError("ERROR! The two provided operators have different ranges")
         super(NonlinearOperator, self).__init__(self.nl_op.domain, self.nl_op.range)
-
+    
     def dotTest(self, **kwargs):
         """
         Raising an exception, dot-product tests must be performed directly onto linear operator.
         """
         raise NotImplementedError("Perform dot-product tests directly on the linear operator.")
-
+    
     def linTest(self, background, pert=None, alpha=np.logspace(-6, 0, 100), plot=False):
         """
         Linearization tests function. It plots the model-perturbation norm vs linearization error norm
@@ -97,7 +97,7 @@ class NonlinearOperator(Operator):
             plt.title('Linearization error')
             plt.show()
         return alpha, lin_err
-
+    
     # unary operators
     def __add__(self, other):  # self + other
         if isinstance(other, NonlinearOperator):
@@ -106,18 +106,18 @@ class NonlinearOperator(Operator):
             raise TypeError('Argument must be an Operator')
 
 
-class _combNonlinearOperator(NonlinearOperator):
+class NonlinearComb(NonlinearOperator):
     """
     Combination of non-linear opeartors: f(g(m))
     """
-
+    
     def __init__(self, f, g):
         """
         Constructor for non-linear operator class
         """
         # Checking if non-linear operators were provided
         if not (isinstance(f, NonlinearOperator) and isinstance(g, NonlinearOperator)):
-            raise TypeError("Provided operators must be NonLinearOperator instances")
+            raise TypeError("Provided operators has to be NonLinearOperator")
         # Defining f(g(m))
         self.nl_op = _prodOperator(f.nl_op, g.nl_op)
         # Defining F(g(m0))G(m0)
@@ -128,8 +128,8 @@ class _combNonlinearOperator(NonlinearOperator):
         # Defining non_linear operator g(m) for Jacobian definition
         self.g_nl_op = g.nl_op
         self.g_range_tmp = g.nl_op.range.clone()
-        super(_combNonlinearOperator, self).__init__(self.nl_op, self.lin_op, self.set_background)
-
+        super(NonlinearComb, self).__init__(self.nl_op, self.lin_op, self.set_background)
+    
     def set_background(self, model):
         """
         Set background function for the chain of Jacobian matrices
@@ -144,7 +144,7 @@ class _combNonlinearOperator(NonlinearOperator):
 # Necessary for backward compatibility
 def CombNonlinearOp(g, f):
     """Combination of non-linear operators: f(g(m))"""
-    return _combNonlinearOperator(f, g)
+    return NonlinearComb(f, g)
 
 
 class _sumNlOperator(NonlinearOperator):
@@ -152,14 +152,14 @@ class _sumNlOperator(NonlinearOperator):
     Sum of two non-linear operators
         h = g + f
     """
-
+    
     def __init__(self, g, f):
         """Sum operator constructor"""
         if not isinstance(g, NonlinearOperator) or not isinstance(f, NonlinearOperator):
             raise TypeError('Both operands have to be a NonLinearOperator')
         if not f.range.checkSame(g.range) or not f.domain.checkSame(g.domain):
             raise ValueError('Cannot add operators: shape mismatch')
-
+        
         self.args = (g, f)
         # Defining f(m) + g(m)
         self.nl_op = _sumOperator(f.nl_op, g.nl_op)
@@ -172,10 +172,10 @@ class _sumNlOperator(NonlinearOperator):
         self.g_nl_op = g.nl_op
         self.g_range_tmp = g.nl_op.range.clone()
         super(_sumNlOperator, self).__init__(self.nl_op, self.lin_op, self.set_background)
-
+    
     def __str__(self):
         return self.args[0].__str__()[:3] + "+" + self.args[1].__str__()[:4]
-
+    
     def set_background(self, model):
         """
         Set background function for the sum of Jacobian matrices
@@ -186,7 +186,7 @@ class _sumNlOperator(NonlinearOperator):
         self.set_background_f(model)
 
 
-def SumNonlinearOp(f, g):
+def NonlinearSum(f, g):
     """Combination of non-linear operators: f(m) + g(m)"""
     return _sumNlOperator(f, g)
 
@@ -198,7 +198,7 @@ class NonlinearVstack(NonlinearOperator):
      h(m) = |    | = |      |
             | d2 |   | g(m) |
     """
-
+    
     def __init__(self, nl_op1, nl_op2):
         """Constructor for the stacked operator"""
         # Checking if domain of the operators is the same
@@ -214,10 +214,10 @@ class NonlinearVstack(NonlinearOperator):
         self.set_background1 = nl_op1.set_background
         self.set_background2 = nl_op2.set_background
         super(NonlinearVstack, self).__init__(self.nl_op, self.lin_op, self.set_background)
-
+    
     def __str__(self):
         return "NLVstack"
-
+    
     def set_background(self, model):
         """
         Set background function for the stack of Jacobian matrices
@@ -227,13 +227,15 @@ class NonlinearVstack(NonlinearOperator):
         # Setting G(m0)
         self.set_background2(model)
 
+# TODO add Hstack and Dstack
+
 
 # Variable Projection Operator
-class VpOperator(Operator):
+class VarProOperator(Operator):
     """
         Operator of the form: h(m_nl)m_lin, for Variable-projection method
     """
-
+    
     def __init__(self, h_nl, h_lin, set_nl, set_lin_jac, set_lin=None):
         """
             Constructor for an operator with a linear and non-linear model component
@@ -250,12 +252,12 @@ class VpOperator(Operator):
         self.h_nl = h_nl
         self.h_lin = h_lin
         # Checking the range spaces
-        if (not h_nl.nl_op.range.checkSame(h_lin.range)):
+        if not h_nl.nl_op.range.checkSame(h_lin.range):
             raise ValueError("ERROR! The two provided operators have different ranges")
         self.set_nl = set_nl  # Function to set the non-linear component of the h(m_nl)
         self.set_lin_jac = set_lin_jac  # Function to set the non-linear component of the Jacobian H(m_nl;m_lin)
         self.set_lin = set_lin  # Function to set the non-linear component h(m_nl)m_lin
-
+    
     def dotTest(self, verb=False, maxError=.0001):
         """
            Raising an exception, dot-product tests must be performed directly onto linear operator and the Jacobian of h(m_nl).
@@ -267,10 +269,10 @@ class VpOperator(Operator):
 # simple non-linear operator to tests linTest method
 class cosOperator(Operator):
     """Cosine non-linear operator"""
-
+    
     def __init__(self, domain):
         super(cosOperator, self).__init__(domain, domain)
-
+    
     def forward(self, add, model, data):
         """Forward operator cos(x)"""
         self.checkDomainRange(model, data)
@@ -282,12 +284,12 @@ class cosOperator(Operator):
 
 class cosJacobian(Operator):
     """Jacobian of cosine non-linear operator (i.e., -sin(x0)dx)"""
-
+    
     def __init__(self, domain):
         super(cosJacobian, self).__init__(domain, domain)
         self.background = domain.clone()
         self.backgroundNd = self.background.getNdArray()
-
+    
     def forward(self, add, model, data):
         """Forward operator"""
         self.checkDomainRange(model, data)
@@ -295,7 +297,7 @@ class cosJacobian(Operator):
             data.zero()
         data.getNdArray()[:] -= np.sin(self.backgroundNd) * model.getNdArray()
         return
-
+    
     def adjoint(self, add, model, data):
         """Adjoint operator"""
         self.checkDomainRange(model, data)
@@ -303,7 +305,7 @@ class cosJacobian(Operator):
             model.zero()
         model.getNdArray()[:] -= np.sin(self.backgroundNd) * data.getNdArray()
         return
-
+    
     def set_background(self, background):
         """ Setting -sin(x0)"""
         self.background.copy(background)

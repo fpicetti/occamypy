@@ -740,7 +740,7 @@ class LBFGS(S.Solver):
             # Making first step-length value Hessian guess if not provided by user
             if iiter == 0 and alpha != 1.0:
                 self.restart.save_parameter("fist_alpha", alpha)
-                self.H0 = O.scalingOp(bfgs_dmodl, alpha) if self.H0 is None else self.H0 * O.scalingOp(bfgs_dmodl, alpha)
+                self.H0 = O.Scaling(bfgs_dmodl, alpha) if self.H0 is None else self.H0 * O.Scaling(bfgs_dmodl, alpha)
                 if self.logger:
                     self.logger.addToLog("First step-length value added to first Hessian inverse estimate!")
                 self.stepper.alpha = 1.0

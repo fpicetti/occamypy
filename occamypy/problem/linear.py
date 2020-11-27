@@ -162,7 +162,7 @@ class LeastSquaresSymmetric(Problem):
         return obj
 
 
-class LeastSquaresRegularizedL2(Problem):
+class LeastSquaresRegularized(Problem):
     """Linear inverse problem regularized of the form 1/2*|Lm-d|_2 + epsilon^2/2*|Am-m_prior|_2"""
 
     def __init__(self, model, data, op, epsilon, grad_mask=None, reg_op=None, prior_model=None, prec=None,
@@ -182,7 +182,7 @@ class LeastSquaresRegularizedL2(Problem):
         prec       	= [None] - linear operator class; Preconditioning matrix
         """
         # Setting the bounds (if any)
-        super(LeastSquaresRegularizedL2, self).__init__(minBound, maxBound, boundProj)
+        super(LeastSquaresRegularized, self).__init__(minBound, maxBound, boundProj)
         # Setting internal vector
         self.model = model
         self.dmodel = model.clone()
@@ -196,7 +196,7 @@ class LeastSquaresRegularizedL2(Problem):
         # Setting linear operators
         # Assuming identity operator if regularization operator was not provided
         if reg_op is None:
-            reg_op = O.IdentityOp(self.model)
+            reg_op = O.Identity(self.model)
         # Checking if space of the prior model is consistent with range of
         # regularization operator
         if self.prior_model is not None:
@@ -440,7 +440,7 @@ class GeneralizedLasso(Problem):
         self.boundProj = boundProj
 
         # L1 Regularization
-        self.reg_op = reg if reg is not None else O.IdentityOp(model)
+        self.reg_op = reg if reg is not None else O.Identity(model)
         self.eps = eps
 
         # Last settings

@@ -23,6 +23,9 @@ class Operator:
 
     def __str__(self):
         return "Operator"
+    
+    def __repr__(self):
+        return self.__str__()
 
     # unary operators
     def __add__(self, other):  # self + other
@@ -588,7 +591,7 @@ class _scaledOperator(Operator):
         self.op.adjoint(add, model, data.clone().scale(np.conj(self.const)))
 
 
-def ChainOperator(A, B):
+def Chain(A, B):
     """
          Chain of two operators
                 d = B A m
@@ -602,11 +605,11 @@ sumOperator = _sumOperator
 stackOperator = Vstack
 
 
-class ZeroOp(Operator):
+class Zero(Operator):
     """Zero matrix operator; useful for Jacobian matrices that are zeros"""
     
     def __init__(self, domain, range):
-        super(ZeroOp, self).__init__(domain, range)
+        super(Zero, self).__init__(domain, range)
     
     def __str__(self):
         return "  Zero  "
@@ -622,11 +625,11 @@ class ZeroOp(Operator):
             model.zero()
 
 
-class IdentityOp(Operator):
+class Identity(Operator):
     """Identity operator"""
     
     def __init__(self, domain):
-        super(IdentityOp, self).__init__(domain, domain)
+        super(Identity, self).__init__(domain, domain)
     
     def __str__(self):
         return "Identity"
@@ -646,11 +649,11 @@ class IdentityOp(Operator):
             model.copy(data)
 
 
-class scalingOp(Operator):
+class Scaling(Operator):
     """scalar multiplication operator"""
     
     def __init__(self, domain, scalar):
-        super(scalingOp, self).__init__(domain, domain)
+        super(Scaling, self).__init__(domain, domain)
         if not np.isscalar(scalar):
             raise ValueError('scalar has to be (indeed) a scalar variable')
         self.scalar = scalar
@@ -667,13 +670,13 @@ class scalingOp(Operator):
         model.scaleAdd(data, 1. if add else 0., self.scalar)
 
 
-class DiagonalOp(Operator):
+class Diagonal(Operator):
     """Diagonal operator for performing element-wise multiplication"""
     
     def __init__(self, diag):
         # if not isinstance(diag, vector):
         #     raise TypeError('diag has to be a vector')
-        super(DiagonalOp, self).__init__(diag, diag)
+        super(Diagonal, self).__init__(diag, diag)
         self.diag = diag
     
     def __str__(self):

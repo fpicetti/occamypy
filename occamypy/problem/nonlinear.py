@@ -125,7 +125,7 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         # Setting linear operators
         # Assuming identity operator if regularization operator was not provided
         if reg_op is None:
-            Id_op = O.IdentityOp(self.model)
+            Id_op = O.Identity(self.model)
             reg_op = O.NonlinearOperator(Id_op, Id_op)
         # Checking if space of the prior model is constistent with range of regularization operator
         if self.prior_model is not None:
@@ -285,7 +285,7 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         return obj
 
 
-class RegularizedVariableProjection(P.Problem):
+class VarProRegularized(P.Problem):
     """
     Non-linear inverse problem in which part of the model parameters define a quadratic function
     The non-linear component is solved using the variable-projection method (Golub and Pereyra, 1973)
@@ -317,10 +317,10 @@ class RegularizedVariableProjection(P.Problem):
             Note that to save the results of the linear inversion the user has to specify the saving parameters within the setDefaults of the
             linear solver. The results can only be saved on files. To the prefix specified within the lin_solver f_eval_# will be added.
         """
-        if not isinstance(h_op, O.VpOperator):
+        if not isinstance(h_op, O.VarProOperator):
             raise TypeError("ERROR! Not provided an operator class for the variable projection problem")
         # Setting the bounds (if any)
-        super(RegularizedVariableProjection, self).__init__(minBound, maxBound, boundProj)
+        super(VarProRegularized, self).__init__(minBound, maxBound, boundProj)
         # Setting internal vector
         self.model = model_nl
         self.dmodel = model_nl.clone()
@@ -331,7 +331,7 @@ class RegularizedVariableProjection(P.Problem):
         # Copying the pointer to data vector
         self.data = data
         # Setting non-linear/linear operator
-        if not isinstance(h_op, O.VpOperator):
+        if not isinstance(h_op, O.VarProOperator):
             raise TypeError("ERROR! Provide a VpOperator operator class for h_op")
         self.h_op = h_op
         # Setting non-linear operator (if any)
@@ -353,7 +353,7 @@ class RegularizedVariableProjection(P.Problem):
             if self.g_op_reg is not None:
                 res_reg = self.g_op_reg.nl_op.range.clone()
             elif self.h_op_reg is not None:
-                if not isinstance(h_op_reg, O.VpOperator):
+                if not isinstance(h_op_reg, O.VarProOperator):
                     raise TypeError("ERROR! Provide a VpOperator operator class for h_op_reg")
                 res_reg = self.h_op_reg.h_lin.range.clone()
             elif self.data_reg is not None:
@@ -368,9 +368,9 @@ class RegularizedVariableProjection(P.Problem):
             self.res = data.clone()
         # Instantiating linear inversion problem
         if self.h_op_reg is not None:
-            self.vp_linear_prob = P.LeastSquaresRegularizedL2(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
-                                                              reg_op=self.h_op_reg.h_lin, prior_model=self.data_reg,
-                                                              prec=prec)
+            self.vp_linear_prob = P.LeastSquaresRegularized(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
+                                                            reg_op=self.h_op_reg.h_lin, prior_model=self.data_reg,
+                                                            prec=prec)
         else:
             self.vp_linear_prob = P.LeastSquares(self.lin_model, self.data, self.h_op.h_lin, prec=prec)
         # Zeroing out the residual vector

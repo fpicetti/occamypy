@@ -5,6 +5,11 @@ import os
 import hashlib
 import random
 import string
+from importlib.util import find_spec
+from .logger import Logger
+
+
+CUPY_ENABLED = find_spec("cupy") is not None
 
 debug = False  # Debug flag for printing screen output of RunShellCmd as it runs commands
 debug_log = None  # File where debug outputs are written if requested (it must be a logger object)
@@ -20,26 +25,7 @@ def mkdir(directory):
         print('Error: Creating directory. ' + directory)
 
 
-class Logger:
-    """System logger class"""
-
-    def __init__(self, file, bufsize=1):
-        """Initialize writing to a file logfile"""
-        self.file = open(file, "a", bufsize)
-        return
-
-    def __del__(self):
-        """Destructor where the log file is closed"""
-        self.file.close()
-        return
-
-    def addToLog(self, msg):
-        """Function to write message to log file"""
-        self.file.write(msg + "\n")
-        return
-
-
-def rand_name(N):
+def rand_name(N: int = 6) -> str:
     """function returning random sequence of N letters and numbers"""
     return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(N))
 

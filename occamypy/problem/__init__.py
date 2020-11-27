@@ -1,13 +1,16 @@
-from .basic import Bounds
-from .basic import Problem
+from .basic import *
+from .linear import *
+from .nonlinear import *
 
-from .linear import LeastSquares
-from .linear import LeastSquaresSymmetric
-from .linear import LeastSquaresRegularizedL2
-from .linear import Lasso
-from .linear import GeneralizedLasso
-
-from .nonlinear import NonlinearLeastSquares
-from .nonlinear import NonlinearLeastSquaresRegularized
-from .nonlinear import RegularizedVariableProjection
-
+__all__ = [
+    "Bounds",
+    "Problem",
+    "LeastSquares",
+    "LeastSquaresSymmetric",
+    "LeastSquaresRegularized",
+    "Lasso",
+    "GeneralizedLasso",
+    "NonlinearLeastSquares",
+    "NonlinearLeastSquaresRegularized",
+    "VarProRegularized",
+]
