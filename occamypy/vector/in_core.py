@@ -37,6 +37,9 @@ class VectorIC(V.Vector):
         self.size = self.arr.size  # Total number of elements
         super(VectorIC, self).__init__()
     
+    def __repr__(self):
+        return self.getNdArray().__repr__()
+    
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
         return self.arr
