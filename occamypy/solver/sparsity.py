@@ -586,8 +586,8 @@ class SplitBregman(Solver):
                 msg += "\tModeling Operator:\t%s\n" % problem.op
                 msg += "\tInner iterations:\t%d\n" % self.niter_inner
                 msg += "\tSolver iterations:\t%d\n" % self.niter_solver
-                msg += "\tL1 Regularizer op:\t\t" + ", ".join("%s" % problem.reg_op) + "\n"
-                msg += "\tL1 Regularizer weight:\t" + ", ".join("{:.2e}".format(problem.eps)) + "\n"
+                msg += "\tL1 Regularizer op:\t%s\n"  % problem.reg_op
+                msg += "\tL1 Regularizer weight:\t%.2e\n" % problem.eps
                 msg += "\tBregman update weight:\t%.2e\n" % self.breg_weight
                 if self.warm_start:
                     msg += "\tUsing warm start option for inner problem\n"
