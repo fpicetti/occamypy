@@ -162,7 +162,7 @@ class Solver:
         # Save if it is forced to or if the solver hits a sampled iteration number
         # The objective function is saved every iteration if requested
         if self.save_obj:
-            self.obj = np.append(self.obj, deepcopy(objf_value))
+            self.obj = np.append(self.obj, deepcopy(float(objf_value)))
             # Checking if the objective function has multiple terms
             if obj_terms is not None:
                 if len(self.obj_terms) == 0:
