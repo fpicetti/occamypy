@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import h5py
 
 from occamypy.utils import sep
 
@@ -9,6 +10,12 @@ class Vector:
     
     def __init__(self):
         """Default constructor"""
+        self.shape = None
+        self.size = None
+        self.ndims = None
+    
+    def __repr__(self):
+        return self.getNdArray().__repr__()
     
     def __del__(self):
         """Default destructor"""
@@ -68,18 +75,13 @@ class Vector:
         else:
             raise TypeError('other has to be either a scalar or a vector')
     
+    def __getitem__(self, item):
+        return self.getNdArray()[item]
+    
     # Class vector operations
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
         raise NotImplementedError("getNdArray must be overwritten")
-    
-    def shape(self):
-        """Property to get the vector shape (number of samples for each axis)"""
-        raise NotImplementedError("shape must be overwritten")
-    
-    def size(self):
-        """Property to compute the vector size (number of samples)"""
-        raise NotImplementedError("size must be overwritten")
     
     def norm(self, N=2):
         """Function to compute vector N-norm"""
@@ -125,9 +127,6 @@ class Vector:
         """Function to check to make sure the vectors exist in the same space"""
         raise NotImplementedError("checkSame must be overwritten")
     
-    # def writeVec(self, filename, mode='w'):
-    #     """Function to write vector to file"""
-    #     raise NotImplementedError("writeVec must be overwritten")
     def writeVec(self, filename, mode='w'):
         """Function to write vector to file"""
         # Check writing mode
@@ -217,24 +216,15 @@ class Vector:
                     np.save(file=filename, arr=self.getNdArray(), allow_pickle=False)
         
         elif ext == '.h5':  # TODO implement saving to hdf5
-            # if mode not in 'a':
-            #     with h5py.File(filename, 'wb') as f:
-            #         dset = f.create_dataset("vec", data=self.getNdArray())
-            # else:
-            raise NotImplementedError
-        
-        elif ext == '.pkl':
-            raise NotImplementedError
-            # # Save the whole vector in a pickle file
-            # if mode not in 'a':
-            #     with open(filename, 'wb') as f:
-            #         pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
-            #     f.close()
-            # else:
-            #     raise NotImplementedError
+            # https://moonbooks.org/Articles/How-to-save-a-large-dataset-in-a-hdf5-file-using-python--Quick-Guide/
+            if mode not in 'a':
+                with h5py.File(filename, 'wb') as f:
+                    dset = f.create_dataset("vec", data=self.getNdArray())
+            else:
+                raise NotImplementedError
         
         else:
-            raise ValueError("ERROR! Output format has to be H, npy, h5 or pkl")
+            raise ValueError("ERROR! Output format has to be H, npy, or h5")
         
         return
     
@@ -339,6 +329,7 @@ class VectorSet:
                 wr_mode = "a"
             vec_i.writeVec(filename, wr_mode)
         self.vecSet = []  # List of vectors of the set
+
 
 class superVector(Vector):
     
@@ -565,5 +556,3 @@ class superVector(Vector):
             # Writing files (recursively)
             vec_cmp.writeVec(filename_cmp + ext, mode)
         return
-
-
