@@ -1,7 +1,6 @@
-from .basic import *
+from .base import *
 from .linear import *
 from .nonlinear import *
-from .transform import *
 
 __all__ = [
     "Operator",
@@ -13,18 +12,9 @@ __all__ = [
     "Identity",
     "Scaling",
     "Diagonal",
-    "Matrix",
-    "FirstDerivative",
-    "SecondDerivative",
-    "Gradient",
-    "Laplacian",
-    "GaussianFilter",
-    "ConvND",
-    "ZeroPad",
     "NonlinearOperator",
     "NonlinearComb",
     "NonlinearSum",
     "NonlinearVstack",
     "VarProOperator",
-    "FFT",
 ]

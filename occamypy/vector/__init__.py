@@ -1,13 +1,9 @@
-from .basic import Vector
-from .basic import superVector
-from .basic import VectorSet
-from .in_core import VectorIC
-from .out_core import VectorOC
+from .base import *
+from .out_core import *
 
 __all__ = [
     "Vector",
     "superVector",
     "VectorSet",
-    "VectorIC",
-    "VectorOC",
+    "VectorOC"
 ]

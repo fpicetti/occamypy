@@ -1,59 +1,48 @@
 from copy import deepcopy
-import os
 from sys import version_info
 import numpy as np
-import cupy as cp
-from GPUtil import getGPUs, getFirstAvailable
-from occamypy import Vector, VectorOC
-from occamypy.utils import sep
+from occamypy import Vector, VectorNumpy
+try:
+    import cupy as cp
+    from GPUtil import getGPUs, getFirstAvailable
+except:
+    pass
     
-    
+
 class VectorCupy(Vector):
     """In-core python vector class based on Cupy"""
 
-    def __init__(self, in_vec, device=None):
+    def __init__(self, in_content, device=None):
         """
         VectorCupy constructor
-        :param in_vec: if a cupy vector, the object is build upon the same vector (i.e., same device).
+        :param in_content: if a cupy vector, the object is build upon the same vector (i.e., same device).
                        Otherwise, the object is created in the selected device.
         :param device: int - GPU id (None for CPU, -1 for most available memory)
         
         This class stores array with C memory order (i.e., row-wise sorting)
         """
         
-        if isinstance(in_vec, cp.ndarray):  # Cupy array passed to constructor
-            if cp.isfortran(in_vec):
+        if isinstance(in_content, cp.ndarray) or isinstance(in_content, np.ndarray):
+            if cp.isfortran(in_content):
                 raise TypeError('Input array not a C contiguous array!')
-            self.arr = cp.array(in_vec, copy=False)
+            self.arr = cp.array(in_content, copy=False)
             self.ax_info = None
+        elif isinstance(in_content, tuple):  # Tuple size passed to constructor
+            # self.arr = cp.zeros(tuple(reversed(in_content)))
+            self.arr = cp.empty(in_content)
+            self.ax_info = None
+        elif isinstance(in_content, VectorNumpy):
+            self.arr = in_content.getNdArray().copy()
+            self.ax_info = in_content.ax_info
+        else:  # Not supported type
+            raise ValueError("ERROR! Input variable not currently supported!")
         
-        else:  # CPU-based array, need to set the device first.
-            if isinstance(in_vec, VectorOC):  # VectorOC passed to constructor
-                arr, self.ax_info = sep.read_file(in_vec.vecfile)
-            elif isinstance(in_vec, str):  # Header file passed to constructor
-                arr, self.ax_info = sep.read_file(in_vec)
-            elif isinstance(in_vec, np.ndarray):  # Numpy array passed to constructor
-                if np.isfortran(in_vec):
-                    raise TypeError('Input array not a C contiguous array!')
-                arr = np.asarray(in_vec)
-                self.ax_info = None
-            elif isinstance(in_vec, tuple):  # Tuple size passed to constructor
-                arr = np.zeros(tuple(reversed(in_vec)))
-                self.ax_info = None
-            else:  # Not supported type
-                raise ValueError("ERROR! Input variable not currently supported!")
-            
-            self.setDevice(device)
-            if self.cuda_device is None:
-                self.arr = np.asarray(arr)
-            else:
-                self.arr = cp.asarray(arr)
-        
-        self.shape = self.arr.shape   # Number of elements per axis (tuple)
-        self.ndims = len(self.shape)  # Number of axes (integer)
-        self.size = self.arr.size     # Total number of elements (integer)
+        self.setDevice(device)
         
         super(VectorCupy, self).__init__()
+        self.shape = self.arr.shape   # Number of elements per axis (tuple)
+        self.ndim = self.arr.ndim    # Number of axes (integer)
+        self.size = self.arr.size     # Total number of elements (integer)
 
     def _check_same_device(self, other):
         assert isinstance(self, VectorCupy)
@@ -62,24 +51,23 @@ class VectorCupy(Vector):
         if not answer:
             raise Warning('The two vectors live in different devices: %s - %s' % (self.cuda_device, other.cuda_device))
         return answer
-        
-    @property
-    def backend(self):
-        return cp.get_array_module(self.arr)
     
     @property
     def cuda_device(self):
-        if isinstance(self.arr, cp.ndarray):
+        try:
             return self.arr.device
-        else:
+        except AttributeError:
             return None
 
     def setDevice(self, devID=0):
         if devID is not None:  # Move to GPU
             if devID == -1:
                 devID = getFirstAvailable(order='memory')[0]
-            with cp.cuda.Device(devID):
-                self.arr = cp.asarray(self.arr)
+            try:
+                with cp.cuda.Device(devID):
+                    self.arr = cp.asarray(self.arr)
+            except AttributeError:
+                self.arr.device = None
         else:  # move to CPU
             if self.cuda_device is None:  # already on CPU
                 pass
@@ -97,9 +85,12 @@ class VectorCupy(Vector):
         """Function to return Ndarray of the vector"""
         return self.arr
     
+    def plot(self):
+        return self.getNdArray().get()
+    
     def norm(self, N=2):
         """Function to compute vector N-norm using Numpy"""
-        return self.backend.linalg.norm(self.getNdArray().flatten(), ord=N)
+        return cp.linalg.norm(self.getNdArray().flatten(), ord=N)
 
     def zero(self):
         """Function to zero out a vector"""
@@ -130,11 +121,11 @@ class VectorCupy(Vector):
 
     def rand(self, snr=1.):
         """Fill vector with random number (~U[1,-1]) with a given SNR"""
-        rms = self.backend.sqrt(cp.mean(self.backend.square(self.getNdArray())))
+        rms = cp.sqrt(cp.mean(cp.square(self.getNdArray())))
         amp_noise = 1.0
         if rms != 0.:
-            amp_noise = self.backend.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
-        self.getNdArray()[:] = amp_noise * (2. * self.backend.random.random(self.getNdArray().shape) - 1.)
+            amp_noise = cp.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
+        self.getNdArray()[:] = amp_noise * (2. * cp.random.random(self.getNdArray().shape) - 1.)
         return self
 
     def clone(self):
@@ -142,87 +133,23 @@ class VectorCupy(Vector):
         vec_clone = deepcopy(self)  # Deep clone of vector
         # Checking if a vector space was provided
         if vec_clone.getNdArray().size == 0:
-            vec_clone.arr = self.backend.zeros(vec_clone.shape, dtype=self.getNdArray().dtype)
+            vec_clone.arr = cp.zeros(vec_clone.shape, dtype=self.getNdArray().dtype)
         return vec_clone
 
     def cloneSpace(self):
         """Function to clone vector space only (vector without actual vector array by using empty array of size 0)"""
-        arr = self.backend.empty(0, dtype=self.getNdArray().dtype)
+        arr = cp.empty(0, dtype=self.getNdArray().dtype)
         vec_space = VectorCupy(arr)
         # Cloning space of input vector
         vec_space.shape = self.shape
-        vec_space.ndims = self.ndims
+        vec_space.ndim = self.ndim
         vec_space.size = self.size
         return vec_space
 
     def checkSame(self, other):
         """Function to check dimensionality of vectors"""
         return self.shape == other.shape
-
-    def writeVec(self, filename, mode='w'):
-        """Function to write vector to file"""
-        # Check writing mode
-        if not mode in 'wa':
-            raise ValueError("Mode must be appending 'a' or writing 'w' ")
-        # Construct ax_info if the object has getHyper
-        if hasattr(self, "getHyper"):
-            hyper = self.getHyper()
-            self.ax_info = []
-            for iaxis in range(hyper.getNdim()):
-                self.ax_info.append([hyper.getAxis(iaxis + 1).n, hyper.getAxis(iaxis + 1).o, hyper.getAxis(iaxis + 1).d,
-                                     hyper.getAxis(iaxis + 1).label])
-        # writing header/pointer file if not present and not append mode
-        if not (os.path.isfile(filename) and mode in 'a'):
-            binfile = sep.datapath + filename.split('/')[-1] + '@'
-            with open(filename, mode) as fid:
-                # Writing axis info
-                if self.ax_info:
-                    for ii, ax_info in enumerate(self.ax_info):
-                        ax_id = ii + 1
-                        fid.write("n%s=%s o%s=%s d%s=%s label%s='%s'\n" % (
-                            ax_id, ax_info[0], ax_id, ax_info[1], ax_id, ax_info[2], ax_id, ax_info[3]))
-                else:
-                    for ii, n_axis in enumerate(tuple(reversed(self.shape))):
-                        ax_id = ii + 1
-                        fid.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (ax_id, n_axis, ax_id, ax_id))
-                # Writing last axis for allowing appending (unless we are dealing with a scalar)
-                if self.shape != (1,):
-                    ax_id = self.ndims + 1
-                    fid.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (ax_id, 1, ax_id, ax_id))
-                fid.write("in='%s'\n" % binfile)
-                esize = "esize=4\n"
-                if self.getNdArray().dtype == cp.complex64 or self.getNdArray().dtype == cp.complex128:
-                    esize = "esize=8\n"
-                fid.write(esize)
-                fid.write("data_format=\"native_float\"\n")
-            fid.close()
-        else:
-            binfile = sep.get_binary(filename)
-            if mode in 'a':
-                axes = sep.get_axes(filename)
-                # Number of vectors already present in the file
-                if self.shape == (1,):
-                    n_vec = axes[0][0]
-                    append_dim = self.ndims
-                else:
-                    n_vec = axes[self.ndims][0]
-                    append_dim = self.ndims + 1
-                with open(filename, mode) as fid:
-                    fid.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (append_dim, n_vec + 1, append_dim, append_dim))
-                fid.close()
-        # Writing binary file
-        format = '>f'
-        if self.getNdArray().dtype == cp.complex64 or self.getNdArray().dtype == cp.complex128:
-            format = '>c8'
-        with open(binfile, mode + 'b') as fid:
-            # Writing big-ending floating point number
-            if self.backend.isfortran(self.getNdArray()):  # Forcing column-wise binary writing
-                self.getNdArray().ravel('F').astype(format).tofile(fid)
-            else:
-                self.getNdArray().astype(format).tofile(fid)
-        fid.close()
-        return
-
+    
     def abs(self):
         self.getNdArray()[:] = cp.abs(self.getNdArray())
         return self
@@ -236,21 +163,21 @@ class VectorCupy(Vector):
         return self
 
     def maximum(self, other):
-        if self.backend.isscalar(other):
-            self.getNdArray()[:] = self.backend.maximum(self.getNdArray(), other)
+        if cp.isscalar(other):
+            self.getNdArray()[:] = cp.maximum(self.getNdArray(), other)
             return self
         elif isinstance(other, VectorCupy):
             if not self.checkSame(other):
                 raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, other.shape))
             if not self._check_same_device(other):
                 raise ValueError('Provided input has to live in the same device')
-            self.getNdArray()[:] = self.backend.maximum(self.getNdArray(), other.getNdArray())
+            self.getNdArray()[:] = cp.maximum(self.getNdArray(), other.getNdArray())
             return self
         else:
             raise TypeError('Provided input has to be either a scalar or a vectorIC')
 
     def conj(self):
-        self.getNdArray()[:] = self.backend.conj(self.getNdArray())
+        self.getNdArray()[:] = cp.conj(self.getNdArray())
         return self
 
     def pow(self, power):
@@ -307,7 +234,7 @@ class VectorCupy(Vector):
             raise ValueError("Dimensionality not equal: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
         if not self._check_same_device(other):
             raise ValueError('Provided input has to live in the same device')
-        return self.backend.vdot(self.getNdArray().flatten(), other.getNdArray().flatten())
+        return cp.vdot(self.getNdArray().flatten(), other.getNdArray().flatten())
 
     def multiply(self, other):
         """Function to multiply element-wise two vectors"""
@@ -323,7 +250,7 @@ class VectorCupy(Vector):
         # Performing element-wise multiplication
         if not self._check_same_device(other):
             raise ValueError('Provided input has to live in the same device')
-        self.getNdArray()[:] = self.backend.multiply(self.getNdArray(), other.getNdArray())
+        self.getNdArray()[:] = cp.multiply(self.getNdArray(), other.getNdArray())
         return self
 
     def isDifferent(self, other):
@@ -345,7 +272,7 @@ class VectorCupy(Vector):
             other.arr.flags.writeable = True
             isDiff = (chcksum1 != chcksum2)
         else:
-            isDiff = (not self.backend.equal(self.getNdArray(), other.getNdArray()).all())
+            isDiff = (not cp.equal(self.getNdArray(), other.getNdArray()).all())
         return isDiff
 
     def clipVector(self, low, high):
@@ -354,13 +281,13 @@ class VectorCupy(Vector):
             raise TypeError("Provided input low vector not a vectorIC!")
         if not isinstance(high, VectorCupy):
             raise TypeError("Provided input high vector not a vectorIC!")
-        self.getNdArray()[:] = self.backend.minimum(self.backend.maximum(low.getNdArray(), self.getNdArray()), high.getNdArray())
+        self.getNdArray()[:] = cp.minimum(cp.maximum(low.getNdArray(), self.getNdArray()), high.getNdArray())
         return self
 
 
 if __name__ == '__main__':
-
-    x = VectorCupy(np.empty((1000, 20000))).set(1.)
+    from occamypy.cupy.operator import ConvND
+    x = VectorCupy((1000, 20000)).set(1.)
     x.printDevice()
 
     # D = pyCuOperator.FirstDerivative(x)
@@ -372,12 +299,12 @@ if __name__ == '__main__':
 
     # Test Convolution
     nh = [5, 10]
-    hz = np.exp(-0.1 * np.linspace(-(nh[0] // 2), nh[0] // 2, nh[0]) ** 2)
-    hx = np.exp(-0.03 * np.linspace(-(nh[1] // 2), nh[1] // 2, nh[1]) ** 2)
-    hz /= np.trapz(hz)  # normalize the integral to 1
-    hx /= np.trapz(hx)  # normalize the integral to 1
-    kernel = hz[:, np.newaxis] * hx[np.newaxis, :]
-    C = pyCuOperator.ConvND(x, kernel)
+    hz = cp.exp(-0.1 * cp.linspace(-(nh[0] // 2), nh[0] // 2, nh[0]) ** 2)
+    hx = cp.exp(-0.03 * cp.linspace(-(nh[1] // 2), nh[1] // 2, nh[1]) ** 2)
+    hz /= cp.trapz(hz)  # normalize the integral to 1
+    hx /= cp.trapz(hx)  # normalize the integral to 1
+    kernel = hz[:, cp.newaxis] * hx[cp.newaxis, :]
+    C = ConvND(x, kernel)
     C.dotTest(True)
     #
     # x = vectorCupy(cp.arange(9).reshape((3, 3)))

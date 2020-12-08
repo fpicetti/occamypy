@@ -1,6 +1,6 @@
 from math import isnan
 
-from occamypy.problem import Problem
+from .base import Problem
 from occamypy import operator as O
 from occamypy.vector import superVector
 

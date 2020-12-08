@@ -12,7 +12,8 @@ class Vector:
         """Default constructor"""
         self.shape = None
         self.size = None
-        self.ndims = None
+        self.ndim = None
+        self.type = type(self)
     
     def __repr__(self):
         return self.getNdArray().__repr__()
@@ -78,6 +79,9 @@ class Vector:
     def __getitem__(self, item):
         return self.getNdArray()[item]
     
+    def __setitem__(self, key, value):
+        self.getNdArray()[key] = value
+    
     # Class vector operations
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
@@ -89,7 +93,8 @@ class Vector:
     
     def zero(self):
         """Function to zero out a vector"""
-        raise NotImplementedError("zero must be overwritten")
+        self.set(0)
+        return self
     
     def max(self):
         """Function to obtain maximum value within a vector"""
@@ -105,11 +110,13 @@ class Vector:
     
     def scale(self, sc):
         """Function to scale a vector"""
-        raise NotImplementedError("scale must be overwritten")
+        self.getNdArray()[:] *= sc
+        return self
     
     def addbias(self, bias):
         """Function to add bias to a vector"""
-        raise NotImplementedError("addbias must be overwritten")
+        self.getNdArray()[:] += bias
+        return self
     
     def rand(self):
         """Function to randomize a vector"""
@@ -125,7 +132,7 @@ class Vector:
     
     def checkSame(self, other):
         """Function to check to make sure the vectors exist in the same space"""
-        raise NotImplementedError("checkSame must be overwritten")
+        return self.shape == other.shape
     
     def writeVec(self, filename, mode='w'):
         """Function to write vector to file"""
@@ -163,7 +170,7 @@ class Vector:
                             f.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (ax_id, n_axis, ax_id, ax_id))
                     # Writing last axis for allowing appending (unless we are dealing with a scalar)
                     if self.shape != (1,):
-                        ax_id = self.ndims + 1
+                        ax_id = self.ndim + 1
                         f.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (ax_id, 1, ax_id, ax_id))
                     f.write("in='%s'\n" % binfile)
                     esize = "esize=4\n"
@@ -179,10 +186,10 @@ class Vector:
                     # Number of vectors already present in the file
                     if self.shape == (1,):
                         n_vec = axes[0][0]
-                        append_dim = self.ndims
+                        append_dim = self.ndim
                     else:
-                        n_vec = axes[self.ndims][0]
-                        append_dim = self.ndims + 1
+                        n_vec = axes[self.ndim][0]
+                        append_dim = self.ndim + 1
                     with open(filename, mode) as f:
                         f.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (append_dim, n_vec + 1, append_dim, append_dim))
                     f.close()
@@ -241,7 +248,8 @@ class Vector:
     # TODO implement on seplib
     def reciprocal(self):
         """Return a vector containing the reciprocals of self"""
-        raise NotImplementedError('reciprocal method must be implemented')
+        self.getNdArray()[:] = 1. / self.getNdArray()
+        return self
     
     # TODO implement on seplib
     def maximum(self, vec2):
@@ -270,19 +278,36 @@ class Vector:
     
     # Combination of different vectors
     
-    def copy(self, vec2):
+    def copy(self, other):
         """Function to copy vector"""
-        raise NotImplementedError("copy must be overwritten")
+        """Function to copy vector from input vector"""
+        # Checking whether the input is a vector or not
+        if not isinstance(other, self.type):
+            raise TypeError("Provided input vector has to be of the same type!")
+        # Checking dimensionality
+        if not self.checkSame(other):
+            raise ValueError('Dimensionality not equal: self = %s; other = %s' % (self.shape, other.shape))
+        # Element-wise copy of the input array
+        self.getNdArray()[:] = other.getNdArray()
+        return self
     
-    def scaleAdd(self, vec2, sc1=1.0, sc2=1.0):
+    def scaleAdd(self, other, sc1=1.0, sc2=1.0):
         """Function to scale two vectors and add them to the first one"""
-        raise NotImplementedError("scaleAdd must be overwritten")
+        # Checking whether the input is a vector or not
+        if not isinstance(other, self.type):
+            raise TypeError("Provided input vector has to be of the same type!")
+        # Checking dimensionality
+        if not self.checkSame(other):
+            raise ValueError("Dimensionality not equal: self = %s; other = %s" % (self.shape, other.shape))
+        # Performing scaling and addition
+        self.getNdArray()[:] = sc1 * self.getNdArray() + sc2 * other.getNdArray()
+        return self
     
-    def dot(self, vec2):
+    def dot(self, other):
         """Function to compute dot product between two vectors"""
         raise NotImplementedError("dot must be overwritten")
     
-    def multiply(self, vec2):
+    def multiply(self, other):
         """Function to multiply element-wise two vectors"""
         raise NotImplementedError("multiply must be overwritten")
     
@@ -309,14 +334,14 @@ class VectorSet:
     def __del__(self):
         """Default destructor"""
     
-    def append(self, vec_in, copy=True):
+    def append(self, other, copy=True):
         """Method to add vector to the set"""
         # Checking dimensionality if a vector is present
         if self.vecSet:
-            if not self.vecSet[0].checkSame(vec_in):
+            if not self.vecSet[0].checkSame(other):
                 raise ValueError("ERROR! Provided vector not in the same Space of the vector set")
         
-        self.vecSet.append(vec_in.clone()) if copy else self.vecSet.append(vec_in)
+        self.vecSet.append(other.clone()) if copy else self.vecSet.append(other)
     
     def writeSet(self, filename, mode="a"):
         """Method to write to SEPlib file (by default it appends vectors to file)"""
@@ -338,8 +363,6 @@ class superVector(Vector):
         superVector constructor
         :param args: vectors or superVectors or vectors list objects
         """
-        super(superVector, self).__init__()
-        
         self.vecs = []
         for v in args:
             if v is None:
@@ -356,6 +379,22 @@ class superVector(Vector):
                 raise TypeError('Argument must be either a vector or a superVector')
         
         self.n = len(self.vecs)
+        # super(superVector, self).__init__()
+        # self.shape = None
+        # self.size = None
+        # self.ndim = None
+        
+    @property
+    def ndim(self):
+        return [self.vecs[idx].ndim for idx in range(self.n)]
+    
+    @property
+    def shape(self):
+        return [self.vecs[idx].shape for idx in range(self.n)]
+    
+    @property
+    def size(self):
+        return sum([self.vecs[idx].size for idx in range(self.n)])
     
     def __del__(self):
         """superVector destructor"""

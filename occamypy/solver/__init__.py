@@ -1,4 +1,4 @@
-from .basic import *
+from .base import *
 from .stopper import *
 from .linear import *
 from .nonlinear import *
@@ -8,6 +8,7 @@ from .stepper import *
 __all__ = [
     "Solver",
     "BasicStopper",
+    "SamplingStopper",
     "CG",
     "SD",
     "LSQR",

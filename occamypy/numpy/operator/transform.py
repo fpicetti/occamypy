@@ -1,7 +1,7 @@
 import numpy as np
 
-from occamypy.vector import VectorIC
-from occamypy.operator import Operator
+from occamypy import Operator
+from ..vector import VectorNumpy
 
 
 class FFT(Operator):
@@ -21,16 +21,16 @@ class FFT(Operator):
     def __init__(self, model, axes=None, nfft=None, sampling=None):
         
         if axes is None:
-            axes = tuple(range(model.ndims))
-        elif not isinstance(axes, tuple) and model.ndims == 1:
+            axes = tuple(range(model.ndim))
+        elif not isinstance(axes, tuple) and model.ndim == 1:
             axes = (axes,)
         if nfft is None:
             nfft = model.shape
-        elif not isinstance(nfft, tuple) and model.ndims == 1:
+        elif not isinstance(nfft, tuple) and model.ndim == 1:
             nfft = (nfft,)
         if sampling is None:
-            sampling = tuple([1.] * model.ndims)
-        elif not isinstance(sampling, tuple) and model.ndims == 1:
+            sampling = tuple([1.] * model.ndim)
+        elif not isinstance(sampling, tuple) and model.ndim == 1:
             sampling = (sampling,)
         
         if len(axes) != len(nfft) != len(sampling):
@@ -46,8 +46,8 @@ class FFT(Operator):
         for a, n in zip(self.axes, self.nfft):
             dims_fft[a] = n
         
-        super(FFT, self).__init__(domain=VectorIC(np.zeros(model.shape, dtype=np.complex)),
-                                  range=VectorIC(np.zeros(shape=dims_fft, dtype=np.complex)))
+        super(FFT, self).__init__(domain=VectorNumpy(np.zeros(model.shape, dtype=np.complex)),
+                                  range=VectorNumpy(np.zeros(shape=dims_fft, dtype=np.complex)))
     
     def __str__(self):
         return 'numpyFFT'
@@ -85,10 +85,10 @@ if __name__ == '__main__':
         # 1D
         dt = 0.005
         nt = 100
-        t = VectorIC(np.arange(nt) * dt)
+        t = VectorNumpy(np.arange(nt) * dt)
         f0 = 10
         nfft = 2 ** 10
-        x = VectorIC(np.sin(2 * np.pi * f0 * t.getNdArray()))
+        x = VectorNumpy(np.sin(2 * np.pi * f0 * t.getNdArray()))
         
         F = FFT(x, nfft=nfft, sampling=dt)
         F.dotTest(True)
@@ -121,7 +121,7 @@ if __name__ == '__main__':
         d = np.outer(np.sin(2 * np.pi * f0 * t), np.arange(nx) + 1)
         d = np.tile(d[:, :, np.newaxis], [1, 1, ny])
         
-        d = VectorIC(d.astype(np.complex))
+        d = VectorNumpy(d.astype(np.complex))
         F = FFT(model=d, nfft=(nfftt, nfftk, nfftk), sampling=(dt, dx, dy))
         F.dotTest(True)
         

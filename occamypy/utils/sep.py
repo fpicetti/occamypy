@@ -19,8 +19,7 @@ else:
     if os.path.isfile(HOME + "/.datapath"):
         out = RunShellCmd("cat $HOME/.datapath | grep $HOST", check_code=False, get_stat=False)[0]
         if len(out) == 0:
-            out = (
-                RunShellCmd("cat $HOME/.datapath | head -n 1", check_code=False, get_stat=False)[0]).rstrip()
+            out = (RunShellCmd("cat $HOME/.datapath | head -n 1", check_code=False, get_stat=False)[0]).rstrip()
         datapath = out.split("=")[1]
 
 # Checking if datapath was found

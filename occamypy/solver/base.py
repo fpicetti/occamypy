@@ -10,7 +10,7 @@ import datetime
 
 from occamypy.utils import mkdir, sep
 from occamypy import problem as P
-from occamypy import vector as V
+from occamypy import VectorSet, VectorOC
 
 
 class Solver:
@@ -38,9 +38,9 @@ class Solver:
         self.model = list()
         self.res = list()
         self.grad = list()
-        self.modelSet = V.VectorSet()
-        self.resSet = V.VectorSet()
-        self.gradSet = V.VectorSet()
+        self.modelSet = VectorSet()
+        self.resSet = VectorSet()
+        self.gradSet = VectorSet()
         self.inv_model = None
         self.iter_written = 0
 
@@ -98,9 +98,9 @@ class Solver:
         self.model = list()               # List for model vectors (to save results in-core)
         self.res = list()                 # List for residual vectors (to save results in-core)
         self.grad = list()                # List for gradient vectors (to save results in-core)
-        self.modelSet = V.VectorSet()     # Set for model vectors
-        self.resSet = V.VectorSet()       # Set for residual vectors
-        self.gradSet = V.VectorSet()      # Set for gradient vectors
+        self.modelSet = VectorSet()       # Set for model vectors
+        self.resSet = VectorSet()         # Set for residual vectors
+        self.gradSet = VectorSet()        # Set for gradient vectors
         self.inv_model = None             # Temporary saved inverted model
         self.overwrite = True             # Flag to overwrite results if first time writing on disk
 
@@ -112,9 +112,9 @@ class Solver:
         self.model = list()  # List for model vectors (to save results in-core)
         self.res = list()  # List for residual vectors (to save results in-core)
         self.grad = list()  # List for gradient vectors (to save results in-core)
-        self.modelSet = V.VectorSet()  # Set for model vectors
-        self.resSet = V.VectorSet()  # Set for residual vectors
-        self.gradSet = V.VectorSet()  # Set for gradient vectors
+        self.modelSet = VectorSet()  # Set for model vectors
+        self.resSet = VectorSet()  # Set for residual vectors
+        self.gradSet = VectorSet()  # Set for gradient vectors
         self.inv_model = None  # Temporary saved inverted model
 
     def get_restart(self, log_file):
@@ -282,7 +282,7 @@ class Restart:
                 pickle.dump(self, out_file, pickle.HIGHEST_PROTOCOL)
             # Checking if a vectorOC was in the restart and preventing the removal of the vector file
             for vec_name, vec in self.vec_dict.items():
-                if isinstance(vec, V.VectorOC):
+                if isinstance(vec, VectorOC):
                     vec.remove_file = False
 
     def read_restart(self):
@@ -294,7 +294,7 @@ class Restart:
             self.vec_dict = restart.vec_dict
             # Checking if a vectorOC was in the restart and setting the removal of the vector file
             for vec_name, vec in self.vec_dict.items():
-                if isinstance(vec, V.VectorOC):
+                if isinstance(vec, VectorOC):
                     vec.remove_file = True
             # Removing previous restart and deleting read object
             restart.clear_restart()

@@ -4,7 +4,7 @@ from time import time
 from copy import deepcopy
 from shutil import copyfile
 
-from occamypy import vector as V
+from .base import Vector
 from occamypy.utils import sep
 from occamypy.utils.os import RunShellCmd, hashfile, BUF_SIZE
 
@@ -12,31 +12,31 @@ from re import compile
 re_dpr = compile("DOT RESULT(.*)")
 
 
-class VectorOC(V.Vector):
+class VectorOC(Vector):
     """Out-of-core python vector class"""
     
-    def __init__(self, input):
+    def __init__(self, in_content):
         """VectorOC constructor: input= numpy array, header file, vectorIC"""
         # Verify that input is a numpy array or header file or vectorOC
         super(VectorOC).__init__()
-        if isinstance(input, V.VectorIC):
+        if isinstance(in_content, Vector):
             # VectorIC passed to constructor
             # Placing temporary file into datapath folder
             tmp_vec = sep.datapath + "tmp_vectorOC" + str(int(time() * 1000000)) + ".H"
-            sep.write_file(tmp_vec, input.arr, input.ax_info)
+            sep.write_file(tmp_vec, in_content.getNdArray(), in_content.ax_info)
             self.vecfile = tmp_vec  # Assigning internal vector array
             # Removing header file? (Default behavior is to remove temporary file)
             self.remove_file = True
-        elif isinstance(input, np.ndarray):
+        elif isinstance(in_content, np.ndarray):
             # Numpy array passed to constructor
             tmp_vec = sep.datapath + "tmp_vectorOC" + str(int(time() * 1000000)) + ".H"
-            sep.write_file(tmp_vec, input)
+            sep.write_file(tmp_vec, in_content)
             self.vecfile = tmp_vec  # Assigning internal vector array
             # Removing header file? (Default behavior is to remove temporary file)
             self.remove_file = True
-        elif isinstance(input, str):
+        elif isinstance(in_content, str):
             # Header file passed to constructor
-            self.vecfile = input  # Assigning internal vector array
+            self.vecfile = in_content  # Assigning internal vector array
             # Removing header file? (Default behavior is to preserve user file)
             self.remove_file = False
         else:
@@ -45,13 +45,13 @@ class VectorOC(V.Vector):
         # Assigning binary file pointer
         self.binfile = sep.get_binary(self.vecfile)
         # Number of axes integer
-        self.ndims = sep.get_num_axes(self.vecfile)
+        self.ndim = sep.get_num_axes(self.vecfile)
         # Number of elements per axis (tuple)
         axes_info = sep.get_axes(self.vecfile)
-        axis_elements = tuple([ii[0] for ii in axes_info[:self.ndims]])
+        axis_elements = tuple([ii[0] for ii in axes_info[:self.ndim]])
         self.shape = tuple(reversed(axis_elements))
         self.size = np.product(self.shape)
-        self.ndims = len(self.shape)
+        self.ndim = len(self.shape)
         return
     
     def __del__(self):
@@ -172,10 +172,10 @@ class VectorOC(V.Vector):
                 # Number of vectors already present in the file
                 if self.shape == (1,):
                     n_vec = axes[0][0]
-                    append_dim = self.ndims
+                    append_dim = self.ndim
                 else:
-                    n_vec = axes[self.ndims][0]
-                    append_dim = self.ndims + 1
+                    n_vec = axes[self.ndim][0]
+                    append_dim = self.ndim + 1
                 with open(filename, mode) as fid:
                     fid.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (append_dim, n_vec + 1, append_dim, append_dim))
                 fid.close()
@@ -194,48 +194,48 @@ class VectorOC(V.Vector):
             fid_toread.close()
         return
     
-    def copy(self, vec2):
+    def copy(self, other):
         """Function to copy vector from input vector"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorOC):
+        if not isinstance(other, VectorOC):
             raise TypeError("ERROR! Provided input vector not a vectorOC!")
         # Checking dimensionality
-        if not self.checkSame(vec2):
+        if not self.checkSame(other):
             raise ValueError(
-                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, vec2.shape))
+                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
         # Copy binary file of input vector
-        copyfile(vec2.binfile, self.binfile)  # Copying binary
+        copyfile(other.binfile, self.binfile)  # Copying binary
         return
     
-    def scaleAdd(self, vec2, sc1=1.0, sc2=1.0):
+    def scaleAdd(self, other, sc1=1.0, sc2=1.0):
         """Function to scale a vector"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorOC):
+        if not isinstance(other, VectorOC):
             raise TypeError("ERROR! Provided input vector not a vectorOC!")
         # Checking dimensionality
-        if not self.checkSame(vec2):
+        if not self.checkSame(other):
             raise ValueError(
-                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, vec2.shape))
+                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
         # Performing scaling and addition
         cmd = "Solver_ops file1=%s scale1_r=%s file2=%s scale2_r=%s op=scale_addscale" % (
-            self.vecfile, sc1, vec2.vecfile, sc2)
+            self.vecfile, sc1, other.vecfile, sc2)
         RunShellCmd(cmd, get_stat=False, get_output=False)
         return
     
-    def dot(self, vec2):
+    def dot(self, other):
         """Function to compute dot product between two vectors"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorOC):
+        if not isinstance(other, VectorOC):
             raise TypeError("ERROR! Provided input vector not a vectorOC!")
         # Checking size (must have same number of elements)
-        if self.size != vec2.size:
-            raise ValueError("ERROR! Vector size mismatching: vec1 = %s; vec2 = %s" % (self.size, vec2.size))
+        if self.size != other.size:
+            raise ValueError("ERROR! Vector size mismatching: vec1 = %s; vec2 = %s" % (self.size, other.size))
         # Checking dimensionality
-        if not self.checkSame(vec2):
+        if not self.checkSame(other):
             raise ValueError(
-                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, vec2.shape))
+                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
         # Running Solver_ops to compute norm value
-        cmd = "Solver_ops file1=%s file2=%s op=dot" % (self.vecfile, vec2.vecfile)
+        cmd = "Solver_ops file1=%s file2=%s op=dot" % (self.vecfile, other.vecfile)
         find = re_dpr.search(RunShellCmd(cmd, get_stat=False)[0])
         if find:
             return float(find.group(1))
@@ -243,20 +243,20 @@ class VectorOC(V.Vector):
             raise ValueError("ERROR! Trouble parsing dot product!")
         return float(out_dot)
     
-    def multiply(self, vec2):
+    def multiply(self, other):
         """Function to multiply element-wise two vectors"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorOC):
+        if not isinstance(other, VectorOC):
             raise TypeError("ERROR! Provided input vector not a vectorOC!")
         # Checking size (must have same number of elements)
-        if self.size != vec2.size:
-            raise ValueError("ERROR! Vector size mismatching: vec1 = %s; vec2 = %s" % (self.size, vec2.size))
+        if self.size != other.size:
+            raise ValueError("ERROR! Vector size mismatching: vec1 = %s; vec2 = %s" % (self.size, other.size))
         # Checking dimensionality
-        if not self.checkSame(vec2):
+        if not self.checkSame(other):
             raise ValueError(
-                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, vec2.shape))
+                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
         # Performing scaling and addition
-        cmd = "Solver_ops file1=%s file2=%s op=multiply" % (self.vecfile, vec2.vecfile)
+        cmd = "Solver_ops file1=%s file2=%s op=multiply" % (self.vecfile, other.vecfile)
         RunShellCmd(cmd, get_stat=False, get_output=False)
         return
     

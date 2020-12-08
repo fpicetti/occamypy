@@ -1,14 +1,15 @@
-from .matrix import *
-from .derivative import *
-from .signal import *
+from .vector import *
+from .operator import *
 
 __all__ = [
+    "VectorNumpy",
     "Matrix",
     "FirstDerivative",
     "SecondDerivative",
-    "Gradient",
     "Laplacian",
-    "GaussianFilter",
+    "Gradient",
     "ConvND",
+    "GaussianFilter",
     "ZeroPad",
+    "FFT",
 ]

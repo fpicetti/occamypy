@@ -168,8 +168,7 @@ class NLCG(S.Solver):
         super(NLCG, self).__init__()
         # Defining stopper object
         self.stoppr = stoppr
-
-
+        
         # Defining stepper object
         self.stepper = stepper if stepper is not None else S.ParabolicStep()
         # Beta function to use during the inversion
@@ -835,7 +834,7 @@ class MCMC(S.Solver):
         else:
             raise ValueError("Not supported prop_distr")
         # print formatting
-        self.iter_msg = "sample number = %s, log-obj = %.5e, resnorm = %.2e, feval = %d, acceptance rate %% = %2.5f, alpha = %1.5f"
+        self.iter_msg = "sample number = %s, log-obj = %.5e, resnorm = %.2e, feval = %d, acceptance rate = %2.5f%%, alpha = %1.5f"
         self.ndigits = self.stopper.zfill
         # Temperature Metropolis sampling algorithm (see, Monte Carlo sampling of
         # solutions to inverse problems by Mosegaard and Tarantola, 1995)

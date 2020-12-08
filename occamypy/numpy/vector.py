@@ -2,43 +2,36 @@ import numpy as np
 from copy import deepcopy
 from sys import version_info
 
-from occamypy import vector as V
-from occamypy.utils import sep
+from occamypy import Vector
 
 
-class VectorIC(V.Vector):
+class VectorNumpy(Vector):
     """In-core python vector class"""
     
-    def __init__(self, in_vec):
+    def __init__(self, in_content):
         """
-        VectorIC constructor: arr=np.array
+        VectorNumpy constructor: arr = np.array
         This class stores array with C memory order (i.e., row-wise sorting)
         """
-        
-        # Verify that input is a numpy array or header file or vectorOC TODO fix import loop
-        if isinstance(in_vec, V.VectorOC):  # VectorOC passed to constructor
-            self.arr, self.ax_info = sep.read_file(in_vec.vecfile)
-        if isinstance(in_vec, str):  # Header file passed to constructor
-            self.arr, self.ax_info = sep.read_file(in_vec)
-        elif isinstance(in_vec, np.ndarray):  # Numpy array passed to constructor
-            if np.isfortran(in_vec):
+        if isinstance(in_content, str):  # Header file name passed to constructor
+            self.arr = np.load(in_content, allow_pickle=True)
+        elif isinstance(in_content, np.ndarray):  # Numpy array passed to constructor
+            if np.isfortran(in_content):
                 raise TypeError('Input array not a C contiguous array!')
-            self.arr = np.array(in_vec, copy=False)
+            self.arr = np.array(in_content, copy=False)
             self.ax_info = None
-        elif isinstance(in_vec, tuple):  # Tuple size passed to constructor
-            self.arr = np.zeros(tuple(reversed(in_vec)))
+        elif isinstance(in_content, tuple):  # Tuple size passed to constructor
+            # self.arr = np.zeros(tuple(reversed(in_vec)))
+            self.arr = np.empty(in_content)
             self.ax_info = None
         else:  # Not supported type
             raise ValueError("ERROR! Input variable not currently supported!")
         
+        super(VectorNumpy, self).__init__()
         # Number of elements per axis (tuple). Checking also the memory order
         self.shape = self.arr.shape  # If fortran the first axis is the "fastest"
-        self.ndims = len(self.shape)  # Number of axes integer
+        self.ndim = self.arr.ndim  # Number of axes integer
         self.size = self.arr.size  # Total number of elements
-        super(VectorIC, self).__init__()
-    
-    def __repr__(self):
-        return self.getNdArray().__repr__()
     
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
@@ -94,9 +87,9 @@ class VectorIC(V.Vector):
     
     def cloneSpace(self):
         """Function to clone vector space only (vector without actual vector array by using empty array of size 0)"""
-        vec_space = VectorIC(np.empty(0, dtype=self.getNdArray().dtype))
+        vec_space = VectorNumpy(np.empty(0, dtype=self.getNdArray().dtype))
         # Cloning space of input vector
-        vec_space.ndims = self.ndims
+        vec_space.ndim = self.ndim
         vec_space.shape = self.shape
         vec_space.size = self.size
         return vec_space
@@ -121,7 +114,7 @@ class VectorIC(V.Vector):
         if np.isscalar(vec2):
             self.getNdArray()[:] = np.maximum(self.getNdArray(), vec2)
             return self
-        elif isinstance(vec2, VectorIC):
+        elif isinstance(vec2, VectorNumpy):
             if not self.checkSame(vec2):
                 raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, vec2.shape))
             self.getNdArray()[:] = np.maximum(self.getNdArray(), vec2.getNdArray())
@@ -148,62 +141,62 @@ class VectorIC(V.Vector):
         self.getNdArray()[:] = self.getNdArray().imag
         return self
     
-    def copy(self, vec2):
+    def copy(self, other):
         """Function to copy vector from input vector"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorIC):
+        if not isinstance(other, VectorNumpy):
             raise TypeError("Provided input vector not a vectorIC!")
         # Checking dimensionality
-        if not self.checkSame(vec2):
-            raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, vec2.shape))
+        if not self.checkSame(other):
+            raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, other.shape))
         # Element-wise copy of the input array
-        self.getNdArray()[:] = vec2.getNdArray()
+        self.getNdArray()[:] = other.getNdArray()
         return self
     
-    def scaleAdd(self, vec2, sc1=1.0, sc2=1.0):
+    def scaleAdd(self, other, sc1=1.0, sc2=1.0):
         """Function to scale a vector"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorIC):
+        if not isinstance(other, VectorNumpy):
             raise TypeError("Provided input vector not a vectorIC!")
         # Checking dimensionality
-        if not self.checkSame(vec2):
-            raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, vec2.shape))
+        if not self.checkSame(other):
+            raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, other.shape))
         # Performing scaling and addition
-        self.getNdArray()[:] = sc1 * self.getNdArray() + sc2 * vec2.getNdArray()
+        self.getNdArray()[:] = sc1 * self.getNdArray() + sc2 * other.getNdArray()
         return self
     
-    def dot(self, vec2):
+    def dot(self, other):
         """Function to compute dot product between two vectors"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorIC):
+        if not isinstance(other, VectorNumpy):
             raise TypeError("Provided input vector not a vectorIC!")
         # Checking size (must have same number of elements)
-        if self.size != vec2.size:
-            raise ValueError("Vector size mismatching: vec1 = %d; vec2 = %d" % (self.size, vec2.size))
+        if self.size != other.size:
+            raise ValueError("Vector size mismatching: vec1 = %d; vec2 = %d" % (self.size, other.size))
         # Checking dimensionality
-        if not self.checkSame(vec2):
-            raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, vec2.shape))
-        return np.vdot(self.getNdArray().ravel(), vec2.getNdArray().ravel())
+        if not self.checkSame(other):
+            raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, other.shape))
+        return np.vdot(self.getNdArray().ravel(), other.getNdArray().ravel())
     
-    def multiply(self, vec2):
+    def multiply(self, other):
         """Function to multiply element-wise two vectors"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorIC):
+        if not isinstance(other, VectorNumpy):
             raise TypeError("Provided input vector not a vectorIC!")
         # Checking size (must have same number of elements)
-        if self.size != vec2.size:
-            raise ValueError("Vector size mismatching: vec1 = %s; vec2 = %s" % (self.size, vec2.size))
+        if self.size != other.size:
+            raise ValueError("Vector size mismatching: vec1 = %s; vec2 = %s" % (self.size, other.size))
         # Checking dimensionality
-        if not self.checkSame(vec2):
-            raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, vec2.shape))
+        if not self.checkSame(other):
+            raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, other.shape))
         # Performing element-wise multiplication
-        self.getNdArray()[:] = np.multiply(self.getNdArray(), vec2.getNdArray())
+        self.getNdArray()[:] = np.multiply(self.getNdArray(), other.getNdArray())
         return self
     
     def isDifferent(self, vec2):
         """Function to check if two vectors are identical using built-in hash function"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorIC):
+        if not isinstance(vec2, VectorNumpy):
             raise TypeError("Provided input vector not a vectorIC!")
         # Using Hash table for python2 and numpy built-in function array_equal otherwise
         if version_info[0] == 2:
@@ -222,9 +215,9 @@ class VectorIC(V.Vector):
     
     def clipVector(self, low, high):
         """Function to bound vector values based on input vectors low and high"""
-        if not isinstance(low, VectorIC):
+        if not isinstance(low, VectorNumpy):
             raise TypeError("Provided input low vector not a vectorIC!")
-        if not isinstance(high, VectorIC):
+        if not isinstance(high, VectorNumpy):
             raise TypeError("Provided input high vector not a vectorIC!")
         self.getNdArray()[:] = np.minimum(np.maximum(low.getNdArray(), self.getNdArray()), high.getNdArray())
         return self
