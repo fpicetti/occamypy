@@ -386,7 +386,6 @@ class VarProRegularized(P.Problem):
         self.lin_solver = lin_solver
         self.lin_solver.flush_memory = True
         self.lin_solver_prefix = self.lin_solver.prefix
-        self.lin_solver.setDefaults(prefix=self.lin_solver.prefix)
         self.vp_linear_prob.linear = True
         self.warm_start = warm_start
         return

@@ -47,6 +47,8 @@ class Solver:
         # Set Restart object
         self.restart = Restart()
         self.create_msg = False
+        # Setting defaults for saving results
+        self.setDefaults()
         return
 
     def __del__(self):
