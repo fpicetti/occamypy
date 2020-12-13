@@ -126,6 +126,11 @@ class VectorNumpy(Vector):
         self.getNdArray()[:] = np.conjugate(self.getNdArray())
         return self
     
+    def transpose(self):
+        other = VectorNumpy(tuple(reversed(self.shape)))
+        other[:] = self.getNdArray().T
+        return other
+    
     def pow(self, power):
         """Compute element-wise power of the vector"""
         self.getNdArray()[:] = self.getNdArray() ** power

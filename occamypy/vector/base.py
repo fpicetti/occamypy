@@ -258,8 +258,15 @@ class Vector:
     
     # TODO implement on seplib
     def conj(self):
-        """Compute conjugate transpose of the vector"""
+        """Compute the complex conjugate of the vector"""
         raise NotImplementedError('conj method must be implemented')
+    
+    def transpose(self):
+        """Compute the transpose of the vector"""
+        
+    def hermitian(self):
+        """Compute the hermitian, i.e. the conjugate transpose"""
+        return self.transpose().conj()
     
     # TODO implement on seplib
     def pow(self, power):
@@ -321,7 +328,7 @@ class Vector:
            Function to bound vector values based on input vectors min and max
         """
         raise NotImplementedError("clipVector must be overwritten")
-
+    
 
 # Set of vectors (useful to store results and same-Space vectors together)
 class VectorSet:
