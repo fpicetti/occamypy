@@ -1,5 +1,5 @@
 import os
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, find_packages
 
 
 def src(pth):
@@ -28,10 +28,10 @@ setup(name='occamypy',
       license='GNU',
       author='Ettore Biondi, Guillame Barnier, Robert Clapp, Francesco Picetti, Stuart Farris',
       author_email='francesco.picetti@polimi.it',
-      install_requires=['numpy >= 1.15.0', 'scipy', 'matplotlib', 'imageio', 'numba', 'dask', 'dask-jobqueue', 'dask-kubernetes'],
-      extras_require={  # one can install two of them with pip install occamypy[cuda,cluster]
-          'dev': ['pyfftw', 'PyWavelets'],
-          'cuda': ['cupy>=7.3', 'gputil']},
+      install_requires=['numpy >= 1.15.0', 'scipy', 'matplotlib', 'imageio', 'numba', 'h5py',
+                        'dask', 'dask-jobqueue', 'dask-kubernetes'],
+      extras_require={  # one can install two of them with pip install occamypy[cuda]
+          'cuda': ['cupy>=8.0', 'gputil', 'cusignal']},
       packages=find_packages(),
       
       zip_safe=True)
