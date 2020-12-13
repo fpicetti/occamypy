@@ -145,7 +145,7 @@ class DaskOperator(Operator):
             # Creating a spreading operator useful
             self.Sprd = kwargs.get("spread_op", None)
             if self.Sprd:
-                if not isinstance(self.Sprd, DaskSpreadOp):
+                if not isinstance(self.Sprd, DaskSpread):
                     raise TypeError("Provided spread_op not a DaskSpreadOp class!")
                 self.model_tmp = self.Sprd.getRange().clone()
         # Set aux function name "necessary for VP operator"
@@ -154,7 +154,7 @@ class DaskOperator(Operator):
             # Creating a spreading operator useful
             self.SprdAux = kwargs.get("spread_op_aux", None)
             if self.SprdAux:
-                if not isinstance(self.SprdAux, DaskSpreadOp):
+                if not isinstance(self.SprdAux, DaskSpread):
                     raise TypeError("Provided spread_op_aux not a DaskSpreadOp class!")
                 self.tmp_aux = self.SprdAux.getRange().clone()
         return
@@ -219,7 +219,7 @@ class DaskOperator(Operator):
         return
 
 
-class DaskSpreadOp(Operator):
+class DaskSpread(Operator):
     """
     Class to spread/stack single vector to/from multiple copies on different workers:
          | v1 |   | I |
@@ -306,7 +306,7 @@ class DaskSpreadOp(Operator):
         return
 
 
-class DaskCollectOp(Operator):
+class DaskCollect(Operator):
     """
     Class to Collect/Scatter a Dask vector into/from a local vector
     """
@@ -328,7 +328,7 @@ class DaskCollectOp(Operator):
             raise TypeError("range is not a vector-derived object!")
         if domain.size != range.size:
             raise ValueError("number of elements in domain and range is not equal!")
-        super(DaskCollectOp, self).__init__(domain, range)
+        super(DaskCollect, self).__init__(domain, range)
     
     def forward(self, add, model, data):
         """Forward operator: collecting dask vector array to local one"""

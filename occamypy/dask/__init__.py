@@ -6,6 +6,6 @@ __all__ = [
     "DaskClient",
     "DaskVector",
     "DaskOperator",
-    "DaskSpreadOp",
-    "DaskCollectOp",
+    "DaskSpread",
+    "DaskCollect",
 ]

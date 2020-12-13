@@ -250,9 +250,9 @@ class DaskVector(Vector):
         N_wrk = self.dask_client.getNworkers()
         if "vector_template" in kwargs and "chunks" in kwargs:
             vec_tmplt = kwargs.get("vector_template")
-            chunks = kwargs.get("chunks")
+            self.chunks = kwargs.get("chunks")
             # Spreading chunks across available workers
-            chunks = [np.sum(ix) for ix in np.array_split(chunks, N_wrk)]
+            self. chunks = [np.sum(ix) for ix in np.array_split(self.chunks, N_wrk)]
             # Checking if an SepVector was passed (by getting Hypercube)
             hyper = False
             if SepVector:
@@ -267,7 +267,7 @@ class DaskVector(Vector):
             daskD.wait(vec_spaceD)
             # Spreading vectors
             for iwrk, wrkId in enumerate(wrkIds):
-                for ivec in range(chunks[iwrk]):
+                for ivec in range(self.chunks[iwrk]):
                     if hyper:
                         # Instantiating Sep vectors on remote machines
                         self.vecDask.append(
@@ -280,17 +280,17 @@ class DaskVector(Vector):
             # Vector list to be spread across workers
             vec_list = kwargs.get("vectors")
             copy = kwargs.get("copy", True)
-            chunks = kwargs.get("chunks", None)
-            if chunks is None:
+            self.chunks = kwargs.get("chunks", None)
+            if self.chunks is None:
                 # Spread vectors evenly
                 vec_chunks = np.array_split(vec_list, N_wrk)
             else:
                 # Spread according to chunk size
-                if len(vec_list) != np.sum(chunks):
+                if len(vec_list) != np.sum(self.chunks):
                     raise ValueError("Total number of vectors in chunks not consistent with number of vectors!")
                 # Spreading chunks across available workers
-                chunks = [np.sum(ix) for ix in np.array_split(chunks, N_wrk)]
-                vec_chunks = np.split(vec_list, np.cumsum(chunks))[:-1]
+                self.chunks = [np.sum(ix) for ix in np.array_split(self.chunks, N_wrk)]
+                vec_chunks = np.split(vec_list, np.cumsum(self.chunks))[:-1]
             # Spreading vectors
             for iwrk, wrkId in enumerate(wrkIds):
                 for vec in vec_chunks[iwrk]:
@@ -748,7 +748,7 @@ def readDaskVector(dask_client, **kwargs):
     :param shapes : - list/array; List/Array containing the shape of each chunk to be read
     :param chunks : - list/array; List/Array defining how each vector should be spread. Note that len(chunks) must be
                                   equal to dask_client.getNworkers(), len(shape) must be equal np.sum(chunks)
-    :param vtype : - string; Type of vectors to be instantiated. Supported (VectorIC,SepVector)
+    :param vtype : - string; Type of vectors to be instantiated. Supported (VectorNumpy, SepVector)
     :return:
     daskVec - Dask Vector object
     """
