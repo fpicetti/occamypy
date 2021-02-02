@@ -5,6 +5,7 @@ from .problem import *
 from .solver import *
 from .dask import *
 from .utils import *
+from .torch import *
 # This way we have the basic host-CPU coverage
 
 # cupy is not installed as the name will be the same of the basic operators.
