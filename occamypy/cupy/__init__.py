@@ -1,5 +1,5 @@
 from .vector import *
-from . import operator
+from .operator import *
 
 __all__ = [
     "VectorCupy",

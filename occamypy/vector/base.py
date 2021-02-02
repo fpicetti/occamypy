@@ -82,6 +82,10 @@ class Vector:
     def __setitem__(self, key, value):
         self.getNdArray()[key] = value
     
+    @property
+    def whoami(self):
+        return type(self).__name__
+    
     # Class vector operations
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
@@ -252,8 +256,8 @@ class Vector:
         return self
     
     # TODO implement on seplib
-    def maximum(self, vec2):
-        """Return a new vector of element-wise maximum of self and vec2"""
+    def maximum(self, other):
+        """Return a new vector of element-wise maximum of self and other"""
         raise NotImplementedError('maximum method must be implemented')
     
     # TODO implement on seplib
@@ -318,7 +322,7 @@ class Vector:
         """Function to multiply element-wise two vectors"""
         raise NotImplementedError("multiply must be overwritten")
     
-    def isDifferent(self, vec2):
+    def isDifferent(self, other):
         """Function to check if two vectors are identical"""
         
         raise NotImplementedError("isDifferent must be overwritten")

@@ -198,11 +198,11 @@ class VectorOC(Vector):
         """Function to copy vector from input vector"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorOC):
-            raise TypeError("ERROR! Provided input vector not a vectorOC!")
+            raise TypeError("ERROR! Provided input vector not a %s!" % self.whoami)
         # Checking dimensionality
         if not self.checkSame(other):
             raise ValueError(
-                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
+                "ERROR! Vector dimensionality mismatching: self = %s; other = %s" % (self.shape, other.shape))
         # Copy binary file of input vector
         copyfile(other.binfile, self.binfile)  # Copying binary
         return
@@ -215,7 +215,7 @@ class VectorOC(Vector):
         # Checking dimensionality
         if not self.checkSame(other):
             raise ValueError(
-                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
+                "ERROR! Vector dimensionality mismatching: self = %s; other = %s" % (self.shape, other.shape))
         # Performing scaling and addition
         cmd = "Solver_ops file1=%s scale1_r=%s file2=%s scale2_r=%s op=scale_addscale" % (
             self.vecfile, sc1, other.vecfile, sc2)
@@ -226,14 +226,14 @@ class VectorOC(Vector):
         """Function to compute dot product between two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorOC):
-            raise TypeError("ERROR! Provided input vector not a vectorOC!")
+            raise TypeError("ERROR! Provided input vector not a %s!" % self.whoami)
         # Checking size (must have same number of elements)
         if self.size != other.size:
-            raise ValueError("ERROR! Vector size mismatching: vec1 = %s; vec2 = %s" % (self.size, other.size))
+            raise ValueError("ERROR! Vector size mismatching: self = %s; other = %s" % (self.size, other.size))
         # Checking dimensionality
         if not self.checkSame(other):
             raise ValueError(
-                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
+                "ERROR! Vector dimensionality mismatching: self = %s; other = %s" % (self.shape, other.shape))
         # Running Solver_ops to compute norm value
         cmd = "Solver_ops file1=%s file2=%s op=dot" % (self.vecfile, other.vecfile)
         find = re_dpr.search(RunShellCmd(cmd, get_stat=False)[0])
@@ -247,24 +247,24 @@ class VectorOC(Vector):
         """Function to multiply element-wise two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorOC):
-            raise TypeError("ERROR! Provided input vector not a vectorOC!")
+            raise TypeError("ERROR! Provided input vector not a %s!" % self.whoami)
         # Checking size (must have same number of elements)
         if self.size != other.size:
-            raise ValueError("ERROR! Vector size mismatching: vec1 = %s; vec2 = %s" % (self.size, other.size))
+            raise ValueError("ERROR! Vector size mismatching: self = %s; other = %s" % (self.size, other.size))
         # Checking dimensionality
         if not self.checkSame(other):
             raise ValueError(
-                "ERROR! Vector dimensionality mismatching: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
+                "ERROR! Vector dimensionality mismatching: self = %s; other = %s" % (self.shape, other.shape))
         # Performing scaling and addition
         cmd = "Solver_ops file1=%s file2=%s op=multiply" % (self.vecfile, other.vecfile)
         RunShellCmd(cmd, get_stat=False, get_output=False)
         return
     
-    def isDifferent(self, vec2):
+    def isDifferent(self, other):
         """Function to check if two vectors are identical using M5 hash scheme"""
         # Checking whether the input is a vector or not
-        if not isinstance(vec2, VectorOC):
-            raise TypeError("ERROR! Provided input vector not a vectorOC!")
-        hashmd5_vec1 = hashfile(self.binfile)
-        hashmd5_vec2 = hashfile(vec2.binfile)
-        return hashmd5_vec1 != hashmd5_vec2
+        if not isinstance(other, VectorOC):
+            raise TypeError("ERROR! Provided input vector not a %s!" % self.whoami)
+        hashmd5_self = hashfile(self.binfile)
+        hashmd5_other = hashfile(other.binfile)
+        return hashmd5_self != hashmd5_other

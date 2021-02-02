@@ -47,13 +47,13 @@ class VectorCupy(Vector):
     def _check_same_device(self, other):
         assert isinstance(self, VectorCupy)
         assert isinstance(other, VectorCupy)
-        answer = self.cuda_device == other.cuda_device
+        answer = self.device == other.device
         if not answer:
-            raise Warning('The two vectors live in different devices: %s - %s' % (self.cuda_device, other.cuda_device))
+            raise Warning('The two vectors live in different devices: %s - %s' % (self.device, other.device))
         return answer
     
     @property
-    def cuda_device(self):
+    def device(self):
         try:
             return self.arr.device
         except AttributeError:
@@ -69,17 +69,17 @@ class VectorCupy(Vector):
             except AttributeError:
                 self.arr.device = None
         else:  # move to CPU
-            if self.cuda_device is None:  # already on CPU
+            if self.device is None:  # already on CPU
                 pass
             else:
                 self.arr = cp.asnumpy(self.arr)
     
     def printDevice(self):
-        if self.cuda_device is None:
+        if self.device is None:
             print('CPU')
         else:
-            name = getGPUs()[self.cuda_device.id].name
-            print('GPU %d - %s' % (self.cuda_device.id, name))
+            name = getGPUs()[self.device.id].name
+            print('GPU %d - %s' % (self.device.id, name))
 
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
@@ -90,7 +90,7 @@ class VectorCupy(Vector):
     
     def norm(self, N=2):
         """Function to compute vector N-norm using Numpy"""
-        return cp.linalg.norm(self.getNdArray().flatten(), ord=N)
+        return cp.linalg.norm(self.getNdArray().ravel(), ord=N)
 
     def zero(self):
         """Function to zero out a vector"""
@@ -168,13 +168,13 @@ class VectorCupy(Vector):
             return self
         elif isinstance(other, VectorCupy):
             if not self.checkSame(other):
-                raise ValueError('Dimensionality not equal: self = %s; vec2 = %s' % (self.shape, other.shape))
+                raise ValueError('Dimensionality not equal: self = %s; other = %s' % (self.shape, other.shape))
             if not self._check_same_device(other):
                 raise ValueError('Provided input has to live in the same device')
             self.getNdArray()[:] = cp.maximum(self.getNdArray(), other.getNdArray())
             return self
         else:
-            raise TypeError('Provided input has to be either a scalar or a vectorIC')
+            raise TypeError("Provided input has to be either a scalar or a %s!" % self.whoami)
 
     def conj(self):
         self.getNdArray()[:] = cp.conj(self.getNdArray())
@@ -199,10 +199,10 @@ class VectorCupy(Vector):
         """Function to copy vector from input vector"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
-            raise TypeError("Provided input vector not a vectorIC!")
+            raise TypeError("Provided input vector not a %s!" % self.whoami)
         # Checking dimensionality
         if not self.checkSame(other):
-            raise ValueError("Dimensionality not equal: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
+            raise ValueError("Dimensionality not equal: self = %s; other = %s" % (self.shape, other.shape))
         # Element-wise copy of the input array
         self.getNdArray()[:] = other.getNdArray()
         return self
@@ -211,10 +211,10 @@ class VectorCupy(Vector):
         """Function to scale a vector"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
-            raise TypeError("Provided input vector not a vectorIC!")
+            raise TypeError("Provided input vector not a %s!" % self.whoami)
         # Checking dimensionality
         if not self.checkSame(other):
-            raise ValueError("Dimensionality not equal: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
+            raise ValueError("Dimensionality not equal: self = %s; other = %s" % (self.shape, other.shape))
         # Performing scaling and addition
         if not self._check_same_device(other):
             raise ValueError('Provided input has to live in the same device')
@@ -225,13 +225,13 @@ class VectorCupy(Vector):
         """Function to compute dot product between two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
-            raise TypeError("Provided input vector not a vectorIC!")
+            raise TypeError("Provided input vector not a %s!" % self.whoami)
         # Checking size (must have same number of elements)
         if self.size != other.size:
-            raise ValueError("Vector size mismatching: vec1 = %d; vec2 = %d" % (self.size, other.size))
+            raise ValueError("Vector size mismatching: self = %d; other = %d" % (self.size, other.size))
         # Checking dimensionality
         if not self.checkSame(other):
-            raise ValueError("Dimensionality not equal: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
+            raise ValueError("Dimensionality not equal: self = %s; other = %s" % (self.shape, other.shape))
         if not self._check_same_device(other):
             raise ValueError('Provided input has to live in the same device')
         return cp.vdot(self.getNdArray().flatten(), other.getNdArray().flatten())
@@ -240,13 +240,13 @@ class VectorCupy(Vector):
         """Function to multiply element-wise two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
-            raise TypeError("Provided input vector not a vectorIC!")
+            raise TypeError("Provided input vector not a %s!" % self.whoami)
         # Checking size (must have same number of elements)
         if self.size != other.size:
-            raise ValueError("Vector size mismatching: vec1 = %d; vec2 = %d" % (self.size, other.size))
+            raise ValueError("Vector size mismatching: self = %d; other = %d" % (self.size, other.size))
         # Checking dimensionality
         if not self.checkSame(other):
-            raise ValueError("Dimensionality not equal: vec1 = %s; vec2 = %s" % (self.shape, other.shape))
+            raise ValueError("Dimensionality not equal: self = %s; other = %s" % (self.shape, other.shape))
         # Performing element-wise multiplication
         if not self._check_same_device(other):
             raise ValueError('Provided input has to live in the same device')
@@ -257,7 +257,7 @@ class VectorCupy(Vector):
         """Function to check if two vectors are identical using built-in hash function"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
-            raise TypeError("Provided input vector not a vectorIC!")
+            raise TypeError("Provided input vector not a %s!" % self.whoami)
         if not self._check_same_device(other):
             raise ValueError('Provided input has to live in the same device')
         # Using Hash table for python2 and numpy built-in function array_equal otherwise
@@ -278,9 +278,9 @@ class VectorCupy(Vector):
     def clipVector(self, low, high):
         """Function to bound vector values based on input vectors low and high"""
         if not isinstance(low, VectorCupy):
-            raise TypeError("Provided input low vector not a vectorIC!")
+            raise TypeError("Provided input low vector not a %s!" % self.whoami)
         if not isinstance(high, VectorCupy):
-            raise TypeError("Provided input high vector not a vectorIC!")
+            raise TypeError("Provided input high vector not a %s!" % self.whoami)
         self.getNdArray()[:] = cp.minimum(cp.maximum(low.getNdArray(), self.getNdArray()), high.getNdArray())
         return self
 
