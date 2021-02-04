@@ -1,87 +1,44 @@
-from typing import Union
+from typing import Union, List
+from itertools import accumulate
 import numpy as np
 import torch
 from occamypy import superVector, Operator, Dstack
 from ..vector import VectorTorch
+from ..back_utils import set_backends
+
+set_backends()
 
 
-def gaussian_kernel(std: float, ntaps: int = None, sym=True) -> torch.Tensor:
-    if ntaps is None:
-        ntaps = int(10 * std)
-    assert ntaps > 1
-    odd = ntaps % 2
-    if not sym and not odd:
-        ntaps = ntaps + 1
-    n = torch.arange(0, ntaps) - (ntaps - 1.0) / 2.0
-    sig2 = 2 * std * std
-    w = torch.exp(-n ** 2 / sig2)
-    if not sym and not odd:
-        w = w[:-1]
-    return w
+def _gaussian_kernel1d(sigma: float, order: int = 0, truncate: float = 4.) -> torch.Tensor:
+    """
+    Computes a 1-D Gaussian convolution kernel.
+    """
+    radius = int(truncate * sigma + 0.5)
+    if order < 0:
+        raise ValueError('order must be non-negative')
+    exponent_range = torch.arange(order + 1)
+    sigma2 = sigma * sigma
+    x = torch.arange(-radius, radius+1)
+    phi_x = torch.exp(-0.5 / sigma2 * x ** 2)
+    phi_x = phi_x / phi_x.sum()
 
-
-class GaussianFilter(Operator):
-    def __init__(self, model: VectorTorch, sigma: float):
-        """
-        Gaussian smoothing operator:
-        :param model : vector class;
-            domain vector
-        :param sigma : scalar or sequence of scalars;
-            standard deviation along the model directions
-        """
-        assert model.ndim < 4, "GaussianFilter supports at max 3D operations"
-        self.sigma = sigma
-        self.scaling = np.sqrt(np.prod(np.array(self.sigma) / np.pi))  # in order to have the max amplitude 1
-        super(GaussianFilter, self).__init__(model, model)
-        
-        # 1D gaussian kernel has an odd number of taps that is:
-        # - 10*sigma in order to get a good kernel, or
-        # - min(model.shape) in order to have a kernel constrained for the convolution
-        kernel_size = min(*model.shape, int(10*sigma))
-        if not kernel_size % 2:
-            kernel_size += 1
-        self.kernel = gaussian_kernel(sigma, kernel_size)
-        
-        if model.ndim == 1:
-            self.conv = torch.nn.ConvTranspose1d(1, 1, kernel_size, padding=kernel_size // 2, bias=False)
-            # self.conv = torch.nn.functional.conv_transpose1d
-            w = self.kernel
-        elif model.ndim == 2:
-            self.conv = torch.nn.ConvTranspose2d(1, 1, kernel_size, padding=kernel_size // 2, bias=False)
-            # self.conv = torch.nn.functional.conv_transpose2d
-            w = torch.outer(self.kernel, self.kernel)
-        elif model.ndim == 3:
-            self.conv = torch.nn.ConvTranspose3d(1, 1, kernel_size, padding=kernel_size // 2, bias=False)
-            # self.conv = torch.nn.functional.conv_transpose3d
-            w = torch.outer(self.kernel, torch.outer(self.kernel, self.kernel))
-        else:
-            raise ValueError
-
-        self.conv.weight = torch.nn.Parameter(w.unsqueeze(0).unsqueeze(0))
-        self.conv.weight.requires_grad = False
-        
-    def __str__(self):
-        return "GausFilt"
-    
-    def forward(self, add, model, data):
-        """Forward operator"""
-        self.checkDomainRange(model, data)
-        if not add:
-            data.zero()
-        # Getting Ndarrays and adding the batch and channel dimensions
-        model_arr = model.getNdArray().clone().unsqueeze(0).unsqueeze(0)
-        # compute convolution
-        data_arr = self.conv(model_arr)
-        # remove batch and channel dimensions
-        data_arr = torch.flatten(data_arr, end_dim=2)
-        # write on data vector
-        data[:] += self.scaling * data_arr
-        return
-    
-    def adjoint(self, add, model, data):
-        """Self-adjoint operator"""
-        self.forward(add, data, model)
-        return
+    if order == 0:
+        return phi_x
+    else:
+        # f(x) = q(x) * phi(x) = q(x) * exp(p(x))
+        # f'(x) = (q'(x) + q(x) * p'(x)) * phi(x)
+        # p'(x) = -1 / sigma ** 2
+        # Implement q'(x) + q(x) * p'(x) as a matrix operator and apply to the
+        # coefficients of q(x)
+        q = torch.zeros(order + 1)
+        q[0] = 1
+        D = torch.diag(exponent_range[1:], 1)  # D @ q(x) = q'(x)
+        P = torch.diag(torch.ones(order)/-sigma2, -1)  # P @ q(x) = q(x) * p'(x)
+        Q_deriv = D + P
+        for _ in range(order):
+            q = Q_deriv.dot(q)
+        q = (x[:, None] ** exponent_range).dot(q)
+        return q * phi_x
     
 
 class ConvND(Operator):
@@ -102,7 +59,10 @@ class ConvND(Operator):
         
         if model.ndim != self.kernel.ndim:
             raise ValueError("Domain and kernel number of dimensions mismatch")
-
+        
+        if model.device != self.kernel.device:
+            raise ValueError("Domain and kernel has to live in the same device")
+        
         self.kernel_size = tuple(self.kernel.shape)
         self.pad_size = tuple([k // 2 for k in self.kernel_size])
 
@@ -145,6 +105,28 @@ class ConvND(Operator):
             model.zero()
         model[:] += self.corr(data.getNdArray())
         return
+    
+
+class GaussianFilter(ConvND):
+    def __init__(self, model, sigma):
+        """
+        Gaussian smoothing operator using scipy smoothing:
+        :param model : vector class;
+            domain vector
+        :param sigma : scalar or sequence of scalars;
+            standard deviation along the model directions
+        """
+        self.sigma = [sigma] if isinstance(sigma, (float, int)) else sigma
+        assert isinstance(self.sigma, (list, tuple))
+        self.scaling = np.sqrt(np.prod(np.array(self.sigma) / np.pi))
+        kernels = [_gaussian_kernel1d(s) for s in self.sigma]
+        
+        self.kernel = [*accumulate(kernels, lambda a, b: torch.outer(a.flatten(), b))][-1]
+        self.kernel.reshape([k.numel() for k in kernels])
+        super(GaussianFilter, self).__init__(model, self.kernel.to(model.device))
+    
+    def __str__(self):
+        return "GausFilt"
 
 
 def ZeroPad(model, pad):
@@ -221,7 +203,7 @@ if __name__ == "__main__":
     
     x = occamypy.VectorTorch((25, 25)).set(0.)
     x[12, 12] = 1.
-    # plt.imshow(x.getNdArray()), plt.show()
+    plt.imshow(x.getNdArray()), plt.show()
     #
     # G = occamypy.torch.GaussianFilter(x, 2.)
     # plt.plot(G.kernel), plt.show()
@@ -236,4 +218,4 @@ if __name__ == "__main__":
     C = occamypy.torch.ConvND(x, g)
     C.dotTest(True)
     y = C * x
-    # plt.imshow(y.getNdArray()), plt.show()
+    plt.imshow(y.getNdArray()), plt.show()
