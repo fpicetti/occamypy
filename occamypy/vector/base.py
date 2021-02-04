@@ -333,6 +333,10 @@ class Vector:
         """
         raise NotImplementedError("clipVector must be overwritten")
     
+    def plot(self):
+        """Method to get a plottable array"""
+        return self.getNdArray()
+
 
 # Set of vectors (useful to store results and same-Space vectors together)
 class VectorSet:
@@ -365,7 +369,7 @@ class VectorSet:
                 wr_mode = "a"
             vec_i.writeVec(filename, wr_mode)
         self.vecSet = []  # List of vectors of the set
-
+    
 
 class superVector(Vector):
     

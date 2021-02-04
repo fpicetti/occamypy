@@ -9,9 +9,11 @@ from occamypy import Vector
 class VectorTorch(Vector):
     """In-core python vector class"""
     
-    def __init__(self, in_content):
+    def __init__(self, in_content, device=None):
         """
         VectorTorch constructor: arr = torch.Tensor
+        :param in_content: numpy ndarray or torch.Tensor or InCore Vector
+        :param device: int - GPU id (None for CPU, -1 for most available memory)
         """
         if isinstance(in_content, Vector):
             try:
@@ -30,6 +32,8 @@ class VectorTorch(Vector):
             self.ax_info = None
         else:  # Not supported type
             raise ValueError("ERROR! Input variable not currently supported!")
+
+        self.setDevice(device)
         
         super(VectorTorch, self).__init__()
 
@@ -80,7 +84,7 @@ class VectorTorch(Vector):
     
     def norm(self, N=2):
         """Function to compute vector N-norm"""
-        return torch.linalg.norm(self.getNdArray().flatten(), ord=N)
+        return torch.linalg.norm(self.getNdArray().flatten(), ord=N).item()
     
     def zero(self):
         """Function to zero out a vector"""
@@ -89,27 +93,27 @@ class VectorTorch(Vector):
     
     def max(self):
         """Function to obtain maximum value in the vector"""
-        return self.getNdArray().max()
+        return self.getNdArray().max().item()
     
     def min(self):
         """Function to obtain minimum value in the vector"""
-        return self.getNdArray().min()
+        return self.getNdArray().min().item()
     
-    def set(self, val):
+    def set(self, val: float or int):
         """Function to set all values in the vector"""
         self.getNdArray().fill_(val)
         return self
     
-    def scale(self, sc):
+    def scale(self, sc: float or int):
         """Function to scale a vector"""
         self.getNdArray()[:] *= sc
         return self
     
-    def addbias(self, bias):
+    def addbias(self, bias: float or int):
         self.getNdArray()[:] += bias
         return self
     
-    def rand(self, snr=1.):
+    def rand(self, snr: float or int = 1.):
         """Fill vector with random number (~U[1,-1]) with a given SNR"""
         rms = torch.sqrt(torch.mean(torch.square(self.getNdArray())))
         amp_noise = 1.0
@@ -137,11 +141,14 @@ class VectorTorch(Vector):
         
         else:  # self is a data vector, just clone
             vec_clone = VectorTorch(self.getNdArray().clone())
+        
+        vec_clone.setDevice(self.device.index)
         return vec_clone
     
     def cloneSpace(self):
         """Function to clone vector space only (vector without actual vector array by using empty array of size 0)"""
         vec_space = VectorTorch(torch.empty(0).type(self.getNdArray().dtype))
+        vec_space.setDevice(self.device.index)
         # Cloning space of input vector
         vec_space.ndim = self.ndim
         vec_space.shape = self.shape
@@ -167,7 +174,7 @@ class VectorTorch(Vector):
     def maximum(self, other):
         if isinstance(other, (int, float)):
             # create a vector filled with the scalar value
-            other = VectorTorch(self.shape).type(self.getNdArray().dtype).fill(other)
+            other = self.clone().set(other)
         
         if not self.checkSame(other):
             raise ValueError('Dimensionality not equal: self = %s; other = %s' % (self.shape, other.shape))
@@ -267,3 +274,6 @@ class VectorTorch(Vector):
             raise TypeError("Provided input high vector not a %s!" % self.whoami)
         self.getNdArray()[:] = torch.minimum(torch.maximum(low.getNdArray(), self.getNdArray()), high.getNdArray())
         return self
+    
+    def plot(self):
+        return self.getNdArray().detach().cpu().numpy()

@@ -85,9 +85,6 @@ class VectorCupy(Vector):
         """Function to return Ndarray of the vector"""
         return self.arr
     
-    def plot(self):
-        return self.getNdArray().get()
-    
     def norm(self, N=2):
         """Function to compute vector N-norm using Numpy"""
         return cp.linalg.norm(self.getNdArray().ravel(), ord=N)
@@ -283,6 +280,9 @@ class VectorCupy(Vector):
             raise TypeError("Provided input high vector not a %s!" % self.whoami)
         self.getNdArray()[:] = cp.minimum(cp.maximum(low.getNdArray(), self.getNdArray()), high.getNdArray())
         return self
+    
+    def plot(self):
+        return self.getNdArray().get()
 
 
 if __name__ == '__main__':
