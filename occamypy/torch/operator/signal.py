@@ -1,5 +1,5 @@
-from typing import Union, List
-from itertools import accumulate
+from typing import Union, List, Tuple
+from itertools import accumulate, product
 import numpy as np
 import torch
 from occamypy import superVector, Operator, Dstack
@@ -110,7 +110,7 @@ class ConvND(Operator):
 class GaussianFilter(ConvND):
     def __init__(self, model, sigma):
         """
-        Gaussian smoothing operator using scipy smoothing:
+        Gaussian smoothing operator.
         :param model : vector class;
             domain vector
         :param sigma : scalar or sequence of scalars;
@@ -131,42 +131,43 @@ class GaussianFilter(ConvND):
 
 def ZeroPad(model, pad):
     if isinstance(model, VectorTorch):
-        return _ZeroPadIC(model, pad)
+        return _ZeroPad(model, pad)
     elif isinstance(model, superVector):
         # TODO add the possibility to have different padding for each sub-vector
-        return Dstack([_ZeroPadIC(v, pad) for v in model.vecs])
+        return Dstack([_ZeroPad(v, pad) for v in model.vecs])
     else:
         raise ValueError("ERROR! Provided domain has to be either vector or superVector")
 
 
-def _pad_vectorIC(vec, pad):
-    if not isinstance(vec, VectorTorch):
-        raise ValueError("ERROR! Provided vector must be a VectorTorch")
-    assert len(vec.shape) == len(pad), "Dimensions of vector and padding mismatch!"
+class _ZeroPad(Operator):
     
-    vec_new_shape = tuple(np.asarray(vec.shape) + [sum(pad[_]) for _ in range(len(pad))])
-    return VectorTorch(torch.empty(vec_new_shape).type(vec.getNdArray().dtype))
-
-
-class _ZeroPadIC(Operator):
-    
-    def __init__(self, model, pad):
+    def __init__(self, model: VectorTorch, pad: Union[int, Tuple[int], List[int]]):
         """ Zero Pad operator.
 
         To pad 2 values to each side of the first dim, and 3 values to each side of the second dim, use:
-            pad=((2,2), (3,3))
-        :param model: vectorIC class
+            pad=(2,2,3,3)
+        :param model: VectorTorch class
         :param pad: scalar or sequence of scalars
             Number of samples to pad in each dimension.
             If a single scalar is provided, it is assigned to every dimension.
         """
-        if isinstance(model, VectorTorch):
-            self.dims = model.shape
-            pad = [(pad, pad)] * len(self.dims) if isinstance(pad, (int, float)) else list(pad)
-            if (np.array(pad) < 0).any():
-                raise ValueError('Padding must be positive or zero')
-            self.pad = pad
-            super(_ZeroPadIC, self).__init__(model, _pad_vectorIC(model, self.pad))
+        nd = model.ndim
+        
+        if isinstance(pad, (int, float)):
+            pad = [pad, pad] * nd
+        else:
+            assert len(pad) == 2 * nd
+            
+        if (np.array(pad) < 0).any():
+            raise ValueError('Padding must be positive or zero')
+        
+        self.pad = list(pad)
+        
+        self.padded_shape = tuple(np.asarray(model.shape) + [self.pad[i]+self.pad[i+1] for i in range(0, 2*nd, 2)])
+        
+        super(_ZeroPad, self).__init__(model, VectorTorch(self.padded_shape, device=model.device.index))
+
+        self.inner_idx = [list(np.arange(self.pad[0:-1:2][i], self.range.shape[i]-pad[1::2][i])) for i in range(nd)]
     
     def __str__(self):
         return "ZeroPad "
@@ -174,48 +175,17 @@ class _ZeroPadIC(Operator):
     def forward(self, add, model, data):
         """Zero padding"""
         self.checkDomainRange(model, data)
-        if add:
-            temp = data.clone()
-        y = np.pad(model.arr, self.pad, mode='constant')
-        data.arr = y
-        if add:
-            data.scaleAdd(temp, 1., 1.)
+        if not add:
+            data.zero()
+        # torch counts the axes in reverse order
+        data[:] += torch.nn.functional.pad(model.getNdArray(), self.pad[::-1], mode='constant')
         return
     
     def adjoint(self, add, model, data):
         """Extract non-zero subsequence"""
         self.checkDomainRange(model, data)
-        if add:
-            temp = model.clone()
-        x = data.clone().arr
-        for ax, pad in enumerate(self.pad):
-            x = np.take(x, pad[0] + np.arange(self.dims[ax]), axis=ax)
-        model.arr = x
-        if add:
-            model.scaleAdd(temp, 1., 1.)
+        if not add:
+            model.zero()
+        x = torch.Tensor([data[coord] for coord in product(*self.inner_idx)]).reshape(self.domain.shape).to(model.device)
+        model[:] += x
         return
-
-
-if __name__ == "__main__":
-    import occamypy
-    import torch
-    import matplotlib.pyplot as plt
-    
-    x = occamypy.VectorTorch((25, 25)).set(0.)
-    x[12, 12] = 1.
-    plt.imshow(x.getNdArray()), plt.show()
-    #
-    # G = occamypy.torch.GaussianFilter(x, 2.)
-    # plt.plot(G.kernel), plt.show()
-    #
-    # y = G*x
-    # plt.imshow(y.getNdArray()), plt.show()
-    
-    g = occamypy.torch.operator.signal.gaussian_kernel(2., 21)
-    g = torch.outer(g,g)
-    plt.imshow(g), plt.show()
-
-    C = occamypy.torch.ConvND(x, g)
-    C.dotTest(True)
-    y = C * x
-    plt.imshow(y.getNdArray()), plt.show()

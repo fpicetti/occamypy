@@ -10,4 +10,5 @@ __all__ = [
     "Gradient",
     "ConvND",
     "GaussianFilter",
+    "ZeroPad",
 ]
