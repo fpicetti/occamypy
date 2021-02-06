@@ -1,7 +1,11 @@
 import torch
 from math import sqrt
 from numpy import ndarray
-from GPUtil import getGPUs, getFirstAvailable
+import importlib
+GPUtil_found = importlib.util.find_spec("GPUtil")
+if GPUtil_found:
+    from GPUtil import getGPUs, getFirstAvailable
+
 
 from occamypy import Vector
 
