@@ -811,8 +811,8 @@ class ParabolicStepConst(Stepper):
         self.c1 = c1  # Scaling for first tested point
         self.ntry = ntry  # Number of total trials before re-estimating initial alpha value
         self.alpha = alpha  # Initial step length guess
-        self.alpha_scale_min = alpha_scale_min  # Maximum scaling value for the step length
-        self.alpha_scale_max = alpha_scale_max  # Minimum scaling value for the step length
+        self.alpha_scale_min = alpha_scale_min  # Minimum scaling value for the step length
+        self.alpha_scale_max = alpha_scale_max  # Maximum scaling value for the step length
         self.shrink = shrink  # Shrinking scaling factor if trial is unsuccessful
         self.zero = 10 ** (np.floor(
             np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
@@ -1003,4 +1003,174 @@ class ParabolicStepConst(Stepper):
             modl.copy(model_step)
         # Delete temporary vectors
         del model_step, res1
+        return alpha, success
+
+class StrongWolfe(Stepper):
+    """Compute a line search to satisfy the strong Wolfe conditions.
+       Algorithm 3.5. Page 60. "Numerical Optimization". Nocedal & Wright.
+       Implementation based on the ones in the GitHub repo: https://github.com/bgranzow/L-BFGS-B.git
+       """
+
+    def __init__(self, c1=1.e-4, c2=0.9 , ntry=20, alpha=1., alpha_scale=0.8, alpha_max=2.5, keepAlpha=False):
+        """
+           Constructor for parabolic stepper assuming constant local curvature:
+           c1  		   	   = [1.e-4] - float; c1 value to tests first Wolfe condition (should be between 0 and 1)
+           c2  		   	   = [0.9] - float; c2 value to tests second Wolfe condition (should be between c1 and 1). For Quasi-Newton (e.g., L-BFGS) choose default. Otherwise, for other methods (e.g., NLCG) choose 0.1
+           ntry  	   	   = [20] - integer; Number of trials for finding the step length
+           alpha 		   = [1.] - float; Initial step-length guess
+           alpha_scale 	   = [0.8] - float; step-length update factor used for updating step length guess
+           alpha_max       = [2.5] - float; Maximum step-length value allowed
+           keepAlpha       = [False] - boolean; Whether to keep or forget previously found step-length value
+        """
+        self.c1 = c1
+        self.c2 = c2
+        self.ntry = ntry  # Number of total trials before re-estimating initial alpha value
+        self.alpha = alpha  # Initial step length guess
+        self.alpha_max = alpha_max  # Maximum step-length value
+        self.alpha_scale = alpha_scale
+        self.zero = 10 ** (np.floor(
+            np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
+        self.keepAlpha = keepAlpha
+        return
+
+    def alpha_zoom(self, problem, mdl0, mdl, obj0, dphi0, dmodl, alpha_lo, alpha_hi, logger=None):
+        """Algorithm 3.6, Page 61. "Numerical Optimization". Nocedal & Wright."""
+        itry = 0
+        alpha = 0.0
+        while itry < self.ntry:
+            if logger:
+                logger.addToLog("\t\ttrial number [alpha_zoom]: %d" % (itry+1))
+            alpha_i = 0.5 * (alpha_lo + alpha_hi)
+            alpha = alpha_i
+            # x = x0 + alpha_i * p
+            mdl.copy(mdl0)
+            mdl.scaleAdd(dmodl, sc2=alpha_i)
+            # Evaluating objective and gradient function
+            obj_i = problem.get_obj(mdl)
+            if logger:
+                logger.addToLog("\t\tObjective function value of %.5e at m_i [alpha_zoom]" % obj_i)
+            if isnan(obj_i):
+                if logger:
+                    logger.addToLog("\t\t!!!Problem with step length and objective function; Setting alpha = 0.0 [alpha_zoom]!!!")
+                alpha = 0.0
+                break
+            grad_i = problem.get_grad(mdl)
+            # x_lo = x0 + alpha_lo * p;
+            mdl.copy(mdl0)
+            mdl.scaleAdd(dmodl, sc2=alpha_lo)  # x = x0 + alpha_i * p;
+            obj_lo = problem.get_obj(mdl)
+            if logger:
+                logger.addToLog("\t\tObjective function value of %.5e at m_lo [alpha_zoom]" % obj_i)
+            if isnan(obj_lo):
+                if logger:
+                    logger.addToLog("\t\t!!!Problem with step length and objective function; Setting alpha = 0.0 [alpha_zoom]!!!")
+                alpha = 0.0
+                break
+            if (obj_i > obj0 + self.c1 * alpha_i * dphi0) or (obj_i >= obj_lo):
+                alpha_hi = alpha_i
+            else:
+                dphi = grad_i.dot(dmodl)
+                if np.abs(dphi) <= -self.c2 * dphi0:
+                    alpha = alpha_i
+                    break
+                if dphi * (alpha_hi - alpha_lo) >= 0.0:
+                    alpha_hi = alpha_lo
+                alpha_lo = alpha_i
+            # Increasing trial counter of alpha zoom
+            itry += 1
+            if itry > self.ntry:
+                alpha = alpha_i
+                break
+        return alpha
+
+    def run(self, problem, modl, dmodl, logger=None):
+        """Method to apply line search that satisfies strong Wolfe conditions"""
+        # Writing to log file if any
+        if logger:
+            logger.addToLog("STRONG-WOLFE STEPPER")
+            logger.addToLog(
+                "c1=%.2e c2=%.2e ntry=%d alpha-max=%.2e keepAlpha=%s"
+                % (self.c1, self.c2, self.ntry, self.alpha_max, self.keepAlpha))
+        success = False
+        # Obtain objective function for provided model
+        obj0 = problem.get_obj(modl)
+        obj_im1 = deepcopy(obj0)
+        # Model temporary vector
+        model_step = modl.clone()
+        # Initial step length value
+        alpha_i = deepcopy(self.alpha)
+        alpha_im1 = 0.0
+        alpha = 0.0
+        # Getting pointer to problem's gradient vector
+        prblm_grad = problem.get_grad(modl).clone()
+        dphi0 = prblm_grad.dot(dmodl)
+        itry = 0
+        while itry < self.ntry:
+            # Writing info to log file
+            if logger:
+                logger.addToLog("\ttrial number: %d" % (itry+1))
+                logger.addToLog("\tinitial-steplength=%.2e" % alpha_i)
+            # Find the first guess as if the problem was linear (Tangent method)
+            if alpha_i <= self.zero:
+                alpha_i = self.estimate_initial_guess(problem, modl, dmodl, logger)
+                self.alpha_max *= alpha_i
+                if logger:
+                    logger.addToLog("\tGuessing step length of: %.2e" % alpha_i)
+
+            # Updating model point
+            model_step.copy(modl) # x = x0
+            model_step.scaleAdd(dmodl, sc2=alpha_i) # x = x0 + alpha_i * p;
+            # Evaluating objective and gradient function
+            obj_i = problem.get_obj(model_step)
+            if logger:
+                logger.addToLog("\tObjective function value of %.5e" % obj_i)
+            if isnan(obj_i):
+                if logger:
+                    logger.addToLog("\t!!!Problem with step length and objective function; Stopping stepper!!!")
+                break
+            grad_i = problem.get_grad(model_step)
+            if (obj_i > obj0 + self.c1 * dphi0) or ((itry > 1) and (obj_i >= obj_im1)):
+                alpha = self.alpha_zoom(problem, modl, model_step, obj0, dphi0, dmodl, alpha_im1, alpha_i, logger)
+                if logger:
+                    logger.addToLog("\tCondition 1 matched; step-length value of: %.2e" % alpha)
+                success = True
+                break
+
+            # dphi = transpose(g_i) * p;
+            dphi = grad_i.dot(dmodl)
+            if np.abs(dphi) <= -self.c2 * dphi0:
+                alpha = alpha_i
+                if logger:
+                    logger.addToLog("\tCondition 2 matched; step-length value of: %.2e" % alpha)
+                success = True
+                break
+            if dphi >= self.zero:
+                alpha = self.alpha_zoom(problem, modl, model_step, obj0, dphi0, dmodl, alpha_i, alpha_im1, logger)
+                if logger:
+                    logger.addToLog("\tCondition 3 matched; step-length value of: %.2e" % alpha)
+                success = True
+                break
+
+            # Update step-length value
+            alpha_im1 = alpha_i
+            obj_im1 = obj_i
+            alpha_i = alpha_i + self.alpha_scale * (self.alpha_max - alpha_i)
+
+            if itry > self.ntry:
+                alpha = alpha_i
+                if logger:
+                    logger.addToLog("\tMaximum number of trials reached (ntry = %d); step-length value of: %.2e" %(self.ntry,alpha))
+                success = True
+                break
+
+            # Update trial number
+            itry += 1
+        if success:
+            # Line search has finished, update model
+            modl.scaleAdd(dmodl, sc2=alpha)
+            if self.keepAlpha:
+                self.alpha = alpha
+        # Delete temporary vectors
+        del model_step
+
         return alpha, success
