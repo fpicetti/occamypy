@@ -429,8 +429,8 @@ class superVector(Vector):
     
     def norm(self, N=2):
         """Function to compute vector N-norm"""
-        norm = np.power([self.vecs[idx].norm(N) for idx in range(self.n)], N)
-        return np.power(sum(norm), 1. / N)
+        norm = [pow(self.vecs[idx].norm(N), N) for idx in range(self.n)]
+        return pow(sum(norm), 1. / N)
     
     def set(self, val):
         """Function to set all values in the vector"""
@@ -446,11 +446,11 @@ class superVector(Vector):
     
     def max(self):
         """Function to obtain maximum value within a vector"""
-        return np.max([self.vecs[idx].max() for idx in range(self.n)])
+        return max([self.vecs[idx].max() for idx in range(self.n)])
     
     def min(self):
         """Function to obtain minimum value within a vector"""
-        return np.min([self.vecs[idx].min() for idx in range(self.n)])
+        return min([self.vecs[idx].min() for idx in range(self.n)])
     
     def scale(self, sc):
         """Function to scale a vector"""
@@ -527,7 +527,7 @@ class superVector(Vector):
         # Checking dimensionality
         if not self.checkSame(vecs_in):
             raise ValueError("ERROR! Dimensionality mismatching between given superVectors")
-        return np.sum([self.vecs[idx].dot(vecs_in.vecs[idx]) for idx in range(self.n)])
+        return sum([self.vecs[idx].dot(vecs_in.vecs[idx]) for idx in range(self.n)])
     
     def multiply(self, vecs_in):
         """Function to multiply element-wise two vectors"""
