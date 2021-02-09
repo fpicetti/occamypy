@@ -267,7 +267,7 @@ class Restart:
         return self.vec_dict[vec_name]
 
     def save_parameter(self, par_name, parameter_in):
-        """Method to save vector for restarting"""
+        """Method to save parameters for restarting"""
         self.par_dict.update({par_name: parameter_in})
         return
 
