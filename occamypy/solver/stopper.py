@@ -29,15 +29,16 @@ class Stopper:
 class BasicStopper(Stopper):
     """Basic Stopper with different options"""
 
-    def __init__(self, niter=0, maxfevals=0, maxhours=0.0, tolr=1.0e-32, tolg=1.0e-32, tolobj=None, tolobjrel=None,
+    def __init__(self, niter=0, maxfevals=0, maxhours=0.0, tolr=1.0e-32, tolg=1.0e-32, tolg_proj=None, tolobj=None, tolobjrel=None,
                  toleta=None, tolobjchng=None, logger=None):
         """
         Constructor for Basic Stopper:
         niter    	 = [0] - integer; Number of iterations to run (must be greater than 0 to be checked)
         maxfevals    = [0] - integer; Maximum number of function evaluations (must be greater than 0 to be checked)
         maxhours     = [0.0] - float; Maximum total running time in hours (must be greater than 0.0 to be checked)
-        tolr     	 = [1.0e-18] - float; Tolerance on residual norm
-        tolg     	 = [1.0e-18] - float; Tolerance on gradient norm (Note: ignore for symmetric system)
+        tolr     	 = [1.0e-32] - float; Tolerance on residual norm
+        tolg     	 = [1.0e-32] - float; Tolerance on gradient norm (Note: ignored for symmetric system)
+        tolg_proj    = [None] - float; Tolerance on the projected-gradient infinity norm
         tolobj     	 = [None] - float; Tolerance on objective function value (Not relative value compared to initial one)
         tolobjrel    = [None] - float; Tolerance on relative objective function value (Should range between 0 and 1)
         toleta       = [None] - float; Tolerance on |Am - b|/|b| (Not supported for regularized problems)
@@ -51,6 +52,7 @@ class BasicStopper(Stopper):
         self.maxhours = maxhours
         self.tolr = tolr
         self.tolg = tolg
+        self.tolg_proj = tolg_proj
         self.tolobj = tolobj
         self.tolobjrel = tolobjrel
         self.toleta = toleta
@@ -137,6 +139,24 @@ class BasicStopper(Stopper):
             if self.logger:
                 self.logger.addToLog(msg)
             return stop
+        if grad_norm is not None and self.tolg_proj is not None:
+            # Get the inf-norm of the projected gradient
+            # Equation (6.1), Page 17. (L-BFGS-B)
+            proj_grad = problem.model.clone()
+            proj_grad.scaleAdd(problem.get_grad(problem.model), 1.0, -1.0)
+            if "bounds" in dir(problem):
+                problem.bounds.apply(proj_grad)
+            proj_grad.scaleAdd(problem.model, 1.0, -1.0)
+            grad_norm_proj = proj_grad.abs().max()
+            del proj_grad
+            if grad_norm_proj < self.tolg_proj:
+                stop = True
+                msg = "Terminate: tolerance of the projected gradient reached %s\n" % grad_norm_proj
+                if verbose:
+                    print(msg)
+                if self.logger:
+                    self.logger.addToLog(msg)
+                return stop
         if self.tolobj is not None:
             if obj < self.tolobj:
                 stop = True
