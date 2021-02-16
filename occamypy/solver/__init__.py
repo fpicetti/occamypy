@@ -15,6 +15,7 @@ __all__ = [
     "CGsym",
     "NLCG",
     "LBFGS",
+    "LBFGSB",
     "TNewton",
     "MCMC",
     "ISTA",

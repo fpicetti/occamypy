@@ -1048,7 +1048,7 @@ class StrongWolfe(Stepper):
             # Evaluating objective and gradient function
             obj_i = problem.get_obj(mdl)
             if logger:
-                logger.addToLog("\t\tObjective function value of %.5e at m_i [alpha_zoom]" % obj_i)
+                logger.addToLog("\t\tObjective function value of %.5e at m_i with alpha=%.5e [alpha_zoom]" %(obj_i, alpha_i))
             if isnan(obj_i):
                 if logger:
                     logger.addToLog("\t\t!!!Problem with step length and objective function; Setting alpha = 0.0 [alpha_zoom]!!!")
@@ -1060,7 +1060,7 @@ class StrongWolfe(Stepper):
             mdl.scaleAdd(dmodl, sc2=alpha_lo)  # x = x0 + alpha_i * p;
             obj_lo = problem.get_obj(mdl)
             if logger:
-                logger.addToLog("\t\tObjective function value of %.5e at m_lo [alpha_zoom]" % obj_i)
+                logger.addToLog("\t\tObjective function value of %.5e at m_lo with alpha_lo=%.5e [alpha_zoom]" %(obj_lo, alpha_lo))
             if isnan(obj_lo):
                 if logger:
                     logger.addToLog("\t\t!!!Problem with step length and objective function; Setting alpha = 0.0 [alpha_zoom]!!!")

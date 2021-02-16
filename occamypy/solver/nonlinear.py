@@ -920,7 +920,7 @@ class LBFGSB(S.Solver):
             dt_min = -fp / fpp
             t_old = t
             ii += 1
-            if ii <= bfgsb_mdl_cauchy.size:
+            if ii < bfgsb_mdl_cauchy.size:
                 b = F[ii]
                 t = tt[b]
                 dt = t - t_old
@@ -947,7 +947,7 @@ class LBFGSB(S.Solver):
             if (du[ii] > 0.0):
                 alpha_star = min(alpha_star, (u[idx] - xc[idx]) / du[ii])
             else:
-                alpha_star = min(alpha_star, (l[idx] - xc[idx]) / du[ii])
+                alpha_star = min(alpha_star, (l[idx] - xc[idx]) / (du[ii]+self.epsmch))
         return alpha_star
 
     def subspace_min(self, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, bfgsb_mdl_cauchy, c, W, M, theta):
@@ -978,7 +978,7 @@ class LBFGSB(S.Solver):
                 unit_tmp = np.zeros((n_mod))
                 unit_tmp[ii] = 1.0
                 Z.append(unit_tmp)
-        Z = np.array(Z)
+        Z = np.array(Z).T
 
         num_free_vars = len(free_vars_idx)
 
@@ -1009,7 +1009,7 @@ class LBFGSB(S.Solver):
 
         # compute the subspace minimization
         bfgsb_dmodl.copy(bfgsb_mdl_cauchy) # xbar = xc
-        for ii in num_free_vars:
+        for ii in range(num_free_vars):
             idx = free_vars_idx[ii]
             xbar[idx] += alpha_star * du[ii]
 
@@ -1046,8 +1046,8 @@ class LBFGSB(S.Solver):
         prblm_mdl = problem.get_model()
 
         # Obtaining bounds from problem
-        minBound = problem.minBound
-        maxBound = problem.maxBound
+        minBound = problem.bounds.minBound
+        maxBound = problem.bounds.maxBound
         if minBound is None:
             raise ValueError("Minimum bound vector must be provided when instantiating the problem object!")
         if maxBound is None:
@@ -1173,6 +1173,7 @@ class LBFGSB(S.Solver):
             line_search_flag = self.subspace_min(bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, bfgsb_mdl_cauchy, c, W, M, theta)
             # Perform line search using updated search direction
             if line_search_flag:
+                self.stepper.alpha = 1.0
                 alpha, success = self.stepper.run(problem, bfgsb_mdl, bfgsb_dmodl, self.logger)
                 if not success:
                     msg = "Stepper couldn't find a proper step size, will terminate solver"
@@ -1192,11 +1193,11 @@ class LBFGSB(S.Solver):
             # Redundant tests on verifying convergence
             if obj0 <= obj1:
                 msg = "Objective function at new point greater or equal than previous one: obj_fun_old=%s obj_fun_new=%s\n" \
-                      "Potential issue in the stepper or in revaluation of objective function!" % (obj0, obj1)
+                      "Stopping inversion!" % (obj0, obj1)
                 if self.logger:
                     self.logger.addToLog(msg)
                 problem.set_model(prev_mdl)
-                raise ValueError(msg)
+                break
 
             # Compute new gradient
             prblm_grad = problem.get_grad(bfgsb_mdl)
@@ -1212,7 +1213,7 @@ class LBFGSB(S.Solver):
 
             # Checking curvature condition of equation 3.9 in "A LIMITED MEMORY ALGORITHM FOR BOUND
             # CONSTRAINED OPTIMIZATION" by Byrd et al. (1995)
-            if y_tmp.dot(s_tmp) > self.epsmch*bfgsb_grad0.dot(s_tmp):
+            if y_tmp.dot(s_tmp) > self.epsmch*bfgsb_grad0.dot(s_tmp) and y_tmp.dot(s_tmp) > 0.0:
                 msg = "Updating current Hessian estimate"
                 if self.logger:
                     self.logger.addToLog(msg)
@@ -1226,24 +1227,27 @@ class LBFGSB(S.Solver):
                     Y_mat[1] = y_tmp
                     S_mat[:-1] = S_mat[1:]
                     S_mat[1] = s_tmp
+                # Number of steps currently within L-BFGS matrix
+                k_steps = len(Y_mat)
+                if k_steps > 0:
+                    theta = y_tmp.dot(y_tmp) / y_tmp.dot(s_tmp)
+                    W, Y, S = self.form_W(Y_mat, theta, S_mat)  # [Y theta*S]
+                    A = np.matmul(Y.T, S)
+                    StS = np.matmul(S.T, S)
+                    L = np.tril(A, -1)
+                    D = -np.diag(np.diag(A))
+                    M1 = np.concatenate((D, L.T), axis=1)
+                    M2 = np.concatenate((L, theta * StS), axis=1)
+                    MM = np.concatenate((M1, M2), axis=0)
+                    M = np.linalg.inv(MM)
+                    del L, D, M1, M2, MM, A
+                    # Saving Inverse Hessian estimate for restart
+                    self.restart.save_vector("y_vec%s" % (k_steps - 1), y_tmp)
+                    self.restart.save_vector("s_vec%s" % (k_steps - 1), s_tmp)
             else:
                 msg = "Skipping L-BFGS update; negative curvature detected"
                 if self.logger:
                     self.logger.addToLog(msg)
-            # Number of steps currently within L-BFGS matrix
-            k_steps = len(Y_mat)
-            if k_steps > 0:
-                theta = y_tmp.dot(y_tmp) / y_tmp.dot(s_tmp)
-                W, Y, S = self.form_W(Y_mat, theta, S_mat)  # [Y theta*S]
-                A = np.matmul(Y.T,S)
-                StS = np.matmul(S.T,S)
-                L = np.tril(A,-1)
-                D = -np.diag(np.diag(A))
-                M1 = np.concatenate((D, L.T), axis=1)
-                M2 = np.concatenate((L, theta * StS), axis=1)
-                MM = np.concatenate((M1, M2), axis=0)
-                M = np.linalg.inv(MM)
-                del L, D, M1, M2, MM, A
             ###########################################
             # Increasing iteration counter
             iiter = iiter + 1
@@ -1258,10 +1262,6 @@ class LBFGSB(S.Solver):
             self.restart.save_vector("bfgsb_grad0", bfgsb_grad0)
             # Saving data space vectors
             self.restart.save_vector("prblm_res", prblm_res)
-            # Saving Inverse Hessian estimate for restart
-            if k_steps > 0:
-                self.restart.save_vector("y_vec%s" % (k_steps-1), y_tmp)
-                self.restart.save_vector("s_vec%s" % (k_steps-1), s_tmp)
 
             # iteration info
             msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
