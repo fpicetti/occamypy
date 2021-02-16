@@ -893,7 +893,7 @@ class LBFGSB(S.Solver):
         fp = -bfgsb_dmodl.dot(bfgsb_dmodl)
         fpp = -theta * fp - np.sum(p * np.matmul(M, p))
         fpp0 = -theta * fp
-        dt_min = -fp / fpp
+        dt_min = -fp / (fpp + self.epsmch)
         t_old = 0
         for jj in range(bfgsb_mdl_cauchy.size):
             ii = jj
@@ -1032,6 +1032,30 @@ class LBFGSB(S.Solver):
         S = np.array([sk.getNdArray().ravel() for sk in S_mat]).T
         W = np.concatenate((Y, theta*S), axis=1)
         return W, Y, S
+
+    def max_step(self, bfgsb_mdl, bfgsb_dmodl, minBound, maxBound):
+        """Method for determine maximum feasible step length"""
+        n_mod = bfgsb_mdl.size
+        x = bfgsb_mdl.getNdArray().ravel()
+        l = minBound.getNdArray().ravel()
+        u = maxBound.getNdArray().ravel()
+        d = bfgsb_dmodl.getNdArray().ravel()
+        max_alpha = 1e18
+        for ii in range(n_mod):
+            d1 = d[ii]
+            if d1 < 0.0:
+                d2 = l[ii] - x[ii]
+                if  d2 >= 0.0:
+                    max_alpha = 0.0
+                elif d1 * max_alpha < d2:
+                    max_alpha = d2 / d1
+            elif d1 > 0.0:
+                d2 = u[ii] - x[ii]
+                if d2 <= 0.0:
+                    max_alpha = zero
+                elif d1 * max_alpha > d2:
+                    max_alpha = d2 / d1
+        return max_alpha
 
     def run(self, problem, verbose=False, restart=False):
         """
@@ -1174,7 +1198,21 @@ class LBFGSB(S.Solver):
             # Perform line search using updated search direction
             if line_search_flag:
                 self.stepper.alpha = 1.0
-                alpha, success = self.stepper.run(problem, bfgsb_mdl, bfgsb_dmodl, self.logger)
+                self.stepper.alpha_max = self.max_step(bfgsb_mdl, bfgsb_dmodl, minBound, maxBound)
+                if self.stepper.alpha > self.stepper.alpha_max:
+                    self.stepper.alpha = self.stepper.alpha_max
+                dphi = prblm_grad.dot(bfgsb_dmodl)
+                if dphi > 0.0:
+                    msg = "Current search direction not a descent one (dphi/dalpha|dmod=%.5e)" % dphi
+                    if verbose:
+                        print(msg)
+                    # Writing on log file
+                    if self.logger:
+                        self.logger.addToLog(msg)
+                    problem.set_model(prev_mdl)
+                    break
+                else:
+                    alpha, success = self.stepper.run(problem, bfgsb_mdl, bfgsb_dmodl, self.logger)
                 if not success:
                     msg = "Stepper couldn't find a proper step size, will terminate solver"
                     if verbose:
