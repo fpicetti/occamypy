@@ -807,7 +807,7 @@ class LBFGS(S.Solver):
 
 class LBFGSB(S.Solver):
     """L-BFGS-B (Limited-memory Broyden-Fletcher-Goldfarb-Shanno with Bounds) Solver object
-       Implementation based on the ones in the GitHub repo: https://github.com/bgranzow/L-BFGS-B.git
+       Implementation inspired by the one in the GitHub repo: https://github.com/bgranzow/L-BFGS-B.git
     """
 
     def __init__(self, stopper, stepper=None, m_steps=np.inf, logger=None):
@@ -897,13 +897,13 @@ class LBFGSB(S.Solver):
         t_old = 0
         for jj in range(bfgsb_mdl_cauchy.size):
             ii = jj
-            if F[ii] > 0:
+            if tt[F[ii]] > 0:
                 break
         b = F[ii]
         t = tt[b]
         dt = t - t_old
 
-        while dt_min > dt and ii <= bfgsb_mdl_cauchy.size:
+        while dt_min > dt and ii < bfgsb_mdl_cauchy.size:
             if d[b] > 0.0:
                 xc[b] = u[b]
             elif d[b] < 0.0:
@@ -928,7 +928,7 @@ class LBFGSB(S.Solver):
         # Perform final updates
         dt_min = max(dt_min, 0)
         t_old = t_old + dt_min
-        for jj in range(bfgsb_mdl_cauchy.size):
+        for jj in range(ii,bfgsb_mdl_cauchy.size):
             idx = F[jj]
             xc[idx] = x[idx] + t_old * d[idx]
         c += dt_min * p
@@ -948,6 +948,9 @@ class LBFGSB(S.Solver):
                 alpha_star = min(alpha_star, (u[idx] - xc[idx]) / du[ii])
             else:
                 alpha_star = min(alpha_star, (l[idx] - xc[idx]) / (du[ii]+self.epsmch))
+        ######## Check this!
+        if alpha_star < 0.0:
+            alpha_star = 0.0
         return alpha_star
 
     def subspace_min(self, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, bfgsb_mdl_cauchy, c, W, M, theta):
@@ -955,10 +958,10 @@ class LBFGSB(S.Solver):
         Subspace minimization for the quadratic model over free variables.
         Direct Primal Method, Page 12.
         :return:
-        :line_search_flag Flag whether line search is necessary or not
+        :free_var Flag whether there are free variables or not
         """
         # Setting the line search flag to true by default
-        line_search_flag = True
+        free_var = True
 
         # Getting arrays and parameters
         n_mod = bfgsb_mdl.size
@@ -984,8 +987,8 @@ class LBFGSB(S.Solver):
 
         if num_free_vars == 0:
             bfgsb_mdl.copy(bfgsb_mdl_cauchy) # xbar = x = xc
-            line_search_flag = False
-            return line_search_flag
+            free_var = False
+            return free_var
 
         # Compute W^T Z, the restriction of W to free variables
         WTZ = np.matmul(W.T, Z)
@@ -1012,11 +1015,10 @@ class LBFGSB(S.Solver):
         for ii in range(num_free_vars):
             idx = free_vars_idx[ii]
             xbar[idx] += alpha_star * du[ii]
-
         # Returning new search direction
         bfgsb_dmodl.scaleAdd(bfgsb_mdl,1.0,-1.0)
 
-        return line_search_flag
+        return free_var
 
     def form_W(self, Y_mat, theta, S_mat):
         """
@@ -1109,7 +1111,7 @@ class LBFGSB(S.Solver):
                 problem.bounds.apply(bfgsb_mdl)
             if prblm_mdl.isDifferent(bfgsb_mdl):
                 # Model hit bounds
-                msg = "\tInitial guess outside of bounds. Projecting initial guess back into the feasible space."
+                msg = "\t!!!Initial guess outside of bounds. Projecting initial guess back into the feasible space.!!!"
                 if self.logger:
                     self.logger.addToLog(msg)
                 problem.set_model(bfgsb_mdl)
@@ -1193,11 +1195,21 @@ class LBFGSB(S.Solver):
 
             # Compute the new search direction by finding Cauchy point and solving subspace minimization problem
             # [xc, c] = get_cauchy_point(x, g, l, u, theta, W, M);
+            line_search_flag = True
             c = self.get_cauchy_point(bfgsb_mdl_cauchy, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, W, M, theta)
-            line_search_flag = self.subspace_min(bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, bfgsb_mdl_cauchy, c, W, M, theta)
+            self.stepper.alpha = 1.0
+            if iiter == 0:
+                bfgsb_dmodl.copy(bfgsb_mdl_cauchy)
+                bfgsb_dmodl.scaleAdd(bfgsb_mdl, 1.0, -1.0)
+                self.stepper.alpha = min(1.0, 1.0/bfgsb_dmodl.norm())
+            else:
+                free_var = self.subspace_min(bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, bfgsb_mdl_cauchy, c, W, M, theta)
+                if free_var == False:
+                    bfgsb_dmodl.copy(bfgsb_mdl_cauchy)
+                    bfgsb_dmodl.scaleAdd(bfgsb_mdl,1.0,-1.0)
+                    self.stepper.alpha = min(1.0, 1.0/bfgsb_dmodl.norm())
             # Perform line search using updated search direction
             if line_search_flag:
-                self.stepper.alpha = 1.0
                 self.stepper.alpha_max = self.max_step(bfgsb_mdl, bfgsb_dmodl, minBound, maxBound)
                 if self.stepper.alpha > self.stepper.alpha_max:
                     self.stepper.alpha = self.stepper.alpha_max
@@ -1251,7 +1263,7 @@ class LBFGSB(S.Solver):
 
             # Checking curvature condition of equation 3.9 in "A LIMITED MEMORY ALGORITHM FOR BOUND
             # CONSTRAINED OPTIMIZATION" by Byrd et al. (1995)
-            if y_tmp.dot(s_tmp) > self.epsmch*bfgsb_grad0.dot(s_tmp) and y_tmp.dot(s_tmp) > 0.0:
+            if y_tmp.dot(s_tmp) > self.epsmch*y_tmp.dot(y_tmp) and y_tmp.dot(s_tmp) > 0.0:
                 msg = "Updating current Hessian estimate"
                 if self.logger:
                     self.logger.addToLog(msg)
@@ -1262,9 +1274,13 @@ class LBFGSB(S.Solver):
                 else:
                     # Removing first column and updating last one
                     Y_mat[:-1] = Y_mat[1:]
-                    Y_mat[1] = y_tmp
+                    Y_mat[-1] = y_tmp
                     S_mat[:-1] = S_mat[1:]
-                    S_mat[1] = s_tmp
+                    S_mat[-1] = s_tmp
+                if iiter == 1 and len(Y_mat) == 2:
+                    # Removing update from iteration 0
+                    Y_mat.pop(0)
+                    S_mat.pop(0)
                 # Number of steps currently within L-BFGS matrix
                 k_steps = len(Y_mat)
                 if k_steps > 0:
