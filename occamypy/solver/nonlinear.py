@@ -1050,13 +1050,13 @@ class LBFGSB(S.Solver):
                 if  d2 >= 0.0:
                     max_alpha = 0.0
                 elif d1 * max_alpha < d2:
-                    max_alpha = d2 / d1
+                    max_alpha = d2 / (d1 + self.epsmch)
             elif d1 > 0.0:
                 d2 = u[ii] - x[ii]
                 if d2 <= 0.0:
                     max_alpha = zero
                 elif d1 * max_alpha > d2:
-                    max_alpha = d2 / d1
+                    max_alpha = d2 / (d1 + self.epsmch)
         return max_alpha
 
     def run(self, problem, verbose=False, restart=False):
@@ -1195,49 +1195,42 @@ class LBFGSB(S.Solver):
 
             # Compute the new search direction by finding Cauchy point and solving subspace minimization problem
             # [xc, c] = get_cauchy_point(x, g, l, u, theta, W, M);
-            line_search_flag = True
             c = self.get_cauchy_point(bfgsb_mdl_cauchy, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, W, M, theta)
             self.stepper.alpha = 1.0
             if iiter == 0:
                 bfgsb_dmodl.copy(bfgsb_mdl_cauchy)
                 bfgsb_dmodl.scaleAdd(bfgsb_mdl, 1.0, -1.0)
-                self.stepper.alpha = min(1.0, 1.0/bfgsb_dmodl.norm())
+                self.stepper.alpha = min(1.0, 1.0 / (bfgsb_dmodl.norm() + self.epsmch))
             else:
                 free_var = self.subspace_min(bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, bfgsb_mdl_cauchy, c, W, M, theta)
-                if free_var == False:
+                if not free_var:
                     bfgsb_dmodl.copy(bfgsb_mdl_cauchy)
                     bfgsb_dmodl.scaleAdd(bfgsb_mdl,1.0,-1.0)
-                    self.stepper.alpha = min(1.0, 1.0/bfgsb_dmodl.norm())
-            # Perform line search using updated search direction
-            if line_search_flag:
-                self.stepper.alpha_max = self.max_step(bfgsb_mdl, bfgsb_dmodl, minBound, maxBound)
-                if self.stepper.alpha > self.stepper.alpha_max:
-                    self.stepper.alpha = self.stepper.alpha_max
-                dphi = prblm_grad.dot(bfgsb_dmodl)
-                if dphi > 0.0:
-                    msg = "Current search direction not a descent one (dphi/dalpha|dmod=%.5e)" % dphi
-                    if verbose:
-                        print(msg)
-                    # Writing on log file
-                    if self.logger:
-                        self.logger.addToLog(msg)
-                    problem.set_model(prev_mdl)
-                    break
-                else:
-                    alpha, success = self.stepper.run(problem, bfgsb_mdl, bfgsb_dmodl, self.logger)
-                if not success:
-                    msg = "Stepper couldn't find a proper step size, will terminate solver"
-                    if verbose:
-                        print(msg)
-                    # Writing on log file
-                    if self.logger:
-                        self.logger.addToLog(msg)
-                    problem.set_model(prev_mdl)
-                    break
-            else:
-                msg = "Skipping line search! Using subspace minimization solution for next model step"
+                    self.stepper.alpha = min(1.0, 1.0 / (bfgsb_dmodl.norm() + self.epsmch))
+            self.stepper.alpha_max = self.max_step(bfgsb_mdl, bfgsb_dmodl, minBound, maxBound)
+            if self.stepper.alpha > self.stepper.alpha_max:
+                self.stepper.alpha = self.stepper.alpha_max
+            dphi = prblm_grad.dot(bfgsb_dmodl)
+            if dphi > 0.0:
+                msg = "Current search direction not a descent one (dphi/dalpha|dmod=%.5e)" % dphi
+                if verbose:
+                    print(msg)
+                # Writing on log file
                 if self.logger:
                     self.logger.addToLog(msg)
+                problem.set_model(prev_mdl)
+                break
+            else:
+                alpha, success = self.stepper.run(problem, bfgsb_mdl, bfgsb_dmodl, self.logger)
+            if not success:
+                msg = "Stepper couldn't find a proper step size, will terminate solver"
+                if verbose:
+                    print(msg)
+                # Writing on log file
+                if self.logger:
+                    self.logger.addToLog(msg)
+                problem.set_model(prev_mdl)
+                break
 
             obj1 = problem.get_obj(bfgsb_mdl)  # Compute objective function value
             # Redundant tests on verifying convergence
