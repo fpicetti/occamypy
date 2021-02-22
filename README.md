@@ -27,7 +27,7 @@ This library was initially developed at
 [Stanford Exploration Project](http://zapad.stanford.edu/ettore88/python-solver)
 for solving large scale seismic problems.
 Inspired by Equinor's [PyLops](https://github.com/equinor/pylops)
-we publish this libary as our contribution to scientific community.
+we publish this library as our contribution to scientific community.
 
 ## How it works
 This framework allows for the definition of linear and non-linear mapping functions that
@@ -36,8 +36,8 @@ heterogeneous computational resources, from personal laptops to HPC environments
 
 - **vector** class: this is the building block for handling data. It contains the required
 mathematical operations such as norm, scaling, dot-product, sum, point-wise multiplication.
-These methods can be implemented using existing libraries (e.g., Numpy and Cupy) or
-user-defined ones ([SEPLib](http://sepwww.stanford.edu/doku.php?id=sep:software:seplib)).
+These methods can be implemented using existing libraries (e.g., Numpy, Cupy, PyTorch) or
+user-defined ones (e.g., [SEPLib](http://sepwww.stanford.edu/doku.php?id=sep:software:seplib)).
 See the [`vector`](./occamypy/vector) subpackage for details and implementations.
 
 - **operator** class: a mapping function between a `domain` vector and a `range` vector.
