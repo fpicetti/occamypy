@@ -1,16 +1,14 @@
 from copy import deepcopy
 from sys import version_info
+
+import cupy as cp
 import numpy as np
+from GPUtil import getGPUs, getFirstAvailable
+
 from occamypy import Vector, VectorNumpy
-try:
-    import cupy as cp
-    from GPUtil import getGPUs, getFirstAvailable
-except:
-    pass
-    
+
 
 class VectorCupy(Vector):
-    """In-core python vector class based on Cupy"""
 
     def __init__(self, in_content, device=None):
         """
@@ -283,32 +281,3 @@ class VectorCupy(Vector):
     
     def plot(self):
         return self.getNdArray().get()
-
-
-if __name__ == '__main__':
-    from occamypy.cupy.operator import ConvND
-    x = VectorCupy((1000, 20000)).set(1.)
-    x.printDevice()
-
-    # D = pyCuOperator.FirstDerivative(x)
-    # n = x.clone().rand()
-    # y = x.clone().set(10) + 0.01 * n
-    # S = pyCuOperator.scalingOp(x, 10)
-    # xinv = S / y
-    # print('Error norm = %.2e' % (xinv.norm() - x.norm()))
-
-    # Test Convolution
-    nh = [5, 10]
-    hz = cp.exp(-0.1 * cp.linspace(-(nh[0] // 2), nh[0] // 2, nh[0]) ** 2)
-    hx = cp.exp(-0.03 * cp.linspace(-(nh[1] // 2), nh[1] // 2, nh[1]) ** 2)
-    hz /= cp.trapz(hz)  # normalize the integral to 1
-    hx /= cp.trapz(hx)  # normalize the integral to 1
-    kernel = hz[:, cp.newaxis] * hx[cp.newaxis, :]
-    C = ConvND(x, kernel)
-    C.dotTest(True)
-    #
-    # x = vectorCupy(cp.arange(9).reshape((3, 3)))
-    # pad = ((2, 2), (3, 3))
-    # P = pyCuOperator.ZeroPad(x, pad)
-
-    print(0)

@@ -1,13 +1,12 @@
-# Module containing useful functions to interact with the Dask module
 import atexit
+import json
+import os
 import random
 import socket
 import subprocess
-import os
-import time
-import json
+from time import time
 
-DEVNULL = open(os.devnull, 'wb')
+DEVNULL = open(os.devnull, "wb")
 import dask.distributed as daskD
 from dask_jobqueue import PBSCluster, LSFCluster, SLURMCluster
 from dask_kubernetes import KubeCluster, make_pod_spec
@@ -43,9 +42,9 @@ def create_hostnames(machine_names, Nworkers):
     return hostnames
 
 
-def client_startup(cluster, n_jobs, total_workers):
+def client_startup(cluster, n_jobs: int, total_workers: int):
     """
-    Function to start a client
+    Function to start a dask client
     """
     if n_jobs <= 0:
         raise ValueError("n_jobs must equal or greater than 1!")
@@ -56,13 +55,13 @@ def client_startup(cluster, n_jobs, total_workers):
     # Creating dask Client
     client = daskD.Client(cluster)
     workers = 0
-    t0 = time.time()
+    t0 = time()
     while workers < total_workers:
         workers = len(client.get_worker_logs().keys())
         # If the number of workers is not reached in 5 minutes raise exception
-        if time.time() - t0 > 300.0:
-            raise SystemError(
-                "Dask could not start the requested workers within 5 minutes! Try different n_jobs.")
+        if time() - t0 > 300.0:
+            raise SystemError("Dask could not start the requested workers within 5 minutes!"
+                              "Try different n_jobs.")
     WorkerIds = list(client.get_worker_logs().keys())
     return client, WorkerIds
 
@@ -100,7 +99,7 @@ class DaskClient:
     :param kube_params : - dict; dictonary containing KubeCluster options
      (see help(KubeCluster) and help(make_pod_spec) for help) [None]
     :param n_wrks: - int; number of workers to scale the cluster
-    Note that by default the Kubernetes pods are created using the Docker image 'ettore88/occamypy:devel'. To change
+    Note that by default the Kubernetes pods are created using the Docker image "ettore88/occamypy:devel". To change
     the image to be use, provide the item image within the kube_params dictionary.
     """
         hostnames = kwargs.get("hostnames", None)
@@ -149,12 +148,12 @@ class DaskClient:
                   ["--port"] + [self.port]
             self.scheduler_proc = subprocess.Popen(cmd, stdout=stdout_scheduler, stderr=subprocess.STDOUT)
             # Checking if scheduler has started and getting tpc information
-            t0 = time.time()
+            t0 = time()
             while True:
                 if os.path.isfile(scheduler_file):
                     if get_tcp_info(scheduler_file): break
                 # If the dask scheduler is not started in 5 minutes raise exception
-                if time.time() - t0 > 300.0:
+                if time() - t0 > 300.0:
                     raise SystemError("Dask could not start scheduler! Try different first host name.")
             # Creating dask Client
             self.client = daskD.Client(scheduler_file=scheduler_file)
@@ -172,11 +171,11 @@ class DaskClient:
             # Waiting until all the requested workers are up and running
             workers = 0
             requested = len(hostnames)
-            t0 = time.time()
+            t0 = time()
             while workers < requested:
                 workers = len(self.client.get_worker_logs().keys())
                 # If the number of workers is not reached in 5 minutes raise exception
-                if time.time() - t0 > 300.0:
+                if time() - t0 > 300.0:
                     raise SystemError(
                         "Dask could not start the requested workers within 5 minutes! Try different hostnames.")
             # Resorting worker IDs according to user-provided list

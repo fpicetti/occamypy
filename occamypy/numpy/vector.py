@@ -1,6 +1,7 @@
-import numpy as np
 from copy import deepcopy
 from sys import version_info
+
+import numpy as np
 
 from occamypy import Vector
 

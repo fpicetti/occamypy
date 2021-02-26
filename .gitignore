@@ -6,3 +6,4 @@
 .DS_Store
 .ipynb_checkpoints/
 dask-worker-space
+/devel

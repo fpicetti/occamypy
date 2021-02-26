@@ -167,7 +167,7 @@ class _ZeroPad(Operator):
         
         super(_ZeroPad, self).__init__(model, VectorTorch(self.padded_shape, device=model.device.index))
 
-        self.inner_idx = [list(np.arange(self.pad[0:-1:2][i], self.range.shape[i]-pad[1::2][i])) for i in range(nd)]
+        self.inner_idx = [list(torch.arange(start=self.pad[0:-1:2][i], end=self.range.shape[i]-pad[1::2][i])) for i in range(nd)]
     
     def __str__(self):
         return "ZeroPad "

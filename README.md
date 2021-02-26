@@ -17,10 +17,13 @@ We demonstrate its flexibility and scalability on multiple inverse problems,
 where convex and non-convex objective functions are optimized with different iterative algorithms.
 
 ### Installation
+Preferred way is through Python Package Index:
+```bash
+pip install occamypy
+```
 In a python3 environment, clone this repo and then simply run `pip install -e .`;
 the library is set up in order to install its requirements.
 
-In the near future we will distribute this library with [PyPI](https://pypi.org/).
 
 ### History
 This library was initially developed at

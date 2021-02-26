@@ -25,5 +25,5 @@ __all__ = [
     "CvSrchStep",
     "ParabolicStep",
     "ParabolicStepConst",
-    "StrongWolfe"
+    "StrongWolfe",
 ]

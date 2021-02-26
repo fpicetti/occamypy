@@ -1,63 +1,65 @@
 from __future__ import division, print_function, absolute_import
-import time
+
+from time import time
 from copy import deepcopy
+
 import numpy as np
 
-from occamypy.vector import Vector, superVector
-from occamypy import solver as S
 from occamypy import problem as P
+from occamypy import solver as S
+from occamypy.vector import Vector, superVector
 
 
 class Operator:
     """Abstract python operator class"""
-
+    
     # Default class methods/functions
     def __init__(self, domain, range):
         """Generic class for operator"""
         self.domain = domain.cloneSpace()
         self.range = range.cloneSpace()
-
+    
     def __del__(self):
         """Default destructor"""
         return
-
+    
     def __str__(self):
         return "Operator"
     
     def __repr__(self):
         return self.__str__()
-
+    
     # unary operators
     def __add__(self, other):  # self + other
         if isinstance(other, Operator):
             return _sumOperator(self, other)
         else:
             raise TypeError('Argument must be an Operator')
-
+    
     def __sub__(self, other):  # self - other
         self.__add__(-other)
-
+    
     def __neg__(self):  # -self
         return _scaledOperator(self, -1)
-
+    
     def __mul__(self, other):  # self * other
         return self.dot(other)
-
+    
     __rmul__ = __mul__  # other * self
-
+    
     def __truediv__(self, other, niter=2000):
         """x = A / y through CG"""
-
+        
         if not self.range.checkSame(other):
             raise ValueError('Operator range and data domain mismatch')
-
+        
         stopper = S.BasicStopper(niter=niter)
         problem = P.LeastSquares(model=self.domain.clone(), data=other, op=self)
         CGsolver = S.CG(stopper)
         CGsolver.run(problem, verbose=False)
-
+        
         return problem.model
-
+    
     # main function for all kinds of multiplication
     def dot(self, other):
         """Matrix-matrix or matrix-vector or matrix-scalar multiplication."""
@@ -77,28 +79,28 @@ class Operator:
             return temp
         else:
             raise TypeError('Expected Operator, (super)Vector or scalar, got %r' % other)
-
+    
     def getDomain(self):
         """Function to return operator domain"""
         return self.domain
-
+    
     def getRange(self):
         """Function to return operator range"""
         return self.range
-
+    
     def setDomainRange(self, domain, range):
         """Function to set (cloning space) domain and range of the operator"""
         self.domain = domain.cloneSpace()
         self.range = range.cloneSpace()
         return
-
+    
     def checkDomainRange(self, x, y):
         """Function to check model and data vector sizes"""
         if not self.domain.checkSame(x):
             raise ValueError("Provided x vector does not match operator domain")
         if not self.range.checkSame(y):
             raise ValueError("Provided y vector does not match operator range")
-
+    
     def powerMethod(self, verbose=False, tol=1e-8, niter=None, eval_min=False, return_vec=False):
         """
         Function to estimate maximum eigenvalue of the operator:
@@ -143,7 +145,7 @@ class Operator:
             else:
                 self.forward(False, x, d_temp)  # d = A x
                 self.adjoint(False, y, d_temp)  # y = A' d = A' A x
-
+            
             # Estimating eigenvalue (Rayleigh quotient)
             eigen = x.dot(y)  # eigen_i = x' A x / (x'x = 1.0)
             # x = y
@@ -217,14 +219,14 @@ class Operator:
             eigen = [eigen_max, eigen_min]
             x = [x_max, x_min]
         return (eigen, x) if return_vec else eigen
-
+    
     def dotTest(self, verbose=False, tol=1e-4):
         """
         Function to perform dot-product tests.
         :param verbose  : boolean; Flag to print information to screen as the method is being run [False]
         :param tol      : float; The function throws a Warning if the relative error is greater than maxError [1e-4]
         """
-
+        
         def _testing(add, dt1, dt2, tol, verbose=False):
             if isinstance(dt2, np.complex):
                 dt2 = np.conj(dt2)
@@ -239,108 +241,108 @@ class Operator:
                 # del d1, d2, r1, r2
                 raise Warning("\tDot products failure add=%s; relative error %.2e is greater than tolerance %.2e"
                               % (str(add), err_rel, tol))
-
+        
         if verbose:
             msg = "Dot-product tests of forward and adjoint operators"
-            print(msg+"\n"+"-"*len(msg))
-
+            print(msg + "\n" + "-" * len(msg))
+        
         # Allocating temporary vectors for dot-product tests
         d1 = self.domain.clone()
         d2 = self.domain.clone()
         r1 = self.range.clone()
         r2 = self.range.clone()
-
+        
         # Randomize the input vectors
         d1.rand()
         r1.rand()
-
+        
         # Applying forward and adjoint operators with add=False
         if verbose:
             print("Applying forward operator add=False")
-        start = time.time()
+        start = time()
         self.forward(False, d1, r2)
-        end = time.time()
+        end = time()
         if verbose:
             print(" Runs in: %s seconds" % (end - start))
             print("Applying adjoint operator add=False")
-        start = time.time()
+        start = time()
         self.adjoint(False, d2, r1)
-        end = time.time()
+        end = time()
         if verbose:
             print(" Runs in: %s seconds" % (end - start))
-
+        
         # Computing dot products
         dt1 = d1.dot(d2)
         dt2 = r1.dot(r2)
         _testing(False, dt1, dt2, tol, verbose)
-
+        
         # Applying forward and adjoint operators with add=True
         if verbose:
             print("Applying forward operator add=True")
-        start = time.time()
+        start = time()
         self.forward(True, d1, r2)
-        end = time.time()
+        end = time()
         if verbose:
             print(" Runs in: %s seconds" % (end - start))
             print("Applying adjoint operator add=True")
-        start = time.time()
+        start = time()
         self.adjoint(True, d2, r1)
-        end = time.time()
+        end = time()
         if verbose:
             print(" Runs in: %s seconds" % (end - start))
-
+        
         # Computing dot products
         dt1 = d1.dot(d2)
         dt2 = r1.dot(r2)
         _testing(True, dt1, dt2, tol, verbose)
-
+        
         if verbose:
             print("-" * 49)
-
+        
         # Deleting temporary vectors
         del d1, d2, r1, r2
         return
-
+    
     def forward(self, add, model, data):
         """Forward operator"""
         raise NotImplementedError("Forward must be defined")
-
+    
     def adjoint(self, add, model, data):
         """Adjoint operator"""
         raise NotImplementedError("Adjoint must be defined")
-
+    
     def hermitian(self):
         """Instantiate the Hermitian operator"""
         return _Hermitian(self)
-
+    
     H = property(hermitian)
     T = H  # misleading (H is the conjugate transpose), probably we can delete it
 
 
 class _Hermitian(Operator):
-
+    
     def __init__(self, op):
         super(_Hermitian, self).__init__(op.range, op.domain)
         self.op = op
-
+    
     def forward(self, add, model, data):
         return self.op.adjoint(add, data, model)
-
+    
     def adjoint(self, add, model, data):
         return self.op.forward(add, data, model)
 
 
 class _CustomOperator(Operator):
     """Linear operator defined in terms of user-specified operations."""
-
+    
     def __init__(self, domain, range, forward_function, adjoint_function):
         super(_CustomOperator, self).__init__(domain, range)
         self.forward_function = forward_function
         self.adjoint_function = adjoint_function
-
+    
     def forward(self, add, model, data):
         return self.forward_function(add, model, data)
-
+    
     def adjoint(self, add, model, data):
         return self.adjoint_function(add, model, data)
 
@@ -529,7 +531,7 @@ class _sumOperator(Operator):
         self.checkDomainRange(model, data)
         self.args[0].adjoint(add, model, data)
         self.args[1].adjoint(True, model, data)
- 
+
 
 class _prodOperator(Operator):
     """
@@ -577,9 +579,9 @@ class _scaledOperator(Operator):
     
     def __str__(self):
         op_name = self.op.__str__().replace(" ", "")
-        l = len(op_name)
-        if l <= 6:
-            name = "sc" + op_name + "" * (6 - l)
+        op_name_len = len(op_name)
+        if op_name_len <= 6:
+            name = "sc" + op_name + "" * (6 - op_name_len)
         else:
             name = "sc" + op_name[:6]
         return name

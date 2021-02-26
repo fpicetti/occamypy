@@ -2,8 +2,10 @@ from __future__ import division, print_function, absolute_import
 import numpy as np
 import cupy as cp
 from cupyx.scipy.ndimage import gaussian_filter
-from cusignal.convolution import convolve, correlate
-
+try:
+    from cusignal.convolution import convolve, correlate
+except ModuleNotFoundError:
+    raise ModuleNotFoundError("cuSIGNAL is not installed. Please install it")
 from occamypy import Operator, Dstack, Vector, superVector
 from occamypy.cupy import VectorCupy
 

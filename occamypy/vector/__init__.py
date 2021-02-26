@@ -5,5 +5,5 @@ __all__ = [
     "Vector",
     "superVector",
     "VectorSet",
-    "VectorOC"
+    "VectorOC",
 ]
