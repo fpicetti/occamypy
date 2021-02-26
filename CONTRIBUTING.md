@@ -44,7 +44,7 @@ Ensure that you are able to *pass all the tests before moving forward*.
     ```
     Now you can make your changes locally.
 
-5. Commit your changes and push your branch to GitLab::
+5. Commit your changes and push your branch to GitHub:
     ```
     git add .
     git commit -m "Your detailed description of your changes."
