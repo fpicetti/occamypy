@@ -73,7 +73,7 @@ class VectorNumpy(Vector):
         """Fill vector with random number (~U[1,-1]) with a given SNR"""
         rms = np.sqrt(np.mean(np.square(self.getNdArray())))
         amp_noise = 1.0
-        if rms != 0.:
+        if rms > 0. and rms != np.inf:
             amp_noise = np.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
         self.getNdArray()[:] = amp_noise * (2. * np.random.random(self.getNdArray().shape) - 1.)
         return self
