@@ -81,7 +81,8 @@ See the [`dask`](./occamypy/dask) subpackage for details and implementations.
 ### Tutorials
 We provide some [tutorials](./tutorials) that demonstrate the flexibility of occamypy.
 Please refer to them as a good starting point for developing your own code.
-If you have a good application example, contact us! We will happy to see OccamyPy in action.
+If you have a good application example, contact us! We will be happy to see OccamyPy in action.
+
 ### Contributing
 Follow the following instructions and read carefully the [CONTRIBUTING](CONTRIBUTING.md) file before getting started.
 
