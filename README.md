@@ -1,12 +1,7 @@
+![occamypy](readme_img/logo192.png)
+
 # OccamyPy: an object-oriented optimization library for small- and large-scale problems
 
-@Authors: [Ettore Biondi](mailto:ettore88@stanford.edu),
-Guillame Barnier,
-Robert Clapp,
-[Francesco Picetti](mailto:francesco.picetti@polimi.it),
-Stuart Farris
-
-### Abstract
 We present an object-oriented optimization framework that can be employed to solve
 small- and large-scale problems based on the concept of vectors and operators.
 By using such a strategy, we implement different iterative optimization algorithms
@@ -21,9 +16,8 @@ Preferred way is through Python Package Index:
 ```bash
 pip install occamypy
 ```
-In a python3 environment, clone this repo and then simply run `pip install -e .`;
-the library is set up in order to install its requirements.
-
+In order to have Cupy-based vectors and operators, you should install also [Cupy](https://docs.cupy.dev/en/stable/install.html#install-cupy) and [cuSIGNAL](https://github.com/rapidsai/cusignal#installation).
+They are not included in this installation as they are dependent on the target CUDA device and compiler.
 
 ### History
 This library was initially developed at
@@ -60,6 +54,25 @@ Additionally, it allows to restart an optimization method from an intermetdiate 
 written as serialized objects on permanent computer memory.
 See the [`solver`](./occamypy/solver) subpackage for details and implementations.
 
+### Features at a glance
+
+| vector engines | operators | problems | solvers |
+|-|-|-|-|
+| numpy | linear      | least squares                   | Conjugate Gradient           |
+| cupy  | nonlinear   | symmetric least squares         | Steepest Descent             |
+| torch | distributed | L2-reg least squares            | LSQR                         |
+|       |             | LASSO                           | symmetric Conjugate Gradient |
+|       |             | generalized LASSO               | nonlinear Conjugate Gradient |
+|       |             | nonlinear least squares         | L-BFGS                       |
+|       |             | L2-reg nonlinear least squares  | L-BFGS-B                     |
+|       |             | regularized Variable Projection | Truncated Newton             |
+|       |             |                                 | Markov Chain Monte Carlo     |
+|       |             |                                 | ISTA and Fast-ISTA           |
+|       |             |                                 | ISTC (ISTA with cooling)     |
+|       |             |                                 | Split-Bregman                |
+|       |             |                                 | Strong Wolfe                 |
+
+
 ### Scalability
 The main objective of the described framework and implemented library is to solve large-scale inverse problems.
 Any vector and operator can be split into blocks to be distributed to multiple nodes.
@@ -73,4 +86,11 @@ Please refer to them as a good starting point for developing your own code.
 ### Contributing
 Follow the following instructions and read carefully the [CONTRIBUTING](CONTRIBUTING.md) file before getting started.
 
+### Authors
+ - [Ettore Biondi](https://github.com/biondiettore)
+ - [Guillame Barnier](https://github.com/gbarnier)
+ - Robert Clapp
+ - [Francesco Picetti](https://github.com/fpicetti)
+ - [Stuart Farris](https://github.com/stuart-farris)
 
+Thanks to [Andrea Grassi](https://www.linkedin.com/in/andreagrassi3dartist/) for designing the logo.
