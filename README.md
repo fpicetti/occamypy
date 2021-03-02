@@ -52,6 +52,7 @@ See the [`problem`](./occamypy/problem) subpackage for details and implementatio
 defined within the vector, operator and problem classes.
 Additionally, it allows to restart an optimization method from an intermetdiate result
 written as serialized objects on permanent computer memory.
+We have a number of linear and nonlinear solver, along with some stepper algorithms.
 See the [`solver`](./occamypy/solver) subpackage for details and implementations.
 
 ### Features at a glance
@@ -70,8 +71,6 @@ See the [`solver`](./occamypy/solver) subpackage for details and implementations
 |       |             |                                 | ISTA and Fast-ISTA           |
 |       |             |                                 | ISTC (ISTA with cooling)     |
 |       |             |                                 | Split-Bregman                |
-|       |             |                                 | Strong Wolfe                 |
-
 
 ### Scalability
 The main objective of the described framework and implemented library is to solve large-scale inverse problems.
@@ -82,15 +81,13 @@ See the [`dask`](./occamypy/dask) subpackage for details and implementations.
 ### Tutorials
 We provide some [tutorials](./tutorials) that demonstrate the flexibility of occamypy.
 Please refer to them as a good starting point for developing your own code.
-
+If you have a good application example, contact us! We will happy to see OccamyPy in action.
 ### Contributing
 Follow the following instructions and read carefully the [CONTRIBUTING](CONTRIBUTING.md) file before getting started.
 
 ### Authors
  - [Ettore Biondi](https://github.com/biondiettore)
  - [Guillame Barnier](https://github.com/gbarnier)
- - Robert Clapp
+ - [Robert Clapp](http://zapad.stanford.edu/bob)
  - [Francesco Picetti](https://github.com/fpicetti)
  - [Stuart Farris](https://github.com/stuart-farris)
-
-Thanks to [Andrea Grassi](https://www.linkedin.com/in/andreagrassi3dartist/) for designing the logo.

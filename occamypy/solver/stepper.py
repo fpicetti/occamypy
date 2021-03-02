@@ -1005,6 +1005,7 @@ class ParabolicStepConst(Stepper):
         del model_step, res1
         return alpha, success
 
+
 class StrongWolfe(Stepper):
     """Compute a line search to satisfy the strong Wolfe conditions.
        Algorithm 3.5. Page 60. "Numerical Optimization". Nocedal & Wright.
