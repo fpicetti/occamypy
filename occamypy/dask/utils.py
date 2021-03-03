@@ -5,6 +5,9 @@ import random
 import socket
 import subprocess
 from time import time
+# Adding following import for fixing compatibility issue with python3.9
+# (https://github.com/dask/distributed/issues/4168)
+import multiprocessing.popen_spawn_posix
 
 DEVNULL = open(os.devnull, "wb")
 import dask.distributed as daskD
