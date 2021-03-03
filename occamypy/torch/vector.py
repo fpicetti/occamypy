@@ -278,3 +278,7 @@ class VectorTorch(Vector):
     
     def plot(self):
         return self.getNdArray().detach().cpu().numpy()
+    
+    def to_param(self):
+        """Function to get a learnable Parameter tensor out of self data"""
+        return torch.nn.Parameter(data=self.getNdArray(), requires_grad=True)
