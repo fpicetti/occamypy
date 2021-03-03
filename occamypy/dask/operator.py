@@ -58,6 +58,13 @@ def _add_from_NdArray(vecObj, NdArray):
     vecObj.getNdArray()[:] += NdArray
     return
 
+def _check_dask_error(futures):
+    """Function to check error on futures related to Dask operators"""
+    for idx, fut in enumerate(futures):
+        if fut.status == 'error':
+            print("Error for dask operator %s" % idx)
+            print(fut.result())
+    return
 
 class DaskOperator(Operator):
     """
@@ -70,16 +77,21 @@ class DaskOperator(Operator):
         
         :param dask_client: [no default] - DaskClient;
             client object to use when submitting tasks (see dask_util module)
-        :param op_constructor: [no default] - pointer to function;
-            Pointer to constructor
+        :param op_constructor: [no default] - pointer to function or list of pointers to functions;
+            Pointer to constructor(s)
         :param op_args: [no default] - list;
             List containing lists of arguments to run the constructor.
             It can instantiate the same operator on multiple workers or different ones if requested
             by passing a list of list of arguments (e.g., [(arg1,arg2,arg3,...)])
+            If op_kind = blocky the order is column wise
         :param chunks: [no default] - list;
-            List defininig how many operators wants to instantiated.
+            List defining how many operators wants to instantiated.
             Note, the list must contain the same number of elements as the number of
             Dask workers present in the DaskClient.
+        :param op_kind: [diag] - string;
+            Mode to run the Dask Operator,
+            diag = block diagonal operator
+            blocky = blocky opearator (note: len(op_args) must be equal to np.sum(chunks)**2)
         :param setbackground_func_name: [None] - string;
             Name of the function to set the model point on which the Jacobian is computed.
             See NonLinearOperator in operator module.
@@ -103,9 +115,13 @@ class DaskOperator(Operator):
         if len(chunks) != N_wrk:
             raise ValueError(
                 "Number of provide chunks (%s) different than the number of workers (%s)" % (len(chunks), N_wrk))
+        # Check whether it is a blocky or block diagonal Dask operator
+        self.op_kind = kwargs.get("op_kind", "diag")
+        if self.op_kind not in "diag blocky":
+            raise ValueError("Unknown op_kind provided (%s)" % self.op_kind)
         # Check if many arguments are passed to construct different operators
         N_args = len(op_args)
-        N_ops = int(np.sum(chunks))
+        N_ops = int(np.sum(chunks)) if self.op_kind == "diag" else int(np.sum(chunks))**2
         if N_args > 1:
             if N_args != N_ops:
                 raise ValueError(
@@ -117,32 +133,65 @@ class DaskOperator(Operator):
         
         # Instantiation of the operators on each worker
         self.dask_ops = []
-        for iwrk, wrkId in enumerate(wrkIds):
-            for iop in range(chunks[iwrk]):
-                self.dask_ops.append(
-                    self.client.submit(call_constructor,
-                                       op_constructor,
-                                       op_args.pop(0),
-                                       workers=[wrkId],
-                                       pure=False))
+        self.dask_ops_adj = []
+        # Check if a list of constructors has been passed
+        if isinstance(op_constructor, list):
+            opt_list = op_constructor
+        else:
+            opt_list = [op_constructor]*N_ops
+        self.n_col = 1 if self.op_kind == "diag" else int(np.sum(chunks))
+        # Creating list of adjoint operators
+        if self.n_col > 1:
+            opt_list_adj = opt_list.copy()
+            op_args_adj = op_args.copy()
+            # Creating adjoint operators
+            for iwrk, wrkId in enumerate(wrkIds):
+                for iop in range(chunks[iwrk]):
+                    for i_col in range(self.n_col):
+                        self.dask_ops_adj.append(
+                            self.client.submit(call_constructor,
+                                               opt_list_adj.pop(0),
+                                               op_args_adj.pop(0),
+                                               workers=[wrkId],
+                                               pure=False))
+        # Creating forward operators
+        for i_col in range(self.n_col):
+            for iwrk, wrkId in enumerate(wrkIds):
+                for iop in range(chunks[iwrk]):
+                    self.dask_ops.append(
+                        self.client.submit(call_constructor,
+                                           opt_list.pop(0),
+                                           op_args.pop(0),
+                                           workers=[wrkId],
+                                           pure=False))
         daskD.wait(self.dask_ops)
-        for idx in range(len(self.dask_ops)):
-            if self.dask_ops[idx].status == 'error':
+        # Checking for errors during operators construction
+        for idx, fut in enumerate(self.dask_ops):
+            if fut.status == 'error':
                 print("Error for dask operator %s" % idx)
-                print(self.dask_ops[idx].result())
+                print(fut.result())
         # Creating domain and range of the Dask operator
         dom_vecs = []  # List of remote domain vectors
         rng_vecs = []  # List of remote range vectors
-        for op in self.dask_ops:
+        op_list = self.dask_ops
+        if self.n_col > 1:
+            # Dealing with a blocky operator
+            op_list = np.diag(np.asarray(self.dask_ops).reshape((self.n_col, self.n_col)).T)
+        for op in op_list:
             dom_vecs.append(self.client.submit(call_getDomain, op, pure=False))
             rng_vecs.append(self.client.submit(call_getRange, op, pure=False))
         daskD.wait(dom_vecs + rng_vecs)
+        _check_dask_error(dom_vecs + rng_vecs)
         self.domain = DaskVector(self.dask_client, dask_vectors=dom_vecs)
         self.range = DaskVector(self.dask_client, dask_vectors=rng_vecs)
         # Set background function name "necessary for non-linear operator Jacobian"
         self.set_background_name = kwargs.get("setbackground_func_name", None)
         if self.set_background_name:
-            # Creating a spreading operator useful
+            if self.op_kind != "diag":
+                raise ValueError("Set background not currently supported for blocky operators")
+            if not isinstance(self.set_background_name, list):
+                self.set_background_name = [self.set_background_name] * len(self.dask_ops)
+            # Creating a spreading operator useful for
             self.Sprd = kwargs.get("spread_op", None)
             if self.Sprd:
                 if not isinstance(self.Sprd, DaskSpread):
@@ -151,6 +200,10 @@ class DaskOperator(Operator):
         # Set aux function name "necessary for VP operator"
         self.set_aux_name = kwargs.get("set_aux_name", None)
         if self.set_aux_name:
+            if self.op_kind != "diag":
+                raise ValueError("set_aux_name not currently supported for blocky operators")
+            if not isinstance(self.set_aux_name, list):
+                self.set_aux_name = [self.set_aux_name] * len(self.dask_ops)
             # Creating a spreading operator useful
             self.SprdAux = kwargs.get("spread_op_aux", None)
             if self.SprdAux:
@@ -158,10 +211,10 @@ class DaskOperator(Operator):
                     raise TypeError("Provided spread_op_aux not a DaskSpreadOp class!")
                 self.tmp_aux = self.SprdAux.getRange().clone()
         return
-    
+
     def __str__(self):
         return " DaskOp "
-    
+
     def forward(self, add, model, data):
         """Forward Dask operator"""
         if not isinstance(model, DaskVector):
@@ -170,11 +223,22 @@ class DaskOperator(Operator):
             raise TypeError("Data vector must be a DaskVector!")
         # Dimensionality check
         self.checkDomainRange(model, data)
-        add = [add] * len(self.dask_ops)
-        fwd_ftr = self.client.map(call_forward, self.dask_ops, add, model.vecDask, data.vecDask, pure=False)
-        daskD.wait(fwd_ftr)
+        if self.op_kind == "diag":
+            add = [add] * len(self.dask_ops)
+            fwd_ftr = self.client.map(call_forward, self.dask_ops, add, model.vecDask, data.vecDask, pure=False)
+            daskD.wait(fwd_ftr)
+            _check_dask_error(fwd_ftr)
+        else:
+            add = [add] * self.n_col
+            ops = np.asarray(self.dask_ops).reshape((self.n_col, self.n_col)).T
+            for icol in range(self.n_col):
+                fwd_ftr = self.client.map(call_forward, ops[:, icol], add,
+                                          [model.vecDask[icol]] * self.n_col, data.vecDask, pure=False)
+                daskD.wait(fwd_ftr)
+                _check_dask_error(fwd_ftr)
+                add = [True] * self.n_col
         return
-    
+
     def adjoint(self, add, model, data):
         """Adjoint Dask operator"""
         if not isinstance(model, DaskVector):
@@ -183,9 +247,20 @@ class DaskOperator(Operator):
             raise TypeError("Data vector must be a DaskVector!")
         # Dimensionality check
         self.checkDomainRange(model, data)
-        add = [add] * len(self.dask_ops)
-        adj_ftr = self.client.map(call_adjoint, self.dask_ops, add, model.vecDask, data.vecDask, pure=False)
-        daskD.wait(adj_ftr)
+        if self.op_kind == "diag":
+            add = [add] * len(self.dask_ops)
+            adj_ftr = self.client.map(call_adjoint, self.dask_ops, add, model.vecDask, data.vecDask, pure=False)
+            daskD.wait(adj_ftr)
+            _check_dask_error(adj_ftr)
+        else:
+            ops = np.asarray(self.dask_ops_adj).reshape((self.n_col, self.n_col)).T
+            add = [add] * self.n_col
+            for icol in range(self.n_col):
+                adj_ftr = self.client.map(call_adjoint, ops[icol, :], add, model.vecDask,
+                                          [data.vecDask[icol]] * self.n_col, pure=False)
+                daskD.wait(adj_ftr)
+                _check_dask_error(adj_ftr)
+                add = [True] * self.n_col
         return
     
     def set_background(self, model):
@@ -197,7 +272,7 @@ class DaskOperator(Operator):
             model = self.model_tmp
         setbkg_ftr = self.client.map(call_func_name,
                                      self.dask_ops,
-                                     [self.set_background_name] * self.dask_client.getNworkers(),
+                                     self.set_background_name,
                                      model.vecDask,
                                      pure=False)
         daskD.wait(setbkg_ftr)
@@ -212,7 +287,7 @@ class DaskOperator(Operator):
             aux_vec = self.tmp_aux
         setaux_ftr = self.client.map(call_func_name,
                                      self.dask_ops,
-                                     [self.set_aux_name] * self.dask_client.getNworkers(),
+                                     self.set_aux_name,
                                      aux_vec.vecDask,
                                      pure=False)
         daskD.wait(setaux_ftr)
@@ -349,7 +424,7 @@ class DaskCollect(Operator):
         return
     
     def adjoint(self, add, model, data):
-        """Adjoint operator: scattering/distributing local array to remove vector"""
+        """Adjoint operator: scattering/distributing local array to remote vector"""
         if not isinstance(model, DaskVector):
             raise TypeError("Model vector must be a DaskVector!")
         self.checkDomainRange(model, data)
