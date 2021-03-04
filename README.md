@@ -91,4 +91,4 @@ Follow the following instructions and read carefully the [CONTRIBUTING](CONTRIBU
  - [Guillame Barnier](https://github.com/gbarnier)
  - [Robert Clapp](http://zapad.stanford.edu/bob)
  - [Francesco Picetti](https://github.com/fpicetti)
- - [Stuart Farris](https://github.com/stuart-farris)
+ - [Stuart Farris](http://zapad.stanford.edu/sfarris)
