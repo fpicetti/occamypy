@@ -7,7 +7,7 @@ from occamypy import problem as P
 from occamypy.solver import Solver, BasicStopper, CG, LSQR, SD
 from occamypy.utils import Logger
 
-zero = 10 ** (np.floor(np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
+from occamypy.utils import ZERO
 
 
 def _soft_thresh(x, thresh):
@@ -629,7 +629,7 @@ class SplitBregman(Solver):
             if isnan(obj0):
                 raise ValueError("Objective function values NaN!")
             
-            if obj0 <= zero:
+            if obj0 <= ZERO:
                 print("Objective function is numerically zero! Stop the inversion")
                 break
             

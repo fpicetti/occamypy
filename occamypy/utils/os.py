@@ -7,7 +7,7 @@ import random
 import string
 from importlib.util import find_spec
 from .logger import Logger
-
+import numpy as np
 
 CUPY_ENABLED = find_spec("cupy") is not None
 
@@ -15,6 +15,9 @@ debug = False  # Debug flag for printing screen output of RunShellCmd as it runs
 debug_log = None  # File where debug outputs are written if requested (it must be a logger object)
 BUF_SIZE = 8388608  # read binary files in 64Mb chunks!
 DEVNULL = open(os.devnull, 'wb')
+
+# Check for avoid Overflow or Underflow
+ZERO = 10 ** (np.floor(np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)
 
 
 def mkdir(directory):

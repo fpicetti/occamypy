@@ -5,7 +5,7 @@ import numpy as np
 from occamypy.solver import Solver
 from occamypy import problem as P
 
-zero = 10 ** (np.floor(np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
+from occamypy.utils import ZERO
 
 
 class CG(Solver):
@@ -174,7 +174,7 @@ class CG(Solver):
                     # Steepest descent
                     beta = 0.0
                     dot_gradd = prblm_gradd.dot(prblm_gradd)
-                    if dot_gradd <= zero:
+                    if dot_gradd <= ZERO:
                         success = False
                         # Writing on log file
                         if self.logger:
@@ -194,12 +194,12 @@ class CG(Solver):
                     dot_gradd = prblm_gradd.dot(prblm_gradd)
                     dot_dres = cg_dres.dot(cg_dres)
                     dot_gradd_dres = np.real(prblm_gradd.dot(cg_dres))
-                    if dot_gradd <= zero or dot_dres <= zero:
+                    if dot_gradd <= ZERO or dot_dres <= ZERO:
                         success = False
                     else:
                         determ = dot_gradd * dot_dres - dot_gradd_dres * dot_gradd_dres
                         # Checking if alpha or beta are becoming infinity
-                        if abs(determ) < zero:
+                        if abs(determ) < ZERO:
                             if self.create_msg:
                                 msg = "Plane-search method fails (zero det: %.2e), will terminate solver" % determ
                                 if verbose:
@@ -557,7 +557,6 @@ class LSQR(Solver):
                 %                alpha*v  =  A'*u  -  beta*v.
             """
 
-
             # A.matvec(v) (i.e., projection of v onto the data space)
             v_prblm = problem.get_dres(x, v)
             # u = A.matvec(v) - alpha * u
@@ -590,7 +589,7 @@ class LSQR(Solver):
 
             # Estimating residual and gradient norms
             prblm_res.scale(phibar)
-            if prblm_grad.norm() > zero:
+            if prblm_grad.norm() > ZERO:
                 prblm_grad.scale(alpha * abs(sn * phi) / prblm_grad.norm())
             else:
                 prblm_grad.zero()

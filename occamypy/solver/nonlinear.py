@@ -7,8 +7,7 @@ from occamypy import operator as O
 from occamypy import problem as P
 from occamypy import solver as S
 
-# Check for avoid Overflow or Underflow
-zero = 10 ** (np.floor(np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)
+from occamypy.utils import ZERO
 
 
 # Beta functions
@@ -440,15 +439,15 @@ class LBFGS(S.Solver):
     
     def __init__(self, stopper, stepper=None, save_alpha=False, m_steps=None, H0=None, logger=None, save_est=False):
         """
-		Constructor for LBFGS Solver:
-		:param stopper    : Stopper, object to terminate the solver
-		:param stepper    : Stepper, object to perform line-search step
-		:param save_alpha : bool, Use previous step-length value as initial guess. Otherwise, the algorithm starts from an initial guess of 1.0 [False]
-		:param m_steps    : int, Maximum number of steps to store to estimate the inverse Hessian (by default it runs BFGS method)
-		:param H0         : Operator, initial estimated Hessian inverse (by default it assumes an identity operator)
-		:param logger 	  : Logger, object to save inversion information at runtime
-		:param save_est   : bool, save inverse Hessian estimate vectors (self.prefix must not be None) [False]
-		"""
+        Constructor for LBFGS Solver:
+        :param stopper    : Stopper, object to terminate the solver
+        :param stepper    : Stepper, object to perform line-search step
+        :param save_alpha : bool, Use previous step-length value as initial guess. Otherwise, the algorithm starts from an initial guess of 1.0 [False]
+        :param m_steps    : int, Maximum number of steps to store to estimate the inverse Hessian (by default it runs BFGS method)
+        :param H0         : Operator, initial estimated Hessian inverse (by default it assumes an identity operator)
+        :param logger 	  : Logger, object to save inversion information at runtime
+        :param save_est   : bool, save inverse Hessian estimate vectors (self.prefix must not be None) [False]
+        """
         # Calling parent construction
         super(LBFGS, self).__init__()
         # Defining stopper object
@@ -809,7 +808,7 @@ class LBFGSB(S.Solver):
     """L-BFGS-B (Limited-memory Broyden-Fletcher-Goldfarb-Shanno with Bounds) Solver object
        Implementation inspired by the one in the GitHub repo: https://github.com/bgranzow/L-BFGS-B.git
     """
-
+    
     def __init__(self, stopper, stepper=None, m_steps=np.inf, logger=None):
         """
 		Constructor for LBFGS-B Solver:
@@ -833,7 +832,7 @@ class LBFGSB(S.Solver):
         self.epsmch = None
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d, geval = %d"
-
+    
     def get_breakpoints(self, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound):
         """
         Compute the breakpoint variables needed for the Cauchy point.
@@ -867,7 +866,7 @@ class LBFGSB(S.Solver):
                 d[ii] = 0.0
         F = np.argsort(t)
         return t_vec, F
-
+    
     def get_cauchy_point(self, bfgsb_mdl_cauchy, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, W, M, theta):
         """
         Compute the generalized Cauchy point.
@@ -886,7 +885,7 @@ class LBFGSB(S.Solver):
         l = minBound.getNdArray().ravel()
         u = maxBound.getNdArray().ravel()
         g = prblm_grad.getNdArray().ravel()
-
+        
         # Main algorithm
         p = np.matmul(W.T, d)
         c = np.zeros((W.shape[1]))
@@ -902,7 +901,7 @@ class LBFGSB(S.Solver):
         b = F[ii]
         t = tt[b]
         dt = t - t_old
-
+        
         while dt_min > dt and ii < bfgsb_mdl_cauchy.size:
             if d[b] > 0.0:
                 xc[b] = u[b]
@@ -911,9 +910,10 @@ class LBFGSB(S.Solver):
             zb = xc[b] - x[b]
             c += dt * p
             gb = g[b]
-            wbt = W[b,:]
+            wbt = W[b, :]
             fp = fp + dt * fpp + gb * gb + theta * gb * zb - gb * np.sum(wbt * np.matmul(M, c))
-            fpp = fpp - theta * gb * gb - 2.0 * gb * np.sum(wbt * np.matmul(M, p)) - gb * gb * np.sum(wbt * np.matmul(M, wbt))
+            fpp = fpp - theta * gb * gb - 2.0 * gb * np.sum(wbt * np.matmul(M, p)) - gb * gb * np.sum(
+                wbt * np.matmul(M, wbt))
             fpp = max(self.epsmch * fpp0, fpp)
             p += gb * wbt
             d[b] = 0.0
@@ -924,16 +924,16 @@ class LBFGSB(S.Solver):
                 b = F[ii]
                 t = tt[b]
                 dt = t - t_old
-
+        
         # Perform final updates
         dt_min = max(dt_min, 0)
         t_old = t_old + dt_min
-        for jj in range(ii,bfgsb_mdl_cauchy.size):
+        for jj in range(ii, bfgsb_mdl_cauchy.size):
             idx = F[jj]
             xc[idx] = x[idx] + t_old * d[idx]
         c += dt_min * p
         return c
-
+    
     def find_alpha(self, l, u, xc, du, free_vars_idx):
         """
         Equation (5.8), Page 8.
@@ -947,12 +947,12 @@ class LBFGSB(S.Solver):
             if (du[ii] > 0.0):
                 alpha_star = min(alpha_star, (u[idx] - xc[idx]) / du[ii])
             else:
-                alpha_star = min(alpha_star, (l[idx] - xc[idx]) / (du[ii]+self.epsmch))
+                alpha_star = min(alpha_star, (l[idx] - xc[idx]) / (du[ii] + self.epsmch))
         ######## Check this!
         if alpha_star < 0.0:
             alpha_star = 0.0
         return alpha_star
-
+    
     def subspace_min(self, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, bfgsb_mdl_cauchy, c, W, M, theta):
         """
         Subspace minimization for the quadratic model over free variables.
@@ -962,7 +962,7 @@ class LBFGSB(S.Solver):
         """
         # Setting the line search flag to true by default
         free_var = True
-
+        
         # Getting arrays and parameters
         n_mod = bfgsb_mdl.size
         xc = bfgsb_mdl_cauchy.getNdArray().ravel()
@@ -971,7 +971,7 @@ class LBFGSB(S.Solver):
         u = maxBound.getNdArray().ravel()
         g = prblm_grad.getNdArray().ravel()
         xbar = bfgsb_dmodl.getNdArray().ravel()
-
+        
         # Finding free variables
         free_vars_idx = []
         Z = []
@@ -982,44 +982,44 @@ class LBFGSB(S.Solver):
                 unit_tmp[ii] = 1.0
                 Z.append(unit_tmp)
         Z = np.array(Z).T
-
+        
         num_free_vars = len(free_vars_idx)
-
+        
         if num_free_vars == 0:
-            bfgsb_mdl.copy(bfgsb_mdl_cauchy) # xbar = x = xc
+            bfgsb_mdl.copy(bfgsb_mdl_cauchy)  # xbar = x = xc
             free_var = False
             return free_var
-
+        
         # Compute W^T Z, the restriction of W to free variables
         WTZ = np.matmul(W.T, Z)
-
+        
         # Compute the reduced gradient of mk restricted to free variables
         rr = g + theta * (xc - x) - np.matmul(W, np.matmul(M, c))
         r = np.zeros((num_free_vars))
         for ii in range(num_free_vars):
             r[ii] = rr[free_vars_idx[ii]]
-
+        
         # Forming intermediate variables
         invtheta = 1.0 / theta
         v = np.matmul(M, np.matmul(WTZ, r))
         N = invtheta * np.matmul(WTZ, WTZ.T)
         N = np.eye(N.shape[0]) - np.matmul(M, N)
         v = np.linalg.solve(N, v)
-        du = - invtheta * ( r + invtheta * np.matmul(WTZ.T, v))
-
+        du = - invtheta * (r + invtheta * np.matmul(WTZ.T, v))
+        
         # find alpha star
         alpha_star = self.find_alpha(l, u, xc, du, free_vars_idx)
-
+        
         # compute the subspace minimization
-        bfgsb_dmodl.copy(bfgsb_mdl_cauchy) # xbar = xc
+        bfgsb_dmodl.copy(bfgsb_mdl_cauchy)  # xbar = xc
         for ii in range(num_free_vars):
             idx = free_vars_idx[ii]
             xbar[idx] += alpha_star * du[ii]
         # Returning new search direction
-        bfgsb_dmodl.scaleAdd(bfgsb_mdl,1.0,-1.0)
-
+        bfgsb_dmodl.scaleAdd(bfgsb_mdl, 1.0, -1.0)
+        
         return free_var
-
+    
     def form_W(self, Y_mat, theta, S_mat):
         """
         :param Y_mat: list containing y_k vectors
@@ -1032,9 +1032,9 @@ class LBFGSB(S.Solver):
         """
         Y = np.array([yk.getNdArray().ravel() for yk in Y_mat]).T
         S = np.array([sk.getNdArray().ravel() for sk in S_mat]).T
-        W = np.concatenate((Y, theta*S), axis=1)
+        W = np.concatenate((Y, theta * S), axis=1)
         return W, Y, S
-
+    
     def max_step(self, bfgsb_mdl, bfgsb_dmodl, minBound, maxBound):
         """Method for determine maximum feasible step length"""
         n_mod = bfgsb_mdl.size
@@ -1047,18 +1047,18 @@ class LBFGSB(S.Solver):
             d1 = d[ii]
             if d1 < 0.0:
                 d2 = l[ii] - x[ii]
-                if  d2 >= 0.0:
+                if d2 >= 0.0:
                     max_alpha = 0.0
                 elif d1 * max_alpha < d2:
                     max_alpha = d2 / (d1 + self.epsmch)
             elif d1 > 0.0:
                 d2 = u[ii] - x[ii]
                 if d2 <= 0.0:
-                    max_alpha = zero
+                    max_alpha = ZERO
                 elif d1 * max_alpha > d2:
                     max_alpha = d2 / (d1 + self.epsmch)
         return max_alpha
-
+    
     def run(self, problem, verbose=False, restart=False):
         """
         Running LBFGSB solver
@@ -1070,7 +1070,7 @@ class LBFGSB(S.Solver):
         self.stopper.reset()
         # Getting model vector
         prblm_mdl = problem.get_model()
-
+        
         # Obtaining bounds from problem
         minBound = problem.bounds.minBound
         maxBound = problem.bounds.maxBound
@@ -1078,14 +1078,14 @@ class LBFGSB(S.Solver):
             raise ValueError("Minimum bound vector must be provided when instantiating the problem object!")
         if maxBound is None:
             raise ValueError("Maximum bound vector must be provided when instantiating the problem object!")
-
+        
         # Setting matrices (lists) of gradient differences and taken steps
         S_mat = []
         Y_mat = []
         # Numpy Arrays containing the matrices necessary for the L-BFGS-B internal optimization problems
-        W = np.zeros((prblm_mdl.size,1))
+        W = np.zeros((prblm_mdl.size, 1))
         M = np.zeros((1, 1))
-
+        
         if not restart:
             msg = 90 * "#" + "\n"
             if self.m_steps is not None:
@@ -1100,7 +1100,7 @@ class LBFGSB(S.Solver):
                 print(msg.replace("log file", ""))
             if self.logger:
                 self.logger.addToLog(msg)
-
+            
             # Setting internal vectors (model, search direction, and previous gradient vectors)
             bfgsb_mdl = prblm_mdl.clone()
             bfgsb_dmodl = prblm_mdl.clone()
@@ -1140,24 +1140,23 @@ class LBFGSB(S.Solver):
             # Setting residual vector to avoid its unnecessary computation
             problem.set_residual(self.restart.retrieve_vector("prblm_res"))
             # Reading previously obtained S_mat and Y_mat
-            k_vecs = min(k_steps,self.m_steps)
+            k_vecs = min(k_steps, self.m_steps)
             if k_vecs > 0:
                 for ii in range(k_vecs):
                     S_mat.append(self.restart.retrieve_vector("s_vec%s" % ii))
                     Y_mat.append(self.restart.retrieve_vector("y_vec%s" % ii))
-                    W,_,_ = self.form_W(Y_mat, theta, S_mat)  # [Y theta*S]
-
-
+                    W, _, _ = self.form_W(Y_mat, theta, S_mat)  # [Y theta*S]
+        
         # Common variables unrelated to restart
         prev_mdl = prblm_mdl.clone().zero()
-        bfgsb_mdl_cauchy = prblm_mdl.clone().zero() # Generalized Cauchy point vector
+        bfgsb_mdl_cauchy = prblm_mdl.clone().zero()  # Generalized Cauchy point vector
         # Precision of numbers from dot-product
         norm_mdl = prblm_mdl.norm()
         if isinstance(norm_mdl, np.float32):
             self.epsmch = np.finfo(np.float32).eps
         else:
             self.epsmch = np.finfo(np.float64).eps
-
+        
         # Inversion loop
         while True:
             # Computing objective function
@@ -1185,27 +1184,29 @@ class LBFGSB(S.Solver):
             if prblm_grad.norm() == 0.:
                 print("Gradient vanishes identically")
                 break
-
+            
             # Saving results
             self.save_results(iiter, problem, force_save=False)
             # Saving current inverted model
             prev_mdl.copy(prblm_mdl)
             # grad0 = grad
             bfgsb_grad0.copy(prblm_grad)
-
+            
             # Compute the new search direction by finding Cauchy point and solving subspace minimization problem
             # [xc, c] = get_cauchy_point(x, g, l, u, theta, W, M);
-            c = self.get_cauchy_point(bfgsb_mdl_cauchy, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, W, M, theta)
+            c = self.get_cauchy_point(bfgsb_mdl_cauchy, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, W, M,
+                                      theta)
             self.stepper.alpha = 1.0
             if iiter == 0:
                 bfgsb_dmodl.copy(bfgsb_mdl_cauchy)
                 bfgsb_dmodl.scaleAdd(bfgsb_mdl, 1.0, -1.0)
                 self.stepper.alpha = min(1.0, 1.0 / (bfgsb_dmodl.norm() + self.epsmch))
             else:
-                free_var = self.subspace_min(bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, bfgsb_mdl_cauchy, c, W, M, theta)
+                free_var = self.subspace_min(bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound, bfgsb_mdl_cauchy,
+                                             c, W, M, theta)
                 if not free_var:
                     bfgsb_dmodl.copy(bfgsb_mdl_cauchy)
-                    bfgsb_dmodl.scaleAdd(bfgsb_mdl,1.0,-1.0)
+                    bfgsb_dmodl.scaleAdd(bfgsb_mdl, 1.0, -1.0)
                     self.stepper.alpha = min(1.0, 1.0 / (bfgsb_dmodl.norm() + self.epsmch))
             self.stepper.alpha_max = self.max_step(bfgsb_mdl, bfgsb_dmodl, minBound, maxBound)
             if self.stepper.alpha > self.stepper.alpha_max:
@@ -1231,7 +1232,7 @@ class LBFGSB(S.Solver):
                     self.logger.addToLog(msg)
                 problem.set_model(prev_mdl)
                 break
-
+            
             obj1 = problem.get_obj(bfgsb_mdl)  # Compute objective function value
             # Redundant tests on verifying convergence
             if obj0 <= obj1:
@@ -1241,22 +1242,22 @@ class LBFGSB(S.Solver):
                     self.logger.addToLog(msg)
                 problem.set_model(prev_mdl)
                 break
-
+            
             # Compute new gradient
             prblm_grad = problem.get_grad(bfgsb_mdl)
-
+            
             ###########################################
             # Update the LBFGS-B matrices
             # Gradient difference
             y_tmp = prblm_grad.clone()
-            y_tmp.scaleAdd(bfgsb_grad0,1.0,-1.0)
+            y_tmp.scaleAdd(bfgsb_grad0, 1.0, -1.0)
             # Taken step
             s_tmp = bfgsb_mdl.clone()
-            s_tmp.scaleAdd(prev_mdl,1.0,-1.0)
-
+            s_tmp.scaleAdd(prev_mdl, 1.0, -1.0)
+            
             # Checking curvature condition of equation 3.9 in "A LIMITED MEMORY ALGORITHM FOR BOUND
             # CONSTRAINED OPTIMIZATION" by Byrd et al. (1995)
-            if y_tmp.dot(s_tmp) > self.epsmch*y_tmp.dot(y_tmp) and y_tmp.dot(s_tmp) > 0.0:
+            if y_tmp.dot(s_tmp) > self.epsmch * y_tmp.dot(y_tmp) and y_tmp.dot(s_tmp) > 0.0:
                 msg = "Updating current Hessian estimate"
                 if self.logger:
                     self.logger.addToLog(msg)
@@ -1298,7 +1299,7 @@ class LBFGSB(S.Solver):
             ###########################################
             # Increasing iteration counter
             iiter = iiter + 1
-
+            
             # Saving current model and previous search direction in case of restart
             self.restart.save_parameter("iter", iiter)
             self.restart.save_parameter("theta", theta)
@@ -1309,7 +1310,7 @@ class LBFGSB(S.Solver):
             self.restart.save_vector("bfgsb_grad0", bfgsb_grad0)
             # Saving data space vectors
             self.restart.save_vector("prblm_res", prblm_res)
-
+            
             # iteration info
             msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                    obj1,
@@ -1327,7 +1328,7 @@ class LBFGSB(S.Solver):
                 raise ValueError("Either gradient norm or objective function value NaN!")
             if self.stopper.run(problem, iiter, initial_obj_value, verbose):
                 break
-
+        
         # Writing last inverted model
         self.save_results(iiter, problem, force_save=True, force_write=True)
         msg = 90 * "#" + "\n"
@@ -1489,9 +1490,9 @@ class MCMC(S.Solver):
                     alpha = np.exp(-(obj_prop - obj_current) / self.T)
             else:
                 # computing log acceptance ratio assuming likelihood function
-                if obj_current > zero and obj_prop > zero:
+                if obj_current > ZERO and obj_prop > ZERO:
                     alpha = min(1.0, obj_prop / obj_current)
-                elif obj_current <= zero < obj_prop:
+                elif obj_current <= ZERO < obj_prop:
                     # condition to avoid zero/zero
                     alpha = 0.
                 else:

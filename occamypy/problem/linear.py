@@ -227,7 +227,6 @@ class LeastSquaresRegularized(Problem):
         """Default destructor"""
         return
     
-    # TODO make estimate_epsilon a function that takes a problem as input
     def estimate_epsilon(self, verbose=False, logger=None):
         """
         Method returning epsilon that balances the first gradient in the 'extended-data' space or initial data residuals
