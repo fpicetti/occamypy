@@ -1,5 +1,5 @@
-import numpy as np
-from occamypy import Operator, Vstack
+from occamypy.utils import get_backend
+from . import Operator, Vstack
 
 
 class FirstDerivative(Operator):
@@ -30,7 +30,7 @@ class FirstDerivative(Operator):
         self.dims = model.getNdArray().shape
         self.axis = axis if axis >= 0 else len(self.dims) + axis
         self.stencil = stencil
-        
+
         if self.stencil == 'centered':
             self.forward = self._forwardC
             self.adjoint = self._adjointC
@@ -43,6 +43,8 @@ class FirstDerivative(Operator):
         else:
             raise ValueError("Derivative stencil must be centered, forward or backward")
         
+        self.backend = get_backend(model)
+
         super(FirstDerivative, self).__init__(model, model)
     
     def __str__(self):
@@ -51,127 +53,109 @@ class FirstDerivative(Operator):
     def _forwardF(self, add, model, data):
         """Forward operator for the 1st order forward stencil"""
         self.checkDomainRange(model, data)
-        if add:
-            data_tmp = data.clone()
-        data.zero()
+        if not add:
+            data.zero()
         # Getting Ndarrays
         x = model.clone().getNdArray()
         if self.axis > 0:  # need to bring the dim. to derive to first dim
-            x = np.swapaxes(x, self.axis, 0)
-        y = np.zeros(x.shape)
+            x = self.backend.swapaxes(x, self.axis, 0)
+        y = self.backend.zeros_like(x)
         
         y[:-1] = (x[1:] - x[:-1]) / self.sampling
         if self.axis > 0:  # reset axis order
-            y = np.swapaxes(y, 0, self.axis)
-        data.getNdArray()[:] = y
-        if add:
-            data.scaleAdd(data_tmp)
+            y = self.backend.swapaxes(y, 0, self.axis)
+        data[:] += y
         return
     
     def _adjointF(self, add, model, data):
         """Adjoint operator for the 1st order forward stencil"""
         self.checkDomainRange(model, data)
-        if add:
-            model_temp = model.clone()
-        model.zero()
+        if not add:
+            model.zero()
         # Getting Ndarrays
         y = data.clone().getNdArray()
         if self.axis > 0:  # need to bring the dim. to derive to first dim
-            y = np.swapaxes(y, self.axis, 0)
-        x = np.zeros(y.shape)
+            y = self.backend.swapaxes(y, self.axis, 0)
+        x = self.backend.zeros_like(y)
         
         x[:-1] -= y[:-1] / self.sampling
         x[1:] += y[:-1] / self.sampling
         
         if self.axis > 0:
-            x = np.swapaxes(x, 0, self.axis)
-        model.getNdArray()[:] = x
-        if add:
-            model.scaleAdd(model_temp)
+            x = self.backend.swapaxes(x, 0, self.axis)
+        model[:] += x
         return
     
     def _forwardC(self, add, model, data):
         """Forward operator for the 2nd order centered stencil"""
         self.checkDomainRange(model, data)
-        if add:
-            data_tmp = data.clone()
-        data.zero()
+        if not add:
+            data.zero()
         # Getting Ndarrays
         x = model.clone().getNdArray()
         if self.axis > 0:  # need to bring the dim. to derive to first dim
-            x = np.swapaxes(x, self.axis, 0)
-        y = np.zeros(x.shape)
+            x = self.backend.swapaxes(x, self.axis, 0)
+        y = self.backend.zeros_like(x)
         
         y[1:-1] = (.5 * x[2:] - 0.5 * x[:-2]) / self.sampling
         if self.axis > 0:  # reset axis order
-            y = np.swapaxes(y, 0, self.axis)
-        data.getNdArray()[:] = y
-        if add:
-            data.scaleAdd(data_tmp)
+            y = self.backend.swapaxes(y, 0, self.axis)
+        data[:] += y
         return
     
     def _adjointC(self, add, model, data):
         """Adjoint operator for the 2nd order centered stencil"""
         self.checkDomainRange(model, data)
-        if add:
-            model_temp = model.clone()
-        model.zero()
+        if not add:
+            model.zero()
         # Getting Ndarrays
         y = data.clone().getNdArray()
         if self.axis > 0:  # need to bring the dim. to derive to first dim
-            y = np.swapaxes(y, self.axis, 0)
-        x = np.zeros(y.shape)
+            y = self.backend.swapaxes(y, self.axis, 0)
+        x = self.backend.zeros_like(y)
         
         x[:-2] -= 0.5 * y[1:-1] / self.sampling
         x[2:] += 0.5 * y[1:-1] / self.sampling
         
         if self.axis > 0:
-            x = np.swapaxes(x, 0, self.axis)
-        model.getNdArray()[:] = x
-        if add:
-            model.scaleAdd(model_temp)
+            x = self.backend.swapaxes(x, 0, self.axis)
+        model[:] += x
         return
     
     def _forwardB(self, add, model, data):
         """Forward operator for the 1st order backward stencil"""
         self.checkDomainRange(model, data)
-        if add:
-            data_tmp = data.clone()
-        data.zero()
+        if not add:
+            data.zero()
         # Getting Ndarrays
         x = model.clone().getNdArray()
         if self.axis > 0:  # need to bring the dim. to derive to first dim
-            x = np.swapaxes(x, self.axis, 0)
-        y = np.zeros(x.shape)
+            x = self.backend.swapaxes(x, self.axis, 0)
+        y = self.backend.zeros_like(x)
         
         y[1:] = (x[1:] - x[:-1]) / self.sampling
         if self.axis > 0:  # reset axis order
-            y = np.swapaxes(y, 0, self.axis)
-        data.getNdArray()[:] = y
-        if add:
-            data.scaleAdd(data_tmp)
+            y = self.backend.swapaxes(y, 0, self.axis)
+        data[:] += y
         return
     
     def _adjointB(self, add, model, data):
         """Adjoint operator for the 1st order backward stencil"""
         self.checkDomainRange(model, data)
-        if add:
-            model_temp = model.clone()
-        model.zero()
+        if not add:
+            model.zero()
         # Getting Ndarrays
         y = data.clone().getNdArray()
         if self.axis > 0:  # need to bring the dim. to derive to first dim
-            y = np.swapaxes(y, self.axis, 0)
-        x = np.zeros(y.shape)
+            y = self.backend.swapaxes(y, self.axis, 0)
+        x = self.backend.zeros_like(y)
         
         x[:-1] -= y[1:] / self.sampling
         x[1:] += y[1:] / self.sampling
         
         if self.axis > 0:
-            x = np.swapaxes(x, 0, self.axis)
-        model.getNdArray()[:] = x
-        if add:
-            model.scaleAdd(model_temp)
+            x = self.backend.swapaxes(x, 0, self.axis)
+        model[:] += x
         return
 
 
@@ -191,6 +175,9 @@ class SecondDerivative(Operator):
         self.data_tmp = model.clone().zero()
         self.dims = model.getNdArray().shape
         self.axis = axis if axis >= 0 else len(self.dims) + axis
+
+        self.backend = get_backend(model)
+        
         super(SecondDerivative, self).__init__(model, model)
     
     def __str__(self):
@@ -199,47 +186,41 @@ class SecondDerivative(Operator):
     def forward(self, add, model, data):
         """Forward operator"""
         self.checkDomainRange(model, data)
-        if add:
-            self.data_tmp.copy(data)
-        data.zero()
+        if not add:
+            data.zero()
         
         # Getting Ndarrays
         x = model.clone().getNdArray()
         if self.axis > 0:  # need to bring the dim. to derive to first dim
-            x = np.swapaxes(x, self.axis, 0)
-        y = np.zeros(x.shape)
+            x = self.backend.swapaxes(x, self.axis, 0)
+        y = self.backend.zeros_like(x)
         
         y[1:-1] = (x[0:-2] - 2 * x[1:-1] + x[2:]) / self.sampling ** 2
         
         if self.axis > 0:  # reset axis order
-            y = np.swapaxes(y, 0, self.axis)
-        data.getNdArray()[:] = y
-        if add:
-            data.scaleAdd(self.data_tmp)
+            y = self.backend.swapaxes(y, 0, self.axis)
+        data[:] += y
         return
     
     def adjoint(self, add, model, data):
         """Adjoint operator"""
         self.checkDomainRange(model, data)
-        if add:
-            self.data_tmp.copy(model)
-        model.zero()
+        if not add:
+            model.zero()
         
         # Getting numpy arrays
         y = data.clone().getNdArray()
         if self.axis > 0:  # need to bring the dim. to derive to first dim
-            y = np.swapaxes(y, self.axis, 0)
-        x = np.zeros(y.shape)
+            y = self.backend.swapaxes(y, self.axis, 0)
+        x = self.backend.zeros_like(y)
         
         x[0:-2] += (y[1:-1]) / self.sampling ** 2
         x[1:-1] -= (2 * y[1:-1]) / self.sampling ** 2
         x[2:] += (y[1:-1]) / self.sampling ** 2
         
         if self.axis > 0:
-            x = np.swapaxes(x, 0, self.axis)
-        model.getNdArray()[:] = x
-        if add:
-            model.scaleAdd(self.data_tmp)
+            x = self.backend.swapaxes(x, 0, self.axis)
+        model[:] += x
         return
 
 

@@ -1,6 +1,7 @@
 from .os import *
 from .sep import *
 from .logger import *
+from .backend import *
 
 __all__ = [
     "Logger",
@@ -11,4 +12,6 @@ __all__ = [
     "mkdir",
     "rand_name",
     "CUPY_ENABLED",
+    "ZERO",
+    "get_backend",
 ]
