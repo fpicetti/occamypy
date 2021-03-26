@@ -1,6 +1,7 @@
 from .base import *
 from .linear import *
 from .nonlinear import *
+from .derivative import *
 
 __all__ = [
     "Operator",
@@ -17,4 +18,8 @@ __all__ = [
     "NonlinearSum",
     "NonlinearVstack",
     "VarProOperator",
+    "FirstDerivative",
+    "SecondDerivative",
+    "Gradient",
+    "Laplacian",
 ]
