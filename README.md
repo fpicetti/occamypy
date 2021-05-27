@@ -92,3 +92,16 @@ Follow the following instructions and read carefully the [CONTRIBUTING](CONTRIBU
  - [Robert Clapp](http://zapad.stanford.edu/bob)
  - [Francesco Picetti](https://github.com/fpicetti)
  - [Stuart Farris](http://zapad.stanford.edu/sfarris)
+
+### Citation
+```
+@article{biondi2021object,
+  title = {An object-oriented optimization framework for large-scale inverse problems},
+  author = {Ettore Biondi and Guillaume Barnier and Robert G. Clapp and Francesco Picetti and Stuart Farris},
+  journal = {Computers & Geosciences},
+  volume = {154},
+  pages = {104790},
+  year = {2021},
+  doi = {https://doi.org/10.1016/j.cageo.2021.104790},
+}
+```
