@@ -7,12 +7,18 @@ from .vector import DaskVector
 from .utils import DaskClient
 
 
-def call_constructor(constr, args):
+def call_constructor(constr, args, kwargs=None):
     """Function to call the constructor"""
-    if isinstance(args, Iterable):
-        op = constr(*args)
+    if kwargs is None:
+        if isinstance(args, Iterable):
+            op = constr(*args)
+        else:
+            op = constr(args)
     else:
-        op = constr(args)
+        if isinstance(args, Iterable):
+            op = constr(*args, **kwargs)
+        else:
+            op = constr(args, **kwargs)
     return op
 
 
@@ -130,6 +136,15 @@ class DaskOperator(Operator):
         else:
             if N_ops > 1:
                 op_args = [op_args for ii in range(N_ops)]
+
+        # Check if kwargs for constructor was provided:
+        op_kwargs = self.set_background_name = kwargs.get("op_kwargs", None)
+        if op_kwargs is not None:
+            N_kwargs = len(op_kwargs)
+            if N_kwargs != N_args:
+                raise ValueError("Length of kwargs (%d) different than args (%d)!" % (N_kwargs, N_args))
+        else:
+            op_kwargs = [None] * N_args
         
         # Instantiation of the operators on each worker
         self.dask_ops = []
@@ -144,6 +159,7 @@ class DaskOperator(Operator):
         if self.n_col > 1:
             opt_list_adj = opt_list.copy()
             op_args_adj = op_args.copy()
+            op_kwargs_adj = op_kwargs.copy()
             # Creating adjoint operators
             for iwrk, wrkId in enumerate(wrkIds):
                 for iop in range(chunks[iwrk]):
@@ -152,6 +168,7 @@ class DaskOperator(Operator):
                             self.client.submit(call_constructor,
                                                opt_list_adj.pop(0),
                                                op_args_adj.pop(0),
+                                               op_kwargs_adj.pop(0),
                                                workers=[wrkId],
                                                pure=False))
         # Creating forward operators
@@ -162,6 +179,7 @@ class DaskOperator(Operator):
                         self.client.submit(call_constructor,
                                            opt_list.pop(0),
                                            op_args.pop(0),
+                                           op_kwargs.pop(0),
                                            workers=[wrkId],
                                            pure=False))
         daskD.wait(self.dask_ops)
