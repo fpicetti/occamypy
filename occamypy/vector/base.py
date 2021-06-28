@@ -267,7 +267,8 @@ class Vector:
     
     def transpose(self):
         """Compute the transpose of the vector"""
-        
+        raise NotImplementedError('transpose method must be implemented')
+
     def hermitian(self):
         """Compute the hermitian, i.e. the conjugate transpose"""
         return self.transpose().conj()
