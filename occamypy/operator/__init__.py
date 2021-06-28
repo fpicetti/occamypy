@@ -2,6 +2,7 @@ from .base import *
 from .linear import *
 from .nonlinear import *
 from .derivative import *
+from .matrix import *
 
 __all__ = [
     "Operator",
@@ -13,6 +14,7 @@ __all__ = [
     "Identity",
     "Scaling",
     "Diagonal",
+    "Matrix",
     "NonlinearOperator",
     "NonlinearComb",
     "NonlinearSum",
