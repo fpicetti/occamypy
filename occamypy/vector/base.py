@@ -414,19 +414,14 @@ class superVector(Vector):
     def __del__(self):
         """superVector destructor"""
         del self.vecs, self.n
+        
+    def __getitem__(self, item):
+        return self.vecs[item]
     
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
         return [self.vecs[idx].getNdArray() for idx in range(self.n)]
-    
-    @property
-    def shape(self):
-        return [self.vecs[idx].shape for idx in range(self.n)]
-    
-    @property
-    def size(self):
-        return sum([self.vecs[idx].size for idx in range(self.n)])
-    
+        
     def norm(self, N=2):
         """Function to compute vector N-norm"""
         norm = [pow(self.vecs[idx].norm(N), N) for idx in range(self.n)]
