@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from occamypy import Vector, Operator
 from .vector import DaskVector
 from .utils import DaskClient
+from .vector import scatter_large_data
 
 
 def call_constructor(constr, args, kwargs=None):
@@ -364,8 +365,7 @@ class DaskSpread(Operator):
         if len(self.chunks) == self.dask_client.getNworkers():
             dataVecList = data.vecDask.copy()
             for iwrk, wrkId in enumerate(self.dask_client.getWorkerIds()):
-                arrD = self.client.scatter(modelNd, workers=[wrkId])
-                daskD.wait(arrD)
+                arrD = scatter_large_data(modelNd, wrkId, self.client)
                 for ii in range(self.chunks[iwrk]):
                     daskD.wait(
                         self.client.submit(_add_from_NdArray, dataVecList.pop(0), arrD, workers=[wrkId], pure=False))
@@ -385,17 +385,19 @@ class DaskSpread(Operator):
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
-        arrD = self.client.map(getNdfuture, data.vecDask, pure=False)
-        daskD.wait(arrD)
-        sum_array = self.client.submit(np.sum, arrD, axis=0, pure=False)
-        daskD.wait(sum_array)
         if isinstance(model, DaskVector):
+            arrD = self.client.map(getNdfuture, data.vecDask, pure=False)
+            daskD.wait(arrD)
+            sum_array = self.client.submit(np.sum, arrD, axis=0, pure=False)
+            daskD.wait(sum_array)
             # Getting the future to the first vector in the Dask vector
             daskD.wait(self.client.submit(_add_from_NdArray, model, sum_array, pure=False))
         else:
+            arrD_list = data.getNdArray()
             # Getting the numpy array to the local model vector
             modelNd = model.getNdArray()
-            modelNd[:] += sum_array.result()
+            for arr_i in arrD_list:
+                modelNd[:] += arr_i
         return
 
 
