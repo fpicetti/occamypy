@@ -67,20 +67,17 @@ class ConvND(Operator):
         self.pad_size = tuple([k // 2 for k in self.kernel_size])
 
         if model.ndim == 1:
-            conv = torch.nn.functional.conv_transpose1d
             corr = torch.nn.functional.conv1d
         elif model.ndim == 2:
-            conv = torch.nn.functional.conv_transpose2d
             corr = torch.nn.functional.conv2d
         elif model.ndim == 3:
-            conv = torch.nn.functional.conv_transpose3d
             corr = torch.nn.functional.conv3d
         else:
             raise ValueError
         
         # torch.nn functions require batch and channel dimensions
-        self.conv = lambda x: conv(x.unsqueeze(0).unsqueeze(0),
-                                   self.kernel.unsqueeze(0).unsqueeze(0),
+        self.conv = lambda x: corr(x.unsqueeze(0).unsqueeze(0),
+                                   torch.flip(self.kernel, dims=tuple(range(self.kernel.ndim))).unsqueeze(0).unsqueeze(0),
                                    padding=self.pad_size).flatten(end_dim=2)
 
         self.corr = lambda x: corr(x.unsqueeze(0).unsqueeze(0),
