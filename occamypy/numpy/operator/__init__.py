@@ -1,4 +1,4 @@
-from .signal import *
+from .signal_processing import *
 from .transform import *
 
 __all__ = [

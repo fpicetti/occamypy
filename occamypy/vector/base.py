@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import h5py
+from h5py import File as h5file
 
 from occamypy.utils import sep
 
@@ -138,7 +138,7 @@ class Vector:
         """Function to check to make sure the vectors exist in the same space"""
         return self.shape == other.shape
     
-    def writeVec(self, filename, mode='w'):
+    def writeVec(self, filename, mode='w', key: str = "vec"):
         """Function to write vector to file"""
         # Check writing mode
         if mode not in 'wa':
@@ -200,7 +200,7 @@ class Vector:
             # Writing binary file
             fmt = '>f'
             if self.getNdArray().dtype == np.complex64 or self.getNdArray().dtype == np.complex128:
-                format = '>c8'
+                fmt = '>c8'
             with open(binfile, mode + 'b') as f:
                 # Writing big-ending floating point number
                 if np.isfortran(self.getNdArray()):  # Forcing column-wise binary writing
@@ -229,10 +229,14 @@ class Vector:
         elif ext == '.h5':  # TODO implement saving to hdf5
             # https://moonbooks.org/Articles/How-to-save-a-large-dataset-in-a-hdf5-file-using-python--Quick-Guide/
             if mode not in 'a':
-                with h5py.File(filename, 'wb') as f:
-                    dset = f.create_dataset("vec", data=self.getNdArray())
+                with h5file(filename, 'wb') as f:
+                    f.create_dataset(key, data=self.getNdArray())
             else:
-                raise NotImplementedError
+                with h5file(filename, 'a') as f:
+                    assert key in f.keys(), "{key} not in file keys!"
+                    dset = f[key]
+                    f.create_dataset(key, data=np.concatenate((dset, self.getNdArray()), axis=0))
+                raise NotImplementedError("Append to HDF5 file is not implemented yet!")
         
         else:
             raise ValueError("ERROR! Output format has to be H, npy, or h5")

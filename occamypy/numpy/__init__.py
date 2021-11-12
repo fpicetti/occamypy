@@ -1,4 +1,4 @@
-from .vector import *
+from .vector import VectorNumpy
 from .operator import *
 
 __all__ = [

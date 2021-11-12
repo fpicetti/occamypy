@@ -228,7 +228,7 @@ class Operator:
         """
         
         def _testing(add, dt1, dt2, tol, verbose=False):
-            if isinstance(dt2, np.complex):
+            if isinstance(dt2, complex):
                 dt2 = np.conj(dt2)
             err_abs = dt1 - dt2
             err_rel = err_abs / abs(dt2)
