@@ -46,8 +46,8 @@ class FFT(Operator):
         for a, n in zip(self.axes, self.nfft):
             dims_fft[a] = n
         
-        super(FFT, self).__init__(domain=VectorNumpy(np.zeros(model.shape, dtype=np.complex)),
-                                  range=VectorNumpy(np.zeros(shape=dims_fft, dtype=np.complex)))
+        super(FFT, self).__init__(domain=VectorNumpy(np.zeros(model.shape, dtype=complex)),
+                                  range=VectorNumpy(np.zeros(shape=dims_fft, dtype=complex)))
     
     def __str__(self):
         return 'numpyFFT'
