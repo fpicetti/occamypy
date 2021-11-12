@@ -1,8 +1,16 @@
 import torch
 import torch.fft as fft
-from occamypy import Operator, VectorTorch
+from occamypy import Operator
 from itertools import product
 from numpy.fft import fftfreq
+from ..back_utils import set_backends
+from ..vector import VectorTorch
+
+set_backends()
+
+__all__ = [
+    "FFT"
+]
 
 
 class FFT(Operator):
