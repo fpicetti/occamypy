@@ -1,7 +1,6 @@
 import numpy as np
 
-from occamypy.operator import Operator, Vstack
-from occamypy.operator.base import _sumOperator, _prodOperator
+from .base import Operator, Vstack, _sumOperator, _prodOperator
 
 
 def dummy_set_background(dummy_arg):

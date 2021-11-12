@@ -30,15 +30,15 @@ def create_hostnames(machine_names, Nworkers):
     Function to create hostnames variables (i.e., list of ip addresses)
     from machine names and number of wokers per machine
     """
-
+    
     ip_adds = []
     for host in machine_names:
         ip_adds.append(socket.gethostbyname(host))
-
+    
     if len(Nworkers) != len(ip_adds):
         raise ValueError("Lenght of number of workers (%s) not consistent with number of machines available (%s)"
                          % (len(Nworkers), len(ip_adds)))
-
+    
     hostnames = []
     for idx, ip in enumerate(ip_adds):
         hostnames += [ip] * Nworkers[idx]
@@ -73,7 +73,7 @@ class DaskClient:
     """
     Class useful to construct a Dask Client to be used with Dask vectors and operators
     """
-
+    
     def __init__(self, **kwargs):
         """
     Constructor for obtaining a client to be used when Dask is necessary
@@ -221,19 +221,19 @@ class DaskClient:
                              "provided!")
         # Closing dask processes
         atexit.register(self.client.shutdown)
-
+    
     def getClient(self):
         """
     Accessor for obtaining the client object
     """
         return self.client
-
+    
     def getWorkerIds(self):
         """
     Accessor for obtaining the worker IDs
     """
         return self.WorkerIds
-
+    
     def getNworkers(self):
         """
     Accessor for obtaining the number of workers

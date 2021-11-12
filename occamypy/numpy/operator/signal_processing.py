@@ -2,7 +2,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 from scipy.signal import convolve, correlate
 from occamypy import superVector, Operator, Dstack
-from ..vector import VectorNumpy
+from occamypy.numpy.vector import VectorNumpy
 
 
 class GaussianFilter(Operator):

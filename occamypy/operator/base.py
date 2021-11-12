@@ -4,6 +4,7 @@ from time import time
 from copy import deepcopy
 
 import numpy as np
+import torch
 
 from occamypy import problem as P
 from occamypy import solver as S
@@ -226,10 +227,15 @@ class Operator:
         :param verbose  : boolean; Flag to print information to screen as the method is being run [False]
         :param tol      : float; The function throws a Warning if the relative error is greater than maxError [1e-4]
         """
-        
+        def _process_complex(x):
+            if isinstance(x, complex):
+                x = np.conj(x)
+            elif isinstance(x, torch.Tensor) and x.dtype in [torch.complex32, torch.complex64, torch.complex128]:
+                x = x.real
+            return x
+            
         def _testing(add, dt1, dt2, tol, verbose=False):
-            if isinstance(dt2, np.complex):
-                dt2 = np.conj(dt2)
+            dt2 = _process_complex(dt2)
             err_abs = dt1 - dt2
             err_rel = err_abs / abs(dt2)
             if verbose:

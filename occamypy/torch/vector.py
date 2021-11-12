@@ -10,7 +10,7 @@ from occamypy import Vector
 class VectorTorch(Vector):
     """In-core python vector class"""
     
-    def __init__(self, in_content, device=None):
+    def __init__(self, in_content, device=None, autograd=False):
         """
         VectorTorch constructor: arr = torch.Tensor
         :param in_content: numpy ndarray or torch.Tensor or InCore Vector
@@ -41,7 +41,9 @@ class VectorTorch(Vector):
         self.shape = tuple(self.arr.shape)  # Number of elements per axis (tuple)
         self.ndim = self.arr.ndim           # Number of axes (integer)
         self.size = self.arr.numel()        # Total number of elements (integer)
-    
+        
+        self.autograd = autograd
+        
     def _check_same_device(self, other):
         assert isinstance(self, VectorTorch)
         assert isinstance(other, VectorTorch)
@@ -56,7 +58,11 @@ class VectorTorch(Vector):
             return self.arr.device
         except AttributeError:
             return None
-
+    
+    @property
+    def requires_grad(self):
+        return self.getNdArray().requires_grad
+    
     def setDevice(self, devID=0):
         if devID is not None:  # Move to GPU
             if devID == -1:
@@ -85,7 +91,8 @@ class VectorTorch(Vector):
     
     def norm(self, N=2):
         """Function to compute vector N-norm"""
-        return torch.linalg.norm(self.getNdArray().flatten(), ord=N).item()
+        norm = torch.linalg.norm(self.getNdArray().flatten(), ord=N)
+        return norm if self.autograd else norm.item()
     
     def zero(self):
         """Function to zero out a vector"""
