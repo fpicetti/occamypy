@@ -257,21 +257,23 @@ class Gradient(Operator):
     def adjoint(self, add, model, data):
         return self.op.adjoint(add, model, data)
     
-    def merge_directions(self, add, model, data, iso=True):
+    def merge_directions(self, grad_vector, iso=True):
         """
         Merge the different directional contributes, using the L2 norm (iso=True) or the simple sum (iso=False)
         """
-        self.range.checkSame(model)
-        if not add:
-            data.zero()
+        self.range.checkSame(grad_vector)
+        
+        data = self.domain.clone()
         
         if iso:
-            for v in model.vecs:
+            for v in grad_vector.vecs:
                 data.scaleAdd(v.clone().pow(2), 1., 1.)
                 data.pow(.5)
         else:
-            for v in model.vecs:
+            for v in grad_vector.vecs:
                 data.scaleAdd(v, 1., 1.)
+        
+        return data
 
 
 class Laplacian(Operator):
