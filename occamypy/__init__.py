@@ -10,3 +10,5 @@ from .torch import *
 
 if CUPY_ENABLED:
     from .cupy import *
+
+from .numpy.operator import pylops_interface

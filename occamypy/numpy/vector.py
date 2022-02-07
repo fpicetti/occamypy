@@ -17,8 +17,8 @@ class VectorNumpy(Vector):
         if isinstance(in_content, str):  # Header file name passed to constructor
             self.arr = np.load(in_content, allow_pickle=True)
         elif isinstance(in_content, np.ndarray):  # Numpy array passed to constructor
-            if np.isfortran(in_content):
-                raise TypeError('Input array not a C contiguous array!')
+            # if np.isfortran(in_content):  # for seplib compatibility
+            #     raise TypeError('Input array not a C contiguous array!')
             self.arr = np.array(in_content, copy=False)
             self.ax_info = None
         elif isinstance(in_content, tuple):  # Tuple size passed to constructor
