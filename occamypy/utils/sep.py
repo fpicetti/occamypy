@@ -2,7 +2,8 @@
 import re
 import os
 import numpy as np
-from occamypy.utils.os import RunShellCmd
+from .os import RunShellCmd
+from ..vector.axis_info import AxInfo
 
 # Assigning datapath
 HOME = os.environ["HOME"]
@@ -23,10 +24,13 @@ else:
         datapath = out.split("=")[1]
 
 # Checking if datapath was found
+_already_warned = False
 if datapath is None:
     if os.path.isdir("/tmp/"):
         datapath = "/tmp/"
-        print("WARNING! DATAPATH not found. The folder /tmp will be used to write binary files")
+        if not _already_warned:
+            print("WARNING! DATAPATH not found. The folder /tmp will be used to write binary files")
+        _already_warned = True
     else:
         raise IOError("SEP datapath not found\n Set env variable DATAPATH to a folder to write binary files")
 
@@ -113,8 +117,8 @@ def get_axes(filename):
             axis_lab = get_par(filename, par="label%s" % (iaxis + 1))
         except IOError as exc:
             # Default value for an unset axis
-            axis_lab = "Undefined"
-        axes.append([axis_n, axis_o, axis_d, axis_lab])
+            axis_lab = "undefined"
+        axes.append(AxInfo(int(axis_n), float(axis_o), float(axis_d), axis_lab))
     return axes
 
 
@@ -122,7 +126,7 @@ def get_num_axes(filename):
     """Function to obtain number of axes in a header file"""
     # Obtaining elements in each dimensions
     axis_info = get_axes(filename)
-    axis_elements = [ii[0] for ii in axis_info]
+    axis_elements = [ax.n for ax in axis_info]
     index = [i for i, nelements in enumerate(axis_elements) if int(nelements) > 1]
     if index:
         n_axes = index[-1] + 1
@@ -135,7 +139,7 @@ def read_file(filename, formatting='>f', mem_order="C"):
     """Function for reading header files"""
     axis_info = get_axes(filename)
     n_axis = get_num_axes(filename)
-    shape = [ii[0] for ii in axis_info]
+    shape = [ax.n for ax in axis_info]
     shape = shape[:n_axis]
     if mem_order == "C":
         shape = tuple(reversed(shape))
@@ -165,21 +169,22 @@ def write_file(filename, data, axis_info=None, formatting='>f'):
         else:
             data.astype(formatting).tofile(fid)
     fid.close()
-    # If axis_info is not provided all the present axis are set to d=1.0 o=0.0 label='Undefined'
+    
+    # If axis_info is not provided all the present axis are set to d=1.0 o=0.0 label='undefined'
     if axis_info is None:
         naxis = data.shape
         if not np.isfortran(data):
             naxis = tuple(reversed(naxis))  # If C last axis is the "fastest"
-        axis_info = [[naxis[ii], 0.0, 1.0, 'Undefined'] for ii in range(0, len(naxis))]
+        axis_info = [AxInfo(naxis[ii]) for ii in range(len(naxis))]
+    
     # writing header/pointer file
     with open(filename, 'w') as fid:
         # Writing axis info
         for ii, ax_info in enumerate(axis_info):
-            ax_id = ii + 1
-            fid.write("n%s=%s o%s=%s d%s=%s label%s='%s'\n"
-                      % (ax_id, ax_info[0], ax_id, ax_info[1], ax_id, ax_info[2], ax_id, ax_info[3]))
+            fid.write(ax_info.to_string(ii+1))
         fid.write("in='%s'\n" % binfile)
         fid.write("data_format='xdr_float'\n")
         fid.write("esize=4\n")
     fid.close()
     return
+

@@ -10,7 +10,7 @@ from occamypy import Vector, VectorNumpy
 
 class VectorCupy(Vector):
 
-    def __init__(self, in_content, device=None):
+    def __init__(self, in_content, device=None, *args, **kwargs):
         """
         VectorCupy constructor
         :param in_content: if a cupy vector, the object is build upon the same vector (i.e., same device).
@@ -24,11 +24,9 @@ class VectorCupy(Vector):
             if cp.isfortran(in_content):
                 raise TypeError('Input array not a C contiguous array!')
             self.arr = cp.array(in_content, copy=False)
-            self.ax_info = None
         elif isinstance(in_content, tuple):  # Tuple size passed to constructor
             # self.arr = cp.zeros(tuple(reversed(in_content)))
             self.arr = cp.empty(in_content)
-            self.ax_info = None
         elif isinstance(in_content, VectorNumpy):
             self.arr = in_content.getNdArray().copy()
             self.ax_info = in_content.ax_info
@@ -37,14 +35,16 @@ class VectorCupy(Vector):
         
         self.setDevice(device)
         
-        super(VectorCupy, self).__init__()
+        super(VectorCupy, self).__init__(*args, **kwargs)
         self.shape = self.arr.shape   # Number of elements per axis (tuple)
         self.ndim = self.arr.ndim    # Number of axes (integer)
         self.size = self.arr.size     # Total number of elements (integer)
 
     def _check_same_device(self, other):
-        assert isinstance(self, VectorCupy)
-        assert isinstance(other, VectorCupy)
+        if not isinstance(self, VectorCupy):
+            raise TypeError("self vector has to be a VectorCupy")
+        if not isinstance(other, VectorCupy):
+            raise TypeError("other vector has to be a VectorCupy")
         answer = self.device == other.device
         if not answer:
             raise Warning('The two vectors live in different devices: %s - %s' % (self.device, other.device))
@@ -135,6 +135,7 @@ class VectorCupy(Vector):
         """Function to clone vector space only (vector without actual vector array by using empty array of size 0)"""
         arr = cp.empty(0, dtype=self.getNdArray().dtype)
         vec_space = VectorCupy(arr)
+        vec_space.ax_info = self.ax_info
         # Cloning space of input vector
         vec_space.shape = self.shape
         vec_space.ndim = self.ndim

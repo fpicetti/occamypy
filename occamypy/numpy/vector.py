@@ -9,7 +9,7 @@ from occamypy import Vector
 class VectorNumpy(Vector):
     """In-core python vector class"""
     
-    def __init__(self, in_content):
+    def __init__(self, in_content, *args, **kwargs):
         """
         VectorNumpy constructor: arr = np.array
         This class stores array with C memory order (i.e., row-wise sorting)
@@ -20,20 +20,17 @@ class VectorNumpy(Vector):
             # if np.isfortran(in_content):  # for seplib compatibility
             #     raise TypeError('Input array not a C contiguous array!')
             self.arr = np.array(in_content, copy=False)
-            self.ax_info = None
         elif isinstance(in_content, tuple):  # Tuple size passed to constructor
-            # self.arr = np.zeros(tuple(reversed(in_vec)))
             self.arr = np.empty(in_content)
-            self.ax_info = None
         else:  # Not supported type
             raise ValueError("ERROR! Input variable not currently supported!")
-        
-        super(VectorNumpy, self).__init__()
+
+        super(VectorNumpy, self).__init__(*args, **kwargs)
         # Number of elements per axis (tuple). Checking also the memory order
         self.shape = self.arr.shape  # If fortran the first axis is the "fastest"
         self.ndim = self.arr.ndim  # Number of axes integer
         self.size = self.arr.size  # Total number of elements
-    
+
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
         return self.arr
@@ -89,6 +86,7 @@ class VectorNumpy(Vector):
     def cloneSpace(self):
         """Function to clone vector space only (vector without actual vector array by using empty array of size 0)"""
         vec_space = VectorNumpy(np.empty(0, dtype=self.getNdArray().dtype))
+        vec_space.ax_info = self.ax_info
         # Cloning space of input vector
         vec_space.ndim = self.ndim
         vec_space.shape = self.shape

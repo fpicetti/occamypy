@@ -69,10 +69,12 @@ class Operator:
         elif type(other) in [int, float]:  # A * c or c * A
             return _scaledOperator(self, other)
         elif isinstance(other, list) and isinstance(self, Vstack):
-            assert len(other) == self.n, "Other lenght and self lenght mismatch"
+            if len(other) != self.n:
+                raise ValueError("Other lenght and self lenght mismatch")
             return Vstack([_scaledOperator(self.ops[i], other[i]) for i in range(self.n)])
         elif isinstance(other, list) and isinstance(self, Hstack):
-            assert len(other) == self.n, "Other lenght and self lenght mismatch"
+            if len(other) != self.n:
+                raise ValueError("Other lenght and self lenght mismatch")
             return Hstack([_scaledOperator(self.ops[i], other[i]) for i in range(self.n)])
         elif isinstance(other, Vector) or isinstance(other, superVector):  # A * x
             temp = self.range.clone()

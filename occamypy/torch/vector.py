@@ -10,34 +10,31 @@ from occamypy import Vector
 class VectorTorch(Vector):
     """In-core python vector class"""
     
-    def __init__(self, in_content, device=None, autograd=False):
+    def __init__(self, in_content, device=None, autograd=False, *args, **kwargs):
         """
         VectorTorch constructor: arr = torch.Tensor
         :param in_content: numpy ndarray or torch.Tensor or InCore Vector
         :param device: int - GPU id (None for CPU, -1 for most available memory)
         """
+        super(VectorTorch, self).__init__(*args, **kwargs)
+
         if isinstance(in_content, Vector):
             try:
                 self.arr = torch.from_numpy(in_content.getNdArray()).contiguous()
-                self.ax_info = None
+                self.ax_info = in_content.ax_info
             except:
                 raise UserWarning("Torch cannot handle the input array type")
         elif isinstance(in_content, ndarray):  # Numpy array passed to constructor
             self.arr = torch.from_numpy(in_content).contiguous()
-            self.ax_info = None
         elif isinstance(in_content, torch.Tensor):  # Tensor passed to constructor
             self.arr = in_content.contiguous()
-            self.ax_info = None
         elif isinstance(in_content, tuple):  # Tuple size passed to constructor
             self.arr = torch.empty(in_content)
-            self.ax_info = None
         else:  # Not supported type
             raise ValueError("ERROR! Input variable not currently supported!")
 
         self.setDevice(device)
         
-        super(VectorTorch, self).__init__()
-
         self.shape = tuple(self.arr.shape)  # Number of elements per axis (tuple)
         self.ndim = self.arr.ndim           # Number of axes (integer)
         self.size = self.arr.numel()        # Total number of elements (integer)
@@ -45,8 +42,10 @@ class VectorTorch(Vector):
         self.autograd = autograd
         
     def _check_same_device(self, other):
-        assert isinstance(self, VectorTorch)
-        assert isinstance(other, VectorTorch)
+        if not isinstance(self, VectorTorch):
+            raise TypeError("The self vector has to be a VectorTorch")
+        if not isinstance(other, VectorTorch):
+            raise TypeError("The other vector has to be a VectorTorch")
         answer = self.device == other.device
         if not answer:
             raise Warning('The two vectors live in different devices: %s - %s' % (self.device, other.device))
@@ -157,6 +156,7 @@ class VectorTorch(Vector):
         """Function to clone vector space only (vector without actual vector array by using empty array of size 0)"""
         vec_space = VectorTorch(torch.empty(0).type(self.getNdArray().dtype))
         vec_space.setDevice(self.device.index)
+        vec_space.ax_info = self.ax_info
         # Cloning space of input vector
         vec_space.ndim = self.ndim
         vec_space.shape = self.shape

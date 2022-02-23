@@ -72,7 +72,8 @@ class ConvND(Operator):
         if len(model.shape) != len(self.kernel.shape):
             raise ValueError("Domain and kernel number of dimensions mismatch")
         
-        assert method in ["auto", "direct", "fft"], "method has to be auto, direct or fft"
+        if method not in ["auto", "direct", "fft"]:
+            raise ValueError("method has to be auto, direct or fft")
         self.method = method
         
         super(ConvND, self).__init__(model, model)
@@ -112,7 +113,8 @@ def ZeroPad(model, pad):
 def _pad_vectorIC(vec, pad):
     if not isinstance(vec, VectorNumpy):
         raise ValueError("ERROR! Provided vector must be of vectorIC type")
-    assert len(vec.shape) == len(pad), "Dimensions of vector and padding mismatch!"
+    if len(vec.shape) != len(pad):
+        raise ValueError("Dimensions of vector and padding mismatch!")
     
     vec_new_shape = tuple(np.asarray(vec.shape) + [sum(pad[_]) for _ in range(len(pad))])
     return VectorNumpy(np.empty(vec_new_shape, dtype=vec.getNdArray().dtype))

@@ -78,7 +78,8 @@ class ConvND(Operator):
         if len(domain.shape()) != len(self.kernel.shape):
             raise ValueError("Domain and kernel number of dimensions mismatch")
         
-        assert method in ["auto", "direct", "fft"], "method has to be auto, direct or fft"
+        if method not in ["auto", "direct", "fft"]:
+            raise ValueError("method has to be auto, direct or fft")
         self.method = method
         
         super(ConvND, self).__init__(domain, domain)
@@ -118,7 +119,8 @@ def ZeroPad(domain, pad):
 def _pad_vectorIC(vec, pad):
     if not isinstance(vec, VectorCupy):
         raise ValueError("ERROR! Provided vector must be of vectorCcupy type")
-    assert len(vec.shape) == len(pad), "Dimensions of vector and padding mismatch!"
+    if len(vec.shape) != len(pad):
+        raise ValueError("Dimensions of vector and padding mismatch!")
     
     vec_new_shape = tuple(cp.asarray(vec.shape) + [sum(pad[_]) for _ in range(len(pad))])
     if isinstance(vec, VectorCupy):

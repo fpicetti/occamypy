@@ -42,7 +42,7 @@ def vector2gif(in_content: np.ndarray, filename: str, transpose: bool = False, c
     else:
         frames = [in_content[_] for _ in range(in_content.shape[0])]
     
-    imageio.mimsave(filename, frames, 'GIF', **{'fps': fps})
+    imageio.mimsave(filename, frames, **{'fps': fps})
 
 
 def clim(in_content: np.ndarray, ratio: float = 95) -> Tuple[float, float]:
