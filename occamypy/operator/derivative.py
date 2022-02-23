@@ -242,7 +242,12 @@ class Gradient(Operator):
             self.stencil = tuple([stencil] * len(self.dims))
         elif isinstance(stencil, tuple) or isinstance(stencil, list):
             self.stencil = stencil
-        assert len(self.sampling) == len(self.stencil) != 0, "There is something wrong with the dimensions"
+        if len(self.sampling) == 0:
+            raise ValueError("Provide at least one sampling item")
+        if len(self.stencil) == 0:
+            raise ValueError("Provide at least one stencil item")
+        if len(self.sampling) != len(self.stencil):
+            raise ValueError("There is something wrong with the dimensions")
         
         self.op = Vstack([FirstDerivative(model, sampling=self.sampling[d], axis=d)
                           for d in range(len(self.dims))])
@@ -292,8 +297,8 @@ class Laplacian(Operator):
         self.sampling = sampling if sampling is not None else tuple([1] * len(self.dims))
         self.weights = weights if weights is not None else tuple([1] * len(self.dims))
         
-        assert len(self.axis) == len(self.weights) == len(self.sampling) != 0, \
-            "There is something wrong with the dimensions"
+        if not (len(self.axis) == len(self.weights) == len(self.sampling)):
+            raise ValueError("There is something wrong with the dimensions")
         
         self.data_tmp = model.clone().zero()
         

@@ -114,7 +114,8 @@ class GaussianFilter(ConvND):
             standard deviation along the model directions
         """
         self.sigma = [sigma] if isinstance(sigma, (float, int)) else sigma
-        assert isinstance(self.sigma, (list, tuple))
+        if not isinstance(self.sigma, (list, tuple)):
+            raise TypeError("sigma has to be either a list or a tuple")
         self.scaling = np.sqrt(np.prod(np.array(self.sigma) / np.pi))
         kernels = [_gaussian_kernel1d(s) for s in self.sigma]
         
@@ -153,7 +154,8 @@ class _ZeroPad(Operator):
         if isinstance(pad, (int, float)):
             pad = [pad, pad] * nd
         else:
-            assert len(pad) == 2 * nd
+            if len(pad) != 2 * nd:
+                raise ValueError("len(pad) has to be 2*nd")
             
         if (np.array(pad) < 0).any():
             raise ValueError('Padding must be positive or zero')

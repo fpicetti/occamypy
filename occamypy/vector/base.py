@@ -1,19 +1,24 @@
 import os
 import numpy as np
 from h5py import File as h5file
-
 from occamypy.utils import sep
+from .axis_info import AxInfo
 
 
 class Vector:
     """Abstract python vector class"""
     
-    def __init__(self):
+    def __init__(self, ax_info: list = None):
         """Default constructor"""
         self.shape = None
         self.size = None
         self.ndim = None
         self.type = type(self)
+        if ax_info is None:
+            ax_info = []
+        elif type(ax_info) not in [tuple, list]:
+            raise ValueError("ax_info has to be a list")
+        self.ax_info = list(ax_info)
     
     def __repr__(self):
         return self.getNdArray().__repr__()
@@ -82,6 +87,9 @@ class Vector:
     def __setitem__(self, key, value):
         self.getNdArray()[key] = value
     
+    def init_ax_info(self):
+        self.ax_info = [AxInfo(n=s) for s in self.shape]
+    
     @property
     def whoami(self):
         return type(self).__name__
@@ -142,16 +150,16 @@ class Vector:
         """Function to write vector to file"""
         # Check writing mode
         if mode not in 'wa':
-            raise ValueError("Mode must be appending 'a' or writing 'w' ")
+            raise ValueError("Mode must be appending (a) or writing (w)")
         # Construct ax_info if the object has getHyper
         if hasattr(self, "getHyper"):
             hyper = self.getHyper()
             self.ax_info = []
             for iaxis in range(hyper.getNdim()):
-                self.ax_info.append([hyper.getAxis(iaxis + 1).n,
-                                     hyper.getAxis(iaxis + 1).o,
-                                     hyper.getAxis(iaxis + 1).d,
-                                     hyper.getAxis(iaxis + 1).label])
+                self.ax_info.append(AxInfo(hyper.getAxis(iaxis + 1).n,
+                                           hyper.getAxis(iaxis + 1).o,
+                                           hyper.getAxis(iaxis + 1).data,
+                                           hyper.getAxis(iaxis + 1).label))
         
         # check output file type
         _, ext = os.path.splitext(filename)  # file extension
@@ -165,17 +173,16 @@ class Vector:
                     # Writing axis info
                     if self.ax_info:
                         for ii, ax_info in enumerate(self.ax_info):
-                            ax_id = ii + 1
-                            f.write("n%s=%s o%s=%s d%s=%s label%s='%s'\n" % (
-                                ax_id, ax_info[0], ax_id, ax_info[1], ax_id, ax_info[2], ax_id, ax_info[3]))
+                            f.write(ax_info.to_string(ii+1))
                     else:
                         for ii, n_axis in enumerate(tuple(reversed(self.shape))):
-                            ax_id = ii + 1
-                            f.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (ax_id, n_axis, ax_id, ax_id))
+                            ax_info = AxInfo(n=n_axis)
+                            f.write(ax_info.to_string(ii+1))
+                    
                     # Writing last axis for allowing appending (unless we are dealing with a scalar)
                     if self.shape != (1,):
-                        ax_id = self.ndim + 1
-                        f.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (ax_id, 1, ax_id, ax_id))
+                        ax_info = AxInfo(n=1)
+                        f.write(ax_info.to_string(self.ndim + 1))
                     f.write("in='%s'\n" % binfile)
                     esize = "esize=4\n"
                     if self.getNdArray().dtype == np.complex64:
@@ -195,7 +202,8 @@ class Vector:
                         n_vec = axes[self.ndim][0]
                         append_dim = self.ndim + 1
                     with open(filename, mode) as f:
-                        f.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (append_dim, n_vec + 1, append_dim, append_dim))
+                        ax_info = AxInfo(n_vec + 1)
+                        f.write(ax_info.to_string(append_dim))
                     f.close()
             # Writing binary file
             fmt = '>f'
@@ -214,14 +222,10 @@ class Vector:
         # numpy dictionary
         elif ext == '.npy':
             if mode not in 'a':
-                if self.ax_info:  # TODO fix saving of ax_info
-                    axes = dict()
-                    for ii, ax_info in enumerate(self.ax_info):
-                        axes['%s' % ii + 1] = dict(n=ax_info[0], o=ax_info[1], d=ax_info[2], label=ax_info[3])
-                    
+                if self.ax_info:
                     np.save(file=filename,
                             arr=dict(arr=self.getNdArray(),
-                                     ax_info=axes),
+                                     ax_info=self.ax_info),
                             allow_pickle=True)
                 else:
                     np.save(file=filename, arr=self.getNdArray(), allow_pickle=False)
@@ -233,7 +237,8 @@ class Vector:
                     f.create_dataset(key, data=self.getNdArray())
             else:
                 with h5file(filename, 'a') as f:
-                    assert key in f.keys(), "{key} not in file keys!"
+                    if key not in f.keys():
+                        raise KeyError("{key} not in file keys!")
                     dset = f[key]
                     f.create_dataset(key, data=np.concatenate((dset, self.getNdArray()), axis=0))
                 raise NotImplementedError("Append to HDF5 file is not implemented yet!")
@@ -272,7 +277,7 @@ class Vector:
     def transpose(self):
         """Compute the transpose of the vector"""
         raise NotImplementedError('transpose method must be implemented')
-
+    
     def hermitian(self):
         """Compute the hermitian, i.e. the conjugate transpose"""
         return self.transpose().conj()
@@ -374,7 +379,7 @@ class VectorSet:
                 wr_mode = "a"
             vec_i.writeVec(filename, wr_mode)
         self.vecSet = []  # List of vectors of the set
-    
+
 
 class superVector(Vector):
     
@@ -403,7 +408,7 @@ class superVector(Vector):
         # self.shape = None
         # self.size = None
         # self.ndim = None
-        
+    
     @property
     def ndim(self):
         return [self.vecs[idx].ndim for idx in range(self.n)]
@@ -419,14 +424,14 @@ class superVector(Vector):
     def __del__(self):
         """superVector destructor"""
         del self.vecs, self.n
-        
+    
     def __getitem__(self, item):
         return self.vecs[item]
     
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
         return [self.vecs[idx].getNdArray() for idx in range(self.n)]
-        
+    
     def norm(self, N=2):
         """Function to compute vector N-norm"""
         norm = [pow(self.vecs[idx].norm(N), N) for idx in range(self.n)]

@@ -7,6 +7,7 @@ from .solver import *
 from .dask import *
 from .utils import *
 from .torch import *
+from .utils import plot
 
 if CUPY_ENABLED:
     from .cupy import *
