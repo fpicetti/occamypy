@@ -1,7 +1,7 @@
 from math import sqrt
 
 import torch
-from GPUtil import getGPUs, getFirstAvailable
+from .back_utils import get_device, get_device_name
 from numpy import ndarray
 
 from occamypy import Vector
@@ -10,11 +10,11 @@ from occamypy import Vector
 class VectorTorch(Vector):
     """In-core python vector class"""
     
-    def __init__(self, in_content, device=None, autograd=False, *args, **kwargs):
+    def __init__(self, in_content, device: int = None, *args, **kwargs):
         """
         VectorTorch constructor: arr = torch.Tensor
         :param in_content: numpy ndarray or torch.Tensor or InCore Vector
-        :param device: int - GPU id (None for CPU, -1 for most available memory)
+        :param device: int - GPU id (None for CPU, -1 for max free memory)
         """
         super(VectorTorch, self).__init__(*args, **kwargs)
 
@@ -39,8 +39,6 @@ class VectorTorch(Vector):
         self.ndim = self.arr.ndim           # Number of axes (integer)
         self.size = self.arr.numel()        # Total number of elements (integer)
         
-        self.autograd = autograd
-        
     def _check_same_device(self, other):
         if not isinstance(self, VectorTorch):
             raise TypeError("The self vector has to be a VectorTorch")
@@ -58,31 +56,11 @@ class VectorTorch(Vector):
         except AttributeError:
             return None
     
-    @property
-    def requires_grad(self):
-        return self.getNdArray().requires_grad
-    
     def setDevice(self, devID=0):
-        if devID is not None:  # Move to GPU
-            if devID == -1:
-                devID = getFirstAvailable(order='memory')[0]
-            try:
-                self.arr = self.arr.to(devID)
-            except AttributeError:
-                self.arr = self.arr.to('cpu')
-                raise UserWarning("The selected device is not available, switched to CPU.")
-        else:  # move to CPU
-            if self.device is torch.device('cpu'):
-                pass
-            else:
-                self.arr = self.arr.to('cpu')
-
-    def printDevice(self):
-        if self.device is torch.device('cpu'):
-            print('CPU')
-        else:
-            name = getGPUs()[self.device.index].name
-            print('GPU %d - %s' % (self.device.index, name))
+        self.arr = self.arr.to(get_device(devID))
+    
+    def deviceName(self):
+        return get_device_name(self.device.index)
         
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
@@ -91,7 +69,7 @@ class VectorTorch(Vector):
     def norm(self, N=2):
         """Function to compute vector N-norm"""
         norm = torch.linalg.norm(self.getNdArray().flatten(), ord=N)
-        return norm if self.autograd else norm.item()
+        return norm.item()
     
     def zero(self):
         """Function to zero out a vector"""
@@ -100,11 +78,13 @@ class VectorTorch(Vector):
     
     def max(self):
         """Function to obtain maximum value in the vector"""
-        return self.getNdArray().max().item()
+        max = self.getNdArray().max()
+        return max.item()
     
     def min(self):
         """Function to obtain minimum value in the vector"""
-        return self.getNdArray().min().item()
+        min = self.getNdArray().min()
+        return min.item()
     
     def set(self, val: float or int):
         """Function to set all values in the vector"""
@@ -154,7 +134,7 @@ class VectorTorch(Vector):
     
     def cloneSpace(self):
         """Function to clone vector space only (vector without actual vector array by using empty array of size 0)"""
-        vec_space = VectorTorch(torch.empty(0).type(self.getNdArray().dtype))
+        vec_space = self.__class__(torch.empty(0).type(self.getNdArray().dtype))
         vec_space.setDevice(self.device.index)
         vec_space.ax_info = self.ax_info
         # Cloning space of input vector

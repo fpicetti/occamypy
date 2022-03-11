@@ -21,7 +21,7 @@ class Matrix(Operator):
         if matrix.shape[0] != range.size:
             raise ValueError
         
-        super().__init__(domain, range)
+        super(Matrix, self).__init__(domain=domain, range=range)
         self.backend = get_backend(matrix)
         self.matrix_type = get_vector_type(matrix)
         

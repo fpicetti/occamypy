@@ -65,6 +65,7 @@ def _add_from_NdArray(vecObj, NdArray):
     vecObj.getNdArray()[:] += NdArray
     return
 
+
 def _check_dask_error(futures):
     """Function to check error on futures related to Dask operators"""
     for idx, fut in enumerate(futures):
@@ -72,6 +73,7 @@ def _check_dask_error(futures):
             print("Error for dask operator %s" % idx)
             print(fut.result())
     return
+
 
 class DaskOperator(Operator):
     """

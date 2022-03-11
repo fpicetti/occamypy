@@ -15,7 +15,7 @@ from occamypy import VectorSet, VectorOC
 
 class Solver:
     """Solver parent object"""
-
+    
     # Default class methods/functions
     def __init__(self):
         """Default class constructor for Solver"""
@@ -25,13 +25,14 @@ class Solver:
         self.save_grad = False
         self.save_model = False
         self.flush_memory = False
-
+        self.overwrite = True  # Flag to overwrite results if first time writing on disk
+        
         self.prefix = None
-
+        
         # Iteration axis-sampling parameters
         self.iter_buffer_size = None
         self.iter_sampling = 1
-
+        
         # Lists of the results (list and vector Sets)
         self.obj = list()
         self.obj_terms = list()
@@ -43,23 +44,23 @@ class Solver:
         self.gradSet = VectorSet()
         self.inv_model = None
         self.iter_written = 0
-
+        
         # Set Restart object
         self.restart = Restart()
         self.create_msg = False
         # Setting defaults for saving results
         self.setDefaults()
         return
-
+    
     def __del__(self):
         """Default destructor"""
         return
-
+    
     def setPrefix(self, prefix):
         """Mutator to change prefix and file names for saving inversion results"""
         self.prefix = prefix
         return
-
+    
     def setDefaults(self, save_obj=False, save_res=False, save_grad=False, save_model=False, prefix=None,
                     iter_buffer_size=None, iter_sampling=1, flush_memory=False):
         """
@@ -78,34 +79,32 @@ class Solver:
         :param flush_memory     : [False] - boolean; Whether to keep results into the object lists or clean those
                                     once inversion is completed or results have been written on disk
         """
-
+        
         # Parameter for saving results
-        self.save_obj = save_obj            # Flag to save objective function value
-        self.save_res = save_res            # Flag to save residual vector
-        self.save_grad = save_grad          # Flag to save gradient vector
-        self.save_model = save_model        # Flag to save model vector
-        self.flush_memory = flush_memory    # Keep results in RAM or flush memory every time results are written on disk
-        self.overwrite = True               # Flag to overwrite results if first time writing on disk
-
+        self.save_obj = save_obj  # Flag to save objective function value
+        self.save_res = save_res  # Flag to save residual vector
+        self.save_grad = save_grad  # Flag to save gradient vector
+        self.save_model = save_model  # Flag to save model vector
+        self.flush_memory = flush_memory  # Keep results in RAM or flush memory every time results are written on disk
+        
         # Prefix of the saved files (if provided the results will be written on disk)
-        self.prefix = prefix                # Prefix for saving inversion results on disk
-
+        self.prefix = prefix  # Prefix for saving inversion results on disk
+        
         # Iteration axis-sampling parameters
         self.iter_buffer_size = iter_buffer_size  # Number of steps to save before flushing results to disk
         self.iter_sampling = iter_sampling  # Sampling of the iteration axis
-
+        
         # Lists of the results (list and vector Sets)
         self.obj = np.array([])  # Array for objective function values
-        self.obj_terms = np.array([])     # Array for objective function values for each terms
-        self.model = list()               # List for model vectors (to save results in-core)
-        self.res = list()                 # List for residual vectors (to save results in-core)
-        self.grad = list()                # List for gradient vectors (to save results in-core)
-        self.modelSet = VectorSet()       # Set for model vectors
-        self.resSet = VectorSet()         # Set for residual vectors
-        self.gradSet = VectorSet()        # Set for gradient vectors
-        self.inv_model = None             # Temporary saved inverted model
-        self.overwrite = True             # Flag to overwrite results if first time writing on disk
-
+        self.obj_terms = np.array([])  # Array for objective function values for each terms
+        self.model = list()  # List for model vectors (to save results in-core)
+        self.res = list()  # List for residual vectors (to save results in-core)
+        self.grad = list()  # List for gradient vectors (to save results in-core)
+        self.modelSet = VectorSet()  # Set for model vectors
+        self.resSet = VectorSet()  # Set for residual vectors
+        self.gradSet = VectorSet()  # Set for gradient vectors
+        self.inv_model = None  # Temporary saved inverted model
+    
     def flush_results(self):
         """Flushing internal memory of the saved results"""
         # Lists of the results (list and vector Sets)
@@ -118,7 +117,7 @@ class Solver:
         self.resSet = VectorSet()  # Set for residual vectors
         self.gradSet = VectorSet()  # Set for gradient vectors
         self.inv_model = None  # Temporary saved inverted model
-
+    
     def get_restart(self, log_file):
         """
         Function to retrieve restart folder from log file. It enables the user to use restart flag on self.run().
@@ -140,7 +139,7 @@ class Solver:
         else:
             print("WARNING! No restart folder's path was found in %s" % log_file)
         return
-
+    
     def save_results(self, iiter, problem, **kwargs):
         """
         Method to save results
@@ -189,7 +188,7 @@ class Solver:
         # Write on disk if necessary or requested
         self._write_steps(force_write)
         return
-
+    
     def _write_steps(self, force_write=False):
         """Method to write inversion results on disk if forced to or if buffer is filled"""
         # Save results if buffer size is hit
@@ -198,10 +197,10 @@ class Solver:
                                                                                  len(self.gradSet.vecSet))
                                                                              >= self.iter_buffer_size) \
             else False
-
+        
         # Overwriting results if first time to write on disk
         mode = "w" if self.overwrite else "a"
-
+        
         if save:
             self.overwrite = False  # Written at least once; do not overwrite files
             # Getting current saved results into an in-core list
@@ -210,7 +209,7 @@ class Solver:
                 self.res += self.resSet.vecSet
                 self.grad += self.gradSet.vecSet
             # Writing objective function value on disk if requested
-            if self.save_obj and self.prefix is not None:
+            if self.save_obj and self.prefix is not None:  # todo change to numpy?
                 obj_file = self.prefix + "_obj.H"  # File name in which the objective function is saved
                 sep.write_file(obj_file, self.obj)
                 # Writing each term of the objective function
@@ -224,7 +223,7 @@ class Solver:
                 inv_mod_file = self.prefix + "_inv_mod.H"  # File name in which the current inverted model is saved
                 model_file = self.prefix + "_model.H"  # File name in which the model vector is saved
                 self.modelSet.writeSet(model_file, mode=mode)
-                self.inv_model.writeVec(inv_mod_file, mode="w") # Writing inverted model file
+                self.inv_model.writeVec(inv_mod_file, mode="w")  # Writing inverted model file
             # Writing gradient vectors on disk if requested
             if self.save_grad and self.prefix is not None:
                 grad_file = self.prefix + "_gradient.H"  # File name in which the gradient vector is saved
@@ -233,7 +232,7 @@ class Solver:
             if self.save_res and self.prefix is not None:
                 res_file = self.prefix + "_residual.H"  # File name in which the residual vector is saved
                 self.resSet.writeSet(res_file, mode=mode)
-
+    
     def run(self, prblm):
         """Dummy Solver running method"""
         raise NotImplementedError("Implement run Solver in the derived class.")
@@ -241,7 +240,7 @@ class Solver:
 
 class Restart:
     """Class for restarting a solver run"""
-
+    
     def __init__(self):
         """Restart constructor"""
         self.par_dict = dict()
@@ -253,7 +252,7 @@ class Restart:
         self.restart_folder = restart_folder
         # Calling write_restart when python session dies
         atexit.register(self.write_restart)
-
+    
     def save_vector(self, vec_name, vector_in):
         """Method to save vector for restarting"""
         # Deleting the vector if present in the dictionary
@@ -261,20 +260,20 @@ class Restart:
         if element:
             del element
         self.vec_dict.update({vec_name: vector_in.clone()})
-
+    
     def retrieve_vector(self, vec_name):
         """Method to retrieve a vector from restart object"""
         return self.vec_dict[vec_name]
-
+    
     def save_parameter(self, par_name, parameter_in):
         """Method to save parameters for restarting"""
         self.par_dict.update({par_name: parameter_in})
         return
-
+    
     def retrieve_parameter(self, par_name):
         """Method to retrieve a parameter from restart object"""
         return self.par_dict[par_name]
-
+    
     def write_restart(self):
         """Restart destructor: it will write vectors on disk if the solver breaks"""
         if bool(self.par_dict) or bool(self.vec_dict):
@@ -286,7 +285,7 @@ class Restart:
             for vec_name, vec in self.vec_dict.items():
                 if isinstance(vec, VectorOC):
                     vec.remove_file = False
-
+    
     def read_restart(self):
         """Method to read restart object from saved folder"""
         if os.path.isdir(self.restart_folder):
@@ -301,7 +300,7 @@ class Restart:
             # Removing previous restart and deleting read object
             restart.clear_restart()
             del restart
-
+    
     def clear_restart(self):
         """Method to clear the restart"""
         self.par_dict = dict()

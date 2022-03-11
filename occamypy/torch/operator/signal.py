@@ -2,9 +2,10 @@ from typing import Union, List, Tuple
 from itertools import accumulate, product
 import numpy as np
 import torch
+
 from occamypy import superVector, Operator, Dstack
-from ..vector import VectorTorch
-from ..back_utils import set_backends
+from occamypy.torch.vector import VectorTorch
+from occamypy.torch.back_utils import set_backends
 
 set_backends()
 
