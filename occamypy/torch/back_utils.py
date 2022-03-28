@@ -41,7 +41,7 @@ def get_device(devID: int = None) -> torch.device:
 
     return torch.device(dev)
 
-s
+
 def get_device_name(devID: int = None) -> str:
     if devID is None or isinstance(torch.cuda.get_device_name(devID), torch.NoneType):
         return "CPU"
