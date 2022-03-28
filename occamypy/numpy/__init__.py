@@ -5,6 +5,7 @@ __all__ = [
     "VectorNumpy",
     "ConvND",
     "GaussianFilter",
+    "Padding",
     "ZeroPad",
     "FFT",
 ]
