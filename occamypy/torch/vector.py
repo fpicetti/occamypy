@@ -56,8 +56,13 @@ class VectorTorch(Vector):
         except AttributeError:
             return None
     
-    def setDevice(self, devID=0):
-        self.arr = self.arr.to(get_device(devID))
+    def setDevice(self, devID):
+        if isinstance(devID, int):
+            self.arr = self.arr.to(get_device(devID))
+        elif isinstance(devID, torch.device):
+            self.arr = self.arr.to(devID)
+        else:
+            ValueError("Device type not understood")
     
     def deviceName(self):
         return get_device_name(self.device.index)
@@ -124,10 +129,10 @@ class VectorTorch(Vector):
         """Function to clone (deep copy) a vector from a vector or a Space"""
         # If self is a Space vector, it is empty and it has only the shape, size and ndim attributes
         if self.getNdArray().numel() == 0:  # this is the shape of tensor!
-            vec_clone = VectorTorch(torch.zeros(self.shape).type(self.getNdArray().dtype))
+            vec_clone = VectorTorch(torch.zeros(self.shape).type(self.getNdArray().dtype), ax_info=self.ax_info.copy())
         
         else:  # self is a data vector, just clone
-            vec_clone = VectorTorch(self.getNdArray().clone())
+            vec_clone = VectorTorch(self.getNdArray().clone(), ax_info=self.ax_info.copy())
         
         vec_clone.setDevice(self.device.index)
         return vec_clone
@@ -265,7 +270,3 @@ class VectorTorch(Vector):
     
     def plot(self):
         return self.getNdArray().detach().cpu().numpy()
-    
-    def to_param(self):
-        """Function to get a learnable Parameter tensor out of self data"""
-        return torch.nn.Parameter(data=self.getNdArray(), requires_grad=True)

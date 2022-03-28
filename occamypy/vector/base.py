@@ -93,6 +93,10 @@ class Vector:
     def whoami(self):
         return type(self).__name__
     
+    @property
+    def dtype(self):
+        return self.getNdArray().dtype
+    
     # Class vector operations
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
@@ -145,7 +149,7 @@ class Vector:
         """Function to check to make sure the vectors exist in the same space"""
         return self.shape == other.shape
     
-    def writeVec(self, filename, mode='w', key: str = "vec"):
+    def writeVec(self, filename, mode='w'):
         """Function to write vector to file"""
         # Check writing mode
         if mode not in 'wa':

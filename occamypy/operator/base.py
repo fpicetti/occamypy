@@ -232,7 +232,7 @@ class Operator:
         def _process_complex(x):
             if isinstance(x, complex):
                 x = np.conj(x)
-            elif isinstance(x, torch.Tensor) and x.dtype in [torch.complex32, torch.complex64, torch.complex128]:
+            elif isinstance(x, torch.Tensor) and x.dtype in [torch.complex64, torch.complex128]:
                 x = x.real
             return x
             
