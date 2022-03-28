@@ -24,16 +24,19 @@ def _copy_from_NdArray(vecObj, NdArray):
     vecObj.getNdArray()[:] = NdArray
     return
 
+
 # Functions to scatter/gather large arrays
 def _copy_chunk_data(arr, chunk, shift):
     nele = chunk.size
-    arr.ravel()[shift:shift+nele] = chunk
+    arr.ravel()[shift:shift + nele] = chunk
     return
+
 
 def _gather_chunk_data(arr, nele, shift):
     # chunk = np.copy(arr.ravel()[shift:shift+nele])
-    chunk = arr.ravel()[shift:shift+nele]
+    chunk = arr.ravel()[shift:shift + nele]
     return chunk
+
 
 def scatter_large_data(arr, wrkId, client, buffer=27000000):
     """Function to scatter large array to worker by chunks"""
@@ -44,7 +47,7 @@ def scatter_large_data(arr, wrkId, client, buffer=27000000):
     daskD.wait(arrD)
     shift = 0
     while shift < nele:
-        chunk = client.scatter(arr.ravel()[shift:shift+buffer], workers=[wrkId])
+        chunk = client.scatter(arr.ravel()[shift:shift + buffer], workers=[wrkId])
         daskD.wait(client.submit(_copy_chunk_data, arrD, chunk, shift, workers=[wrkId], pure=False))
         shift += buffer
     return arrD
@@ -56,10 +59,12 @@ def _call_getNdArray(vecObj):
     res = vecObj.getNdArray()
     return res
 
+
 def _call_getDtype(vecObj):
     """Function to call getNdArray method"""
     res = vecObj.getNdArray().dtype
     return res
+
 
 def _call_shape(vecObj):
     """Function to return shape attribute"""
@@ -281,7 +286,7 @@ class DaskVector(Vector):
             vec_tmplt = kwargs.get("vector_template")
             self.chunks = kwargs.get("chunks")
             # Spreading chunks across available workers
-            self. chunks = [np.sum(ix) for ix in np.array_split(self.chunks, N_wrk)]
+            self.chunks = [np.sum(ix) for ix in np.array_split(self.chunks, N_wrk)]
             # Checking if an SepVector was passed (by getting Hypercube)
             hyper = False
             if SepVector:

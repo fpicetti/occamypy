@@ -107,7 +107,7 @@ class NonlinearOperator(Operator):
 
 class NonlinearComb(NonlinearOperator):
     """
-    Combination of non-linear opeartors: f(g(m))
+    Combination of non-linear operators: f(g(m))
     """
     
     def __init__(self, f, g):

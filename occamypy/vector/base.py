@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from h5py import File as h5file
 from occamypy.utils import sep
 from .axis_info import AxInfo
 
@@ -94,6 +93,10 @@ class Vector:
     def whoami(self):
         return type(self).__name__
     
+    @property
+    def dtype(self):
+        return self.getNdArray().dtype
+    
     # Class vector operations
     def getNdArray(self):
         """Function to return Ndarray of the vector"""
@@ -146,7 +149,7 @@ class Vector:
         """Function to check to make sure the vectors exist in the same space"""
         return self.shape == other.shape
     
-    def writeVec(self, filename, mode='w', key: str = "vec"):
+    def writeVec(self, filename, mode='w'):
         """Function to write vector to file"""
         # Check writing mode
         if mode not in 'wa':
@@ -229,23 +232,8 @@ class Vector:
                             allow_pickle=True)
                 else:
                     np.save(file=filename, arr=self.getNdArray(), allow_pickle=False)
-        
-        elif ext == '.h5':  # TODO implement saving to hdf5
-            # https://moonbooks.org/Articles/How-to-save-a-large-dataset-in-a-hdf5-file-using-python--Quick-Guide/
-            if mode not in 'a':
-                with h5file(filename, 'wb') as f:
-                    f.create_dataset(key, data=self.getNdArray())
-            else:
-                with h5file(filename, 'a') as f:
-                    if key not in f.keys():
-                        raise KeyError("{key} not in file keys!")
-                    dset = f[key]
-                    f.create_dataset(key, data=np.concatenate((dset, self.getNdArray()), axis=0))
-                raise NotImplementedError("Append to HDF5 file is not implemented yet!")
-        
         else:
-            raise ValueError("ERROR! Output format has to be H, npy, or h5")
-        
+            raise NotImplementedError("Extension %s not implemented yet" % ext)
         return
     
     # TODO implement on seplib

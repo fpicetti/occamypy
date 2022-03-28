@@ -2,9 +2,10 @@ from typing import Union, List, Tuple
 from itertools import accumulate, product
 import numpy as np
 import torch
+
 from occamypy import superVector, Operator, Dstack
-from ..vector import VectorTorch
-from ..back_utils import set_backends
+from occamypy.torch.vector import VectorTorch
+from occamypy.torch.back_utils import set_backends
 
 set_backends()
 
@@ -127,20 +128,24 @@ class GaussianFilter(ConvND):
         return "GausFilt"
 
 
-def ZeroPad(model, pad):
+def Padding(model, pad, mode="constant"):
     if isinstance(model, VectorTorch):
-        return _ZeroPad(model, pad)
+        return _Padding(model, pad, mode)
     elif isinstance(model, superVector):
         # TODO add the possibility to have different padding for each sub-vector
-        return Dstack([_ZeroPad(v, pad) for v in model.vecs])
+        return Dstack([_Padding(v, pad, mode) for v in model.vecs])
     else:
         raise ValueError("ERROR! Provided domain has to be either vector or superVector")
 
 
-class _ZeroPad(Operator):
+def ZeroPad(model, pad):
+    return Padding(model, pad, mode="constant")
+
+
+class _Padding(Operator):
     
-    def __init__(self, model: VectorTorch, pad: Union[int, Tuple[int], List[int]]):
-        """ Zero Pad operator.
+    def __init__(self, model: VectorTorch, pad: Union[int, Tuple[int], List[int]], mode: str = "constant"):
+        """Padding operator.
 
         To pad 2 values to each side of the first dim, and 3 values to each side of the second dim, use:
             pad=(2,2,3,3)
@@ -148,11 +153,13 @@ class _ZeroPad(Operator):
         :param pad: scalar or sequence of scalars
             Number of samples to pad in each dimension.
             If a single scalar is provided, it is assigned to every dimension.
+        :param mode: str
+            padding mode (see https://pytorch.org/docs/1.10/generated/torch.nn.functional.pad.html)
         """
         nd = model.ndim
         
         if isinstance(pad, (int, float)):
-            pad = [pad, pad] * nd
+            pad = [int(pad), int(pad)] * nd
         else:
             if len(pad) != 2 * nd:
                 raise ValueError("len(pad) has to be 2*nd")
@@ -164,24 +171,29 @@ class _ZeroPad(Operator):
         
         self.padded_shape = tuple(np.asarray(model.shape) + [self.pad[i]+self.pad[i+1] for i in range(0, 2*nd, 2)])
         
-        super(_ZeroPad, self).__init__(model, VectorTorch(self.padded_shape, device=model.device.index))
+        super(_Padding, self).__init__(model, VectorTorch(self.padded_shape, device=model.device.index))
 
         self.inner_idx = [list(torch.arange(start=self.pad[0:-1:2][i], end=self.range.shape[i]-pad[1::2][i])) for i in range(nd)]
-    
+        self.mode = mode
+        
     def __str__(self):
-        return "ZeroPad "
+        return "Padding "
     
     def forward(self, add, model, data):
-        """Zero padding"""
+        """padding"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
         # torch counts the axes in reverse order
-        data[:] += torch.nn.functional.pad(model.getNdArray(), self.pad[::-1], mode='constant')
+        if self.mode == "constant":
+            padded = torch.nn.functional.pad(model.getNdArray(), self.pad[::-1], mode=self.mode)
+        else:
+            padded = torch.nn.functional.pad(model.getNdArray()[None], self.pad[::-1], mode=self.mode).squeeze(0)
+        data[:] += padded
         return
     
     def adjoint(self, add, model, data):
-        """Extract non-zero subsequence"""
+        """Extract original subsequence"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()

@@ -106,19 +106,23 @@ class ConvND(Operator):
         return
 
 
-def ZeroPad(domain, pad):
-    if isinstance(domain, VectorCupy):
-        return _ZeroPadIC(domain, pad)
-    elif isinstance(domain, superVector):
+def Padding(model, pad, mode: str = "constant"):
+    if isinstance(model, VectorCupy):
+        return _Padding(model, pad, mode)
+    elif isinstance(model, superVector):
         # TODO add the possibility to have different padding for each sub-vector
-        return Dstack([_ZeroPadIC(v, pad) for v in domain.vecs])
+        return Dstack([_Padding(v, pad, mode) for v in model.vecs])
     else:
         raise ValueError("ERROR! Provided domain has to be either vector or superVector")
 
 
-def _pad_vectorIC(vec, pad):
+def ZeroPad(model, pad):
+    return Padding(model, pad, mode="constant")
+
+
+def _pad_VectorCupy(vec, pad):
     if not isinstance(vec, VectorCupy):
-        raise ValueError("ERROR! Provided vector must be of vectorCcupy type")
+        raise ValueError("ERROR! Provided vector has to be a VectorCupy")
     if len(vec.shape) != len(pad):
         raise ValueError("Dimensions of vector and padding mismatch!")
     
@@ -129,10 +133,10 @@ def _pad_vectorIC(vec, pad):
         raise ValueError("ERROR! For now only vectorCupy is supported!")
 
 
-class _ZeroPadIC(Operator):
+class _Padding(Operator):
     
-    def __init__(self, domain, pad):
-        """ Zero Pad operator.
+    def __init__(self, domain, pad, mode: str = "constant"):
+        """Padding operator.
 
         To pad 2 values to each side of the first dim, and 3 values to each side of the second dim, use:
             pad=((2,2), (3,3))
@@ -140,6 +144,8 @@ class _ZeroPadIC(Operator):
         :param pad: scalar or sequence of scalars
             Number of samples to pad in each dimension.
             If a single scalar is provided, it is assigned to every dimension.
+        :param mode: str
+            Padding mode (see https://docs.cupy.dev/en/stable/reference/generated/cupy.pad.html)
         """
         if isinstance(domain, VectorCupy):
             self.dims = domain.shape
@@ -147,24 +153,25 @@ class _ZeroPadIC(Operator):
             if (cp.array(pad) < 0).any():
                 raise ValueError('Padding must be positive or zero')
             self.pad = pad
-            super(_ZeroPadIC, self).__init__(domain, _pad_vectorIC(domain, self.pad))
+            self.mode = mode
+            super(_Padding, self).__init__(domain, _pad_VectorCupy(domain, self.pad))
     
     def __str__(self):
-        return "ZeroPad "
+        return "Padding "
     
     def forward(self, add, model, data):
-        """Zero padding"""
+        """Padding"""
         self.checkDomainRange(model, data)
         if add:
             temp = data.clone()
-        y = cp.padding(model.getNdArray(), self.pad, mode='constant')
+        y = cp.padding(model.getNdArray(), self.pad, mode=self.mode)
         data.getNdArray()[:] = y
         if add:
             data.scaleAdd(temp, 1., 1.)
         return
     
     def adjoint(self, add, model, data):
-        """Extract non-zero subsequence"""
+        """Extract original subsequence"""
         self.checkDomainRange(model, data)
         if add:
             temp = model.clone()

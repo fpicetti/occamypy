@@ -19,6 +19,7 @@ __all__ = [
     "TNewton",
     "MCMC",
     "ISTA",
+    "FISTA",
     "ISTC",
     "SplitBregman",
     "Stepper",

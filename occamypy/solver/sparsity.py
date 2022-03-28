@@ -239,6 +239,11 @@ class ISTA(Solver):
         self.restart.clear_restart()
 
 
+class FISTA(ISTA):
+    def __init__(self, stopper, logger=None):
+        super(FISTA, self).__init__(stopper=stopper, logger=logger, fast=True)
+
+
 class ISTC(Solver):
     """ISTC solver to solve: convex problem 1/2*| y - Am |_2 + lambda*| m |_1"""
     

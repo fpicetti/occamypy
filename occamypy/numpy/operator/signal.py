@@ -100,19 +100,23 @@ class ConvND(Operator):
         return
 
 
-def ZeroPad(model, pad):
+def Padding(model, pad, mode: str = "constant"):
     if isinstance(model, VectorNumpy):
-        return _ZeroPadIC(model, pad)
+        return _Padding(model, pad, mode)
     elif isinstance(model, superVector):
         # TODO add the possibility to have different padding for each sub-vector
-        return Dstack([_ZeroPadIC(v, pad) for v in model.vecs])
+        return Dstack([_Padding(v, pad, mode) for v in model.vecs])
     else:
         raise ValueError("ERROR! Provided domain has to be either vector or superVector")
 
 
-def _pad_vectorIC(vec, pad):
+def ZeroPad(model, pad):
+    return Padding(model, pad, mode="constant")
+
+
+def _pad_VectorNumpy(vec, pad):
     if not isinstance(vec, VectorNumpy):
-        raise ValueError("ERROR! Provided vector must be of vectorIC type")
+        raise ValueError("ERROR! Provided vector must be a VectorNumpy")
     if len(vec.shape) != len(pad):
         raise ValueError("Dimensions of vector and padding mismatch!")
     
@@ -120,9 +124,9 @@ def _pad_vectorIC(vec, pad):
     return VectorNumpy(np.empty(vec_new_shape, dtype=vec.getNdArray().dtype))
 
 
-class _ZeroPadIC(Operator):
+class _Padding(Operator):
     
-    def __init__(self, model, pad):
+    def __init__(self, model: VectorNumpy, pad, mode: str = "constant"):
         """ Zero Pad operator.
 
         To pad 2 values to each side of the first dim, and 3 values to each side of the second dim, use:
@@ -131,31 +135,33 @@ class _ZeroPadIC(Operator):
         :param pad: scalar or sequence of scalars
             Number of samples to pad in each dimension.
             If a single scalar is provided, it is assigned to every dimension.
+        :param mode: str
+            Padding mode (see https://numpy.org/doc/stable/reference/generated/numpy.pad.html)
         """
-        if isinstance(model, VectorNumpy):
-            self.dims = model.shape
-            pad = [(pad, pad)] * len(self.dims) if pad is np.isscalar else list(pad)
-            if (np.array(pad) < 0).any():
-                raise ValueError('Padding must be positive or zero')
-            self.pad = pad
-            super(_ZeroPadIC, self).__init__(model, _pad_vectorIC(model, self.pad))
+        self.dims = model.shape
+        pad = [(pad, pad)] * len(self.dims) if pad is np.isscalar else list(pad)
+        if (np.array(pad) < 0).any():
+            raise ValueError('Padding must be positive or zero')
+        self.pad = pad
+        self.mode = mode
+        super(_Padding, self).__init__(model, _pad_VectorNumpy(model, self.pad))
     
     def __str__(self):
-        return "ZeroPad "
+        return "Padding "
     
     def forward(self, add, model, data):
-        """Zero padding"""
+        """Padding"""
         self.checkDomainRange(model, data)
         if add:
             temp = data.clone()
-        y = np.pad(model.arr, self.pad, mode='constant')
+        y = np.pad(model.arr, self.pad, mode=self.mode)
         data.arr = y
         if add:
             data.scaleAdd(temp, 1., 1.)
         return
     
     def adjoint(self, add, model, data):
-        """Extract non-zero subsequence"""
+        """Extract original subsequence"""
         self.checkDomainRange(model, data)
         if add:
             temp = model.clone()

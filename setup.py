@@ -53,6 +53,7 @@ setup(name='occamypy',
                         'dask-kubernetes',
                         'matplotlib',
                         'gputil',
+                        'imageio',
                         ],
       packages=find_packages(),
       zip_safe=True)
