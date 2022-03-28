@@ -7,10 +7,5 @@
 .ipynb_checkpoints/
 dask-worker-space
 /devel
-!/tutorials/sb_varweight.py
-
-readme_img/logo.png
-
-readme_img/logo1280.png
-
-tutorials/data/sigmoid.npz
+experiments
+publishing.md
