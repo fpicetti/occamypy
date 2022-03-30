@@ -4,7 +4,7 @@ from occamypy import Operator
 try:
     import pylops
 except ImportError:
-    raise UserWarning("PyLops is not installed. To use this feature please run: pip install pylops")
+    print("PyLops is not installed. To use this feature please run: pip install pylops")
 
 __all__ = [
     "ToPylops",
