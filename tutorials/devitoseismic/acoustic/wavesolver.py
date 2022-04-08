@@ -206,7 +206,7 @@ class AcousticWaveSolver(object):
                                           rec=rec, dt=dt, grad=grad, **kwargs)
 
             # Run forward
-            wrp = Revolver(cp, wrap_fw, wrap_rev, n_checkpoints, rec.csg_nonlinear.shape[0] - 2)
+            wrp = Revolver(cp, wrap_fw, wrap_rev, n_checkpoints, rec.data.shape[0] - 2)
             wrp.apply_forward()
             summary = wrp.apply_reverse()
         else:

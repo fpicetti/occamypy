@@ -380,7 +380,7 @@ class SeismicModel(GenericModel):
         # Update the square slowness according to new value
         if isinstance(value, np.ndarray):
             if value.shape == param.shape:
-                param.csg_nonlinear[:] = value[:]
+                param.data[:] = value[:]
             elif value.shape == self.shape:
                 initialize_function(param, value, self.nbl)
             else:
@@ -388,7 +388,7 @@ class SeismicModel(GenericModel):
                                  " %s without or %s with padding" % (self.shape,
                                                                      param.shape))
         else:
-            param.csg_nonlinear = value
+            param.data = value
 
     @property
     def m(self):
