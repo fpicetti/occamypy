@@ -69,9 +69,9 @@ def plot_velocity(model, source=None, receiver=None, colorbar=True, cmap="jet"):
 
     slices = tuple(slice(model.nbl, -model.nbl) for _ in range(2))
     if getattr(model, 'vp', None) is not None:
-        field = model.vp.csg_nonlinear[slices]
+        field = model.vp.data[slices]
     else:
-        field = model.lam.csg_nonlinear[slices]
+        field = model.lam.data[slices]
     plot = plt.imshow(np.transpose(field), animated=True, cmap=cmap,
                       vmin=np.min(field), vmax=np.max(field),
                       extent=extent)

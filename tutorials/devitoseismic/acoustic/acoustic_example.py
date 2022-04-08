@@ -47,12 +47,12 @@ def run(shape=(50, 50, 50), spacing=(20.0, 20.0, 20.0), tn=1000.0,
         solver.forward(save=save, vp=2.0)
 
     if not full_run:
-        return summary.gflopss, summary.oi, summary.timings, [rec, u.csg_nonlinear]
+        return summary.gflopss, summary.oi, summary.timings, [rec, u.data]
 
     # Smooth velocity
     initial_vp = Function(name='v0', grid=solver.model.grid, space_order=space_order)
     smooth(initial_vp, solver.model.vp)
-    dm = np.float32(initial_vp.data ** (-2) - solver.model.vp.csg_nonlinear ** (-2))
+    dm = np.float32(initial_vp.data ** (-2) - solver.model.vp.data ** (-2))
 
     info("Applying Adjoint")
     solver.adjoint(rec, autotune=autotune)
@@ -60,7 +60,7 @@ def run(shape=(50, 50, 50), spacing=(20.0, 20.0, 20.0), tn=1000.0,
     solver.jacobian(dm, autotune=autotune)
     info("Applying Gradient")
     solver.jacobian_adjoint(rec, u, autotune=autotune, checkpointing=checkpointing)
-    return summary.gflopss, summary.oi, summary.timings, [rec, u.csg_nonlinear]
+    return summary.gflopss, summary.oi, summary.timings, [rec, u.data]
 
 
 @pytest.mark.parametrize('shape', [(101,), (51, 51), (16, 16, 16)])

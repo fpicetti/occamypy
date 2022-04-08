@@ -167,7 +167,7 @@ class PointSource(SparseTimeFunction):
 
         # Return new object
         return PointSource(name=self.name, grid=self.grid, data=new_traces,
-                           time_range=new_time_range, coordinates=self.coordinates.csg_nonlinear)
+                           time_range=new_time_range, coordinates=self.coordinates.data)
 
     # Pickling support
     _pickle_kwargs = SparseTimeFunction._pickle_kwargs + ['time_range']
