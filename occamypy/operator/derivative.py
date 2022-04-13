@@ -1,33 +1,42 @@
+from typing import Union, Tuple
+
+from occamypy.operator.base import Operator, Vstack
 from occamypy.utils import get_backend
-from .base import Operator, Vstack
+from occamypy.vector.base import Vector
 
 
 class FirstDerivative(Operator):
-    def __init__(self, model, sampling=1., axis=0, stencil='centered'):
-        r"""
-        First Derivative with a stencil
-            1) 2nd order centered:
+    r"""
+    First Derivative with a stencil
+        
+        1) 2nd order centered:
 
-            .. math::
-                y[i] = 0.5 (x[i+1] - x[i-1]) / dx
+        .. math::
+            y[i] = 0.5 (x[i+1] - x[i-1]) / dx
 
-            2) 1st order forward:
+        2) 1st order forward:
 
-            .. math::
-                y[i] = (x[i+1] - x[i]) / dx
+        .. math::
+            y[i] = (x[i+1] - x[i]) / dx
 
-            1) 1st order backward:
+        1) 1st order backward:
 
-            .. math::
-                y[i] = 0.5 (x[i] - x[i-1]) / dx
-
-        :param model    : vector class; domain vector
-        :param sampling : scalar; sampling step [1.]
-        :param axis     : int; axis along which to compute the derivative [0]
-        :param stencil  : str; derivative kind (centered, forward, backward)
+        .. math::
+            y[i] = 0.5 (x[i] - x[i-1]) / dx
+    """
+    
+    def __init__(self, domain: Vector, sampling: float = 1., axis: int = 0, stencil: str = 'centered'):
+        """
+        FirstDerivative costructor
+        
+        Args:
+            domain: domain vector
+            sampling: sampling step along the differentiation axis
+            axis: axis along which to compute the derivative [0]
+            stencil: derivative kind (centered, forward, backward)
         """
         self.sampling = sampling
-        self.dims = model.getNdArray().shape
+        self.dims = domain.getNdArray().shape
         self.axis = axis if axis >= 0 else len(self.dims) + axis
         self.stencil = stencil
 
@@ -43,15 +52,12 @@ class FirstDerivative(Operator):
         else:
             raise ValueError("Derivative stencil must be centered, forward or backward")
         
-        self.backend = get_backend(model)
+        self.backend = get_backend(domain)
 
-        super(FirstDerivative, self).__init__(model, model)
-    
-    def __str__(self):
-        return "1stDer_%d" % self.axis
+        super(FirstDerivative, self).__init__(domain, domain)
+        self.name = "1stDer_%d" % self.axis
     
     def _forwardF(self, add, model, data):
-        """Forward operator for the 1st order forward stencil"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -68,7 +74,6 @@ class FirstDerivative(Operator):
         return
     
     def _adjointF(self, add, model, data):
-        """Adjoint operator for the 1st order forward stencil"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -87,7 +92,6 @@ class FirstDerivative(Operator):
         return
     
     def _forwardC(self, add, model, data):
-        """Forward operator for the 2nd order centered stencil"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -104,7 +108,6 @@ class FirstDerivative(Operator):
         return
     
     def _adjointC(self, add, model, data):
-        """Adjoint operator for the 2nd order centered stencil"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -123,7 +126,6 @@ class FirstDerivative(Operator):
         return
     
     def _forwardB(self, add, model, data):
-        """Forward operator for the 1st order backward stencil"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -140,7 +142,6 @@ class FirstDerivative(Operator):
         return
     
     def _adjointB(self, add, model, data):
-        """Adjoint operator for the 1st order backward stencil"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -160,31 +161,33 @@ class FirstDerivative(Operator):
 
 
 class SecondDerivative(Operator):
-    def __init__(self, model, sampling=1., axis=0):
-        r"""
-        Compute 2nd order second derivative
+    r"""
+    Compute 2nd order second derivative
 
-        .. math::
-            y[i] = (x[i+1] - 2x[i] + x[i-1]) / dx^2
-
-        :param model    : vector class; domain vector
-        :param sampling : scalar; sampling step [1.]
-        :param axis     : int; axis along which to compute the derivative [0]
+    .. math::
+        y[i] = (x[i+1] - 2x[i] + x[i-1]) / dx^2
+    """
+    
+    def __init__(self, domain: Vector, sampling: float = 1., axis: int = 0):
+        """
+        SecondDerivative constructor
+        
+        Args:
+            domain: domain vector
+            sampling: sampling step along the differentiation axis
+            axis: axis along which to compute the derivative
         """
         self.sampling = sampling
-        self.data_tmp = model.clone().zero()
-        self.dims = model.getNdArray().shape
+        self.data_tmp = domain.clone().zero()
+        self.dims = domain.getNdArray().shape
         self.axis = axis if axis >= 0 else len(self.dims) + axis
 
-        self.backend = get_backend(model)
+        self.backend = get_backend(domain)
         
-        super(SecondDerivative, self).__init__(model, model)
-    
-    def __str__(self):
-        return "2ndDer_%d" % self.axis
+        super(SecondDerivative, self).__init__(domain=domain, range=domain)
+        self.name = "2ndDer_%d" % self.axis
     
     def forward(self, add, model, data):
-        """Forward operator"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -203,7 +206,6 @@ class SecondDerivative(Operator):
         return
     
     def adjoint(self, add, model, data):
-        """Adjoint operator"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -225,15 +227,18 @@ class SecondDerivative(Operator):
 
 
 class Gradient(Operator):
-    def __init__(self, model, sampling=None, stencil=None):
-        r"""
-        N-Dimensional Gradient operator
-
-        :param model    : vector class; domain vector
-        :param sampling : tuple; sampling step [1]
-        :param stencil  : str or list of str; stencil kind for each direction ['centered']
+    """N-Dimensional Gradient operator"""
+    
+    def __init__(self, domain: Vector, sampling: Union[Tuple[float], float] = None, stencil: Union[Tuple[str], str] = None):
         """
-        self.dims = model.getNdArray().shape
+        Gradient constructor
+        
+        Args:
+            domain: domain vector
+            sampling: sampling steps
+            stencil: stencil kind for each direction
+        """
+        self.dims = domain.getNdArray().shape
         self.sampling = sampling if sampling is not None else tuple([1] * len(self.dims))
         
         if stencil is None:
@@ -249,12 +254,10 @@ class Gradient(Operator):
         if len(self.sampling) != len(self.stencil):
             raise ValueError("There is something wrong with the dimensions")
         
-        self.op = Vstack([FirstDerivative(model, sampling=self.sampling[d], axis=d)
+        self.op = Vstack([FirstDerivative(domain, sampling=self.sampling[d], axis=d)
                           for d in range(len(self.dims))])
         super(Gradient, self).__init__(domain=self.op.domain, range=self.op.range)
-    
-    def __str__(self):
-        return "Gradient"
+        self.name = "Gradient"
     
     def forward(self, add, model, data):
         return self.op.forward(add, model, data)
@@ -282,17 +285,24 @@ class Gradient(Operator):
 
 
 class Laplacian(Operator):
-    def __init__(self, model, axis=None, weights=None, sampling=None):
-        r"""
-        Laplacian operator.
+    r"""
+    Laplacian operator.
+    
+    Notes:
         The input parameters are tailored for >2D, but it works also for 1D.
-
-        :param model    : vector class; domain vector
-        :param axis     : tuple; axis along which to compute the derivative [all]
-        :param weights  : tuple; scalar weights for the axis [1 for each model axis]
-        :param sampling : tuple; sampling step [1 for each model axis]
+    """
+    
+    def __init__(self, domain: Vector, axis: Tuple[int] = None, weights: Tuple[float] = None, sampling: Tuple[float] = None):
         """
-        self.dims = model.getNdArray().shape
+        Laplacian constructor
+        
+        Args:
+            domain: domain vector
+            axis: axes along which to compute the derivative
+            weights: scalar weights for each axis
+            sampling: sampling steps for each axis
+        """
+        self.dims = domain.shape
         self.axis = axis if axis is not None else tuple(range(len(self.dims)))
         self.sampling = sampling if sampling is not None else tuple([1] * len(self.dims))
         self.weights = weights if weights is not None else tuple([1] * len(self.dims))
@@ -300,15 +310,13 @@ class Laplacian(Operator):
         if not (len(self.axis) == len(self.weights) == len(self.sampling)):
             raise ValueError("There is something wrong with the dimensions")
         
-        self.data_tmp = model.clone().zero()
+        self.data_tmp = domain.clone().zero()
         
-        self.op = self.weights[0] * SecondDerivative(model, sampling=self.sampling[0], axis=self.axis[0])
+        self.op = self.weights[0] * SecondDerivative(domain, sampling=self.sampling[0], axis=self.axis[0])
         for d in range(1, len(self.axis)):
-            self.op += self.weights[d] * SecondDerivative(model, sampling=self.sampling[d], axis=self.axis[d])
-        super(Laplacian, self).__init__(model, model)
-    
-    def __str__(self):
-        return "Laplace "
+            self.op += self.weights[d] * SecondDerivative(domain, sampling=self.sampling[d], axis=self.axis[d])
+        super(Laplacian, self).__init__(domain, domain)
+        self.name = "Laplacian"
     
     def forward(self, add, model, data):
         return self.op.forward(add, model, data)

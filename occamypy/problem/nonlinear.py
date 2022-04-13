@@ -1,23 +1,33 @@
 from math import isnan
-from occamypy.vector import superVector
-from occamypy import problem as P
-from occamypy import operator as O
+
+from occamypy.operator import Identity
+from occamypy.operator.nonlinear import NonlinearOperator, NonlinearVstack, VarProOperator
+from occamypy.problem.base import Problem
+from occamypy.problem.linear import LeastSquares, LeastSquaresRegularized
+from occamypy.vector.base import superVector, Vector
 
 
-class NonlinearLeastSquares(P.Problem):
-    """Non-linear inverse problem of the form 1/2*|f(m)-d|_2"""
+class NonlinearLeastSquares(Problem):
+    r"""
+    Nonlinear inverse problem of the form
     
-    def __init__(self, model, data, op, grad_mask=None,
-                 minBound=None, maxBound=None, boundProj=None):
+    .. math::
+        \frac{1}{2} \Vert f(\mathbf{m}) - \mathbf{d}\Vert_2^2
+    """
+    
+    def __init__(self, model: Vector, data: Vector, op, grad_mask: Vector = None,
+                 minBound: Vector = None, maxBound: Vector = None, boundProj=None):
         """
-           Constructor of non-linear problem:
-           model    	= [no default] - vector class; Initial model vector
-           data     	= [no default] - vector class; Data vector
-           op       	= [no default] - non-linear operator class; f(m) operator
-           grad_mask	= [None] - vector class; Mask to be applied on the gradient during the inversion
-           minBound		= [None] - vector class; Minimum value bounds
-           maxBound		= [None] - vector class; Maximum value bounds
-           boundProj	= [None] - Bounds class; Class with a function "apply(input_vec)" to project input_vec onto some convex set
+        NonlinearLeastSquares constructor
+        
+        Args:
+            model: initial domain vector
+            data: data vector
+            op: nonlinear operator
+            grad_mask: mask to be applied on the gradient during the inversion
+            minBound: lower bound vector
+            maxBound: upper bound vector
+            boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
         super(NonlinearLeastSquares, self).__init__(minBound, maxBound, boundProj)
@@ -35,7 +45,7 @@ class NonlinearLeastSquares(P.Problem):
         # Dresidual vector
         self.dres = self.res.clone()
         # Setting non-linear and linearized operators
-        if isinstance(op, O.NonlinearOperator):
+        if isinstance(op, NonlinearOperator):
             self.op = op
         else:
             raise TypeError("Not provided a non-linear operator!")
@@ -43,27 +53,33 @@ class NonlinearLeastSquares(P.Problem):
         self.grad_mask = grad_mask
         if self.grad_mask is not None:
             if not grad_mask.checkSame(model):
-                raise ValueError("Mask size not consistent with model vector!")
+                raise ValueError("Mask size not consistent with domain vector!")
             self.grad_mask = grad_mask.clone()
         # Setting default variables
         self.setDefaults()
         self.linear = False
         return
     
-    def __del__(self):
-        """Default destructor"""
-        return
-    
     def resf(self, model):
-        """Method to return residual vector r = f(m) - d"""
+        r"""
+        Method to return residual vector
+        
+        .. math::
+            \mathbf{r} = f(\mathbf{m}) - \mathbf{d}
+        """
         self.op.nl_op.forward(False, model, self.res)
         # Computing f(m) - d
         self.res.scaleAdd(self.data, 1., -1.)
         return self.res
     
     def gradf(self, model, res):
-        """Method to return gradient vector g = F'r = F'(f(m) - d)"""
-        # Setting model point on which the F is evaluated
+        r"""
+        Method to return gradient vector
+
+        .. math::
+            \mathbf{g} = \mathbf{F}'(\mathbf{m}) \mathbf{r} = \mathbf{F}'(\mathbf{m}) [f(\mathbf{m}) - \mathbf{d}]
+        """
+        # Setting domain point on which the F is evaluated
         self.op.set_background(model)
         # Computing F'r = g
         self.op.lin_op.adjoint(False, self.grad, res)
@@ -73,42 +89,61 @@ class NonlinearLeastSquares(P.Problem):
         return self.grad
     
     def dresf(self, model, dmodel):
-        """Method to return residual vector dres = Fdm"""
-        # Setting model point on which the F is evaluated
+        r"""
+        Method to return residual vector
+        
+        .. math::
+            \mathbf{d}_r = \mathbf{G} \mathbf{d}_m
+        """
+        # Setting domain point on which the F is evaluated
         self.op.set_background(model)
         # Computing Fdm = dres
         self.op.lin_op.forward(False, dmodel, self.dres)
         return self.dres
     
     def objf(self, residual):
-        """Method to return objective function value 1/2|f(m)-d|_2"""
+        r"""
+        Method to return objective function value
+        
+        .. math::
+            \frac{1}{2} \Vert f(\mathbf{m})-\mathbf{d}\Vert_2^2
+        """
         val = residual.norm()
         obj = 0.5 * val * val
         return obj
 
 
-class NonlinearLeastSquaresRegularized(P.Problem):
-    """
-       Linear inverse problem regularized of the form
-            1/2*|f(m)-d|_2 + epsilon^2/2*|Am - m_prior|_2
-                or with a non-linear regularization
-            1/2*|f(m)-d|_2 + epsilon^2/2*|g(m) - m_prior|_2
+class NonlinearLeastSquaresRegularized(Problem):
+    r"""
+    Nonlinear inverse problem with a linear regularization
+    
+    .. math::
+        \frac{1}{2} \Vert f(\mathbf{m}) - \mathbf{d} \Vert_2^2 +
+        \frac{\varepsilon^2}{2} \Vert \mathbf{R} \mathbf{m} - \mathbf{m}_p\Vert_2^2
+        
+    or nonlinear regularization
+    
+    .. math::
+        \frac{1}{2} \Vert f(\mathbf{m}) - \mathbf{d}\Vert_2^2 +
+        \frac{\varepsilon^2}{2} \Vert g(\mathbf{m}) - \mathbf{m}_p|_2^2
     """
     
-    def __init__(self, model, data, op, epsilon, grad_mask=None, reg_op=None, prior_model=None,
-                 minBound=None, maxBound=None, boundProj=None):
+    def __init__(self, model: Vector, data: Vector, op, epsilon: float, grad_mask: Vector=None, reg_op=None, prior_model: Vector=None,
+                 minBound: Vector=None, maxBound: Vector=None, boundProj=None):
         """
-           Constructor of non-linear regularized problem:
-           model    	= [no default] - vector class; Initial model vector
-           data     	= [no default] - vector class; Data vector
-           op       	= [no default] - non-linear operator class; f(m) operator
-           epsilon      = [no default] - float; regularization weight
-           grad_mask	= [None] - vector class; Mask to be applied on the gradient during the inversion
-           reg_op       = [Identity] - non-linear/linear operator class; g(m) regularization operator
-           prior_model  = [None] - vector class; Prior model for regularization term
-           minBound		= [None] - vector class; Minimum value bounds
-           maxBound		= [None] - vector class; Maximum value bounds
-           boundProj	= [None] - Bounds class; Class with a function "apply(input_vec)" to project input_vec onto some convex set
+        NonlinearLeastSquaresRegularized constructor
+        
+        Args:
+            model: initial domain vector
+            data: data vector
+            op: nonlinear operator
+            epsilon: regularization weight
+            grad_mask: mask to be applied on the gradient during the inversion
+            reg_op: linear or nonlinear regularizer operator
+            prior_model: prior vector for the regularization term
+            minBound: lower bound vector
+            maxBound: upper bound vector
+            boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
         super(NonlinearLeastSquaresRegularized, self).__init__(minBound, maxBound, boundProj)
@@ -120,24 +155,24 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         self.grad = self.dmodel.clone()
         # Copying the pointer to data vector
         self.data = data
-        # Setting a prior model (if any)
+        # Setting a prior domain (if any)
         self.prior_model = prior_model
         # Setting linear operators
         # Assuming identity operator if regularization operator was not provided
         if reg_op is None:
-            Id_op = O.Identity(self.model)
-            reg_op = O.NonlinearOperator(Id_op, Id_op)
-        # Checking if space of the prior model is constistent with range of regularization operator
+            Id_op = Identity(self.model)
+            reg_op = NonlinearOperator(Id_op, Id_op)
+        # Checking if space of the prior domain is constistent with range of regularization operator
         if self.prior_model is not None:
             if not self.prior_model.checkSame(reg_op.range):
-                raise ValueError("Prior model space no constistent with range of regularization operator")
+                raise ValueError("Prior domain space no constistent with range of regularization operator")
         # Setting non-linear and linearized operators
-        if not isinstance(op, O.NonlinearOperator):
+        if not isinstance(op, NonlinearOperator):
             raise TypeError("Not provided a non-linear operator!")
         # Setting non-linear stack of operators
-        self.op = O.NonlinearVstack(op, reg_op)
+        self.op = NonlinearVstack(op, reg_op)
         self.epsilon = epsilon  # Regularization weight
-        # Residual vector (data and model residual vectors)
+        # Residual vector (data and domain residual vectors)
         self.res = self.op.nl_op.range.clone()
         self.res.zero()
         # Dresidual vector
@@ -146,17 +181,13 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         self.grad_mask = grad_mask
         if self.grad_mask is not None:
             if not grad_mask.checkSame(model):
-                raise ValueError("Mask size not consistent with model vector!")
+                raise ValueError("Mask size not consistent with domain vector!")
             self.grad_mask = grad_mask.clone()
         # Setting default variables
         self.setDefaults()
         self.linear = False
         # Objective function terms (useful to analyze each term)
         self.obj_terms = [None, None]
-        return
-    
-    def __del__(self):
-        """Default destructor"""
         return
     
     def estimate_epsilon(self, verbose=False, logger=None):
@@ -166,7 +197,7 @@ class NonlinearLeastSquaresRegularized(P.Problem):
             print(msg)
         if logger:
             logger.addToLog("REGULARIZED PROBLEM log file\n" + msg)
-        # Keeping the initial model vector
+        # Keeping the initial domain vector
         prblm_mdl = self.get_model()
         # Keeping user-predefined epsilon if any
         epsilon = self.epsilon
@@ -177,7 +208,7 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         res_data_norm = prblm_res.vecs[0].norm()
         res_model_norm = prblm_res.vecs[1].norm()
         if isnan(res_model_norm) or isnan(res_data_norm):
-            raise ValueError("Obtained NaN: Residual-data-side-norm = %s, Residual-model-side-norm = %s"
+            raise ValueError("Obtained NaN: Residual-data-side-norm = %s, Residual-domain-side-norm = %s"
                              % (res_data_norm, res_model_norm))
         if res_model_norm == 0.:
             msg = "Trying to perform a linearized step"
@@ -195,11 +226,11 @@ class NonlinearLeastSquaresRegularized(P.Problem):
             if dgrad0_dgrad0 != 0.:
                 alpha = -dgrad0_res / dgrad0_dgrad0
             else:
-                msg = "Cannot compute linearized alpha for the given problem! Provide a different initial model"
+                msg = "Cannot compute linearized alpha for the given problem! Provide a different initial domain"
                 if logger:
                     logger.addToLog(msg)
                 raise ValueError(msg)
-            # model=model+alpha*grad
+            # domain=domain+alpha*grad
             prblm_mdl.scaleAdd(prblm_grad, 1.0, alpha)
             prblm_res = self.resf(prblm_mdl)
             # Recompute the new objective function terms
@@ -207,7 +238,7 @@ class NonlinearLeastSquaresRegularized(P.Problem):
             res_model_norm = prblm_res.vecs[1].norm()
             # If regularization term is still zero, stop the solver
             if res_model_norm == 0.:
-                msg = "Model residual component norm is zero, cannot find epsilon scale! Provide a different initial model"
+                msg = "Model residual component norm is zero, cannot find epsilon scale! Provide a different initial domain"
                 if logger:
                     logger.addToLog(msg)
                 raise ValueError(msg)
@@ -225,10 +256,18 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         return epsilon_balance
     
     def resf(self, model):
-        """
-        Method to return residual vector r = [r_d; r_m]:
-        r_d = f(m) - d;
-        r_m = Am - m_prior or r_m = g(m) - m_prior
+        r"""
+        Method to return residual vector
+        
+        .. math::
+            \begin{bmatrix}
+                \mathbf{r}_{d}  \\
+                \mathbf{r}_{m}  \\
+            \end{bmatrix} =
+            \begin{bmatrix}
+                f(\mathbf{m}) - \mathbf{d}  \\
+                g(\mathbf{m}) - \mathbf{m}_p  \\
+            \end{bmatrix}
         """
         self.op.nl_op.forward(False, model, self.res)
         # Computing r_d = f(m) - d
@@ -241,11 +280,13 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         return self.res
     
     def gradf(self, model, res):
-        """
+        r"""
         Method to return gradient vector
-        g = F'r_d + (epsilon*A'r_m or epsilon*G'r_m)
+        
+        .. math::
+            \mathbf{g} = \mathbf{F}' \mathbf{r}_d + \varepsilon \mathbf{G}' \mathbf{r}_m
         """
-        # Setting model point on which the F is evaluated
+        # Setting domain point on which the F is evaluated
         self.op.set_background(model)
         # g = epsilon*A'r_m
         self.op.lin_op.ops[1].adjoint(False, self.grad, res.vecs[1])
@@ -258,11 +299,13 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         return self.grad
     
     def dresf(self, model, dmodel):
-        """
+        r"""
         Method to return residual vector
-        dres = [F + epsilon * (A or G)]dm
+        
+        .. math::
+            \mathbf{d}_r = [\mathbf{F} + \varepsilon \mathbf{G}] \mathbf{d}_m
         """
-        # Setting model point on which the F is evaluated
+        # Setting domain point on which the F is evaluated
         self.op.set_background(model)
         # Computing Ldm = dres_d
         self.op.lin_op.forward(False, dmodel, self.dres)
@@ -271,53 +314,63 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         return self.dres
     
     def objf(self, residual):
-        """
+        r"""
         Method to return objective function value
-        1/2|f(m)-d|_2 + (epsilon^2/2*|Am-m_prior|_2 or epsilon^2/2*|g(m)-m_prior|_2)
+        
+        .. math::
+            \frac{1}{2} \Vert f(\mathbf{m}) - \mathbf{d} \Vert_2^2 +
+            \frac{\varepsilon^2}{2} \Vert \mathbf{R} \mathbf{m} - \mathbf{m}_p\Vert_2^2
         """
         # data term
         val = residual.vecs[0].norm()
         self.obj_terms[0] = 0.5 * val * val
-        # model term
+        # domain term
         val = residual.vecs[1].norm()
         self.obj_terms[1] = 0.5 * val * val
         obj = self.obj_terms[0] + self.obj_terms[1]
         return obj
 
 
-class VarProRegularized(P.Problem):
-    """
-    Non-linear inverse problem in which part of the model parameters define a quadratic function
-    The non-linear component is solved using the variable-projection method (Golub and Pereyra, 1973)
-    Problem form: phi(m) = 1/2*|g(m_nl) + h(m_nl)m_lin - d|_2 + epsilon^2/2*|g'(m_nl) + h'(m_nl)m_lin - d'|_2
+class VarProRegularized(Problem):
+    r"""
+    Non-linear inverse problem of the form
+    
+    .. math::
+        \phi(\mathbf{m}) = \frac{1}{2} \Vert g(\mathbf{m}_nl) + h(\mathbf{m}_nl)\mathbf{m}_lin - \mathbf{d}\Vert_2^2
+        + \frac{\varepsilon^2}{2} \Vert g'(\mathbf{m}_nl) + h'(\mathbf{m}_nl)\mathbf{m}_lin - \mathbf{d}'\Vert_2^2
+
+    in which part of the domain parameters define a quadratic function;
+    the non-linear component is solved using the variable-projection method (Golub and Pereyra, 1973)
+
+    Notes:
+        To save the results of the linear inversion, use the `lin_solver.setDefaults` method.
+        The results can only be saved on files. To the prefix specified within the lin_solver f_eval_# will be added.
     """
     
-    def __init__(self, model_nl, lin_model, h_op, data, lin_solver, g_op=None, g_op_reg=None, h_op_reg=None,
-                 data_reg=None, epsilon=None, minBound=None, maxBound=None, boundProj=None, prec=None, warm_start=False):
+    def __init__(self, model_nl: Vector, lin_model: Vector, h_op, data: Vector, lin_solver, g_op=None, g_op_reg=None, h_op_reg=None,
+                 data_reg=None, epsilon=None, minBound: Vector=None, maxBound: Vector=None, boundProj=None, prec=None,
+                 warm_start: bool = False):
         """
-            Constructor for solving a inverse problem using the variable-projection method
-            Required arguments:
-            model_nl    = [no default] - vector class; Initial non-linear model component of the objective function
-            lin_model   = [no default] - vector class; Initial quadritic (Linear) model component of the objective function (will be zeroed out)
-            h_op   		= [no default] - Vp operator class; Variable projection operator
-            data   		= [no default] - vector class; Data vector
-            lin_solver	= [no default] - solver class; Linear solver to invert for linear component of the model
-            Optional arguments:
-            g_op   		= [None] - non-linear operator class; Fully non-linear additional operator
-            g_op_reg   	= [None] - non-linear operator class; Fully non-linear additional operator for regularization term
-            h_op_reg	= [None] - Vp operator class; Variable projection operator for regularization term
-            data_reg   	= [None] - vector class; Data vector for regularization term
-            epsilon 	= [None] - float; Regularization term weight (must be provided if a regularization is needed)
-            minBound	= [None] - vector class; Minimum value bounds
-            maxBound	= [None] - vector class; Maximum value bounds
-            boundProj	= [None] - Bounds class; Class with a function "apply(input_vec)" to project input_vec onto some convex set
-            prec       	= [None] - linear operator class; Preconditioning matrix for VP problem
-            warm_start  = [None] - boolean; Start VP problem from previous linearly inverted model
-            ####################################################################################################################################
-            Note that to save the results of the linear inversion the user has to specify the saving parameters within the setDefaults of the
-            linear solver. The results can only be saved on files. To the prefix specified within the lin_solver f_eval_# will be added.
+        VarProRegularized constructor
+        
+        Args:
+            model_nl: initial domain vector for the nonlinear component
+            lin_model: initial domain vector for the linear component
+            h_op: VarPro operator
+            data: data vector
+            lin_solver: Solver instance for the linear part
+            g_op: nonlinear operator
+            g_op_reg: nonlinear regularizer operator
+            h_op_reg: VarPro regularizer operator
+            data_reg: data vector for regularization term
+            epsilon: regularization weight
+            minBound: lower bound vector
+            maxBound: upper bound vector
+            boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
+            prec: preconditioner linear operator
+            warm_start: start VP problem from previous linearly inverted domain
         """
-        if not isinstance(h_op, O.VarProOperator):
+        if not isinstance(h_op, VarProOperator):
             raise TypeError("ERROR! Not provided an operator class for the variable projection problem")
         # Setting the bounds (if any)
         super(VarProRegularized, self).__init__(minBound, maxBound, boundProj)
@@ -325,13 +378,13 @@ class VarProRegularized(P.Problem):
         self.model = model_nl
         self.dmodel = model_nl.clone()
         self.dmodel.zero()
-        # Linear component of the inverted model
+        # Linear component of the inverted domain
         self.lin_model = lin_model
         self.lin_model.zero()
         # Copying the pointer to data vector
         self.data = data
         # Setting non-linear/linear operator
-        if not isinstance(h_op, O.VarProOperator):
+        if not isinstance(h_op, VarProOperator):
             raise TypeError("ERROR! Provide a VpOperator operator class for h_op")
         self.h_op = h_op
         # Setting non-linear operator (if any)
@@ -353,7 +406,7 @@ class VarProRegularized(P.Problem):
             if self.g_op_reg is not None:
                 res_reg = self.g_op_reg.nl_op.range.clone()
             elif self.h_op_reg is not None:
-                if not isinstance(h_op_reg, O.VarProOperator):
+                if not isinstance(h_op_reg, o.VarProOperator):
                     raise TypeError("ERROR! Provide a VpOperator operator class for h_op_reg")
                 res_reg = self.h_op_reg.h_lin.range.clone()
             elif self.data_reg is not None:
@@ -368,11 +421,11 @@ class VarProRegularized(P.Problem):
             self.res = data.clone()
         # Instantiating linear inversion problem
         if self.h_op_reg is not None:
-            self.vp_linear_prob = P.LeastSquaresRegularized(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
+            self.vp_linear_prob = LeastSquaresRegularized(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
                                                             reg_op=self.h_op_reg.h_lin, prior_model=self.data_reg,
                                                             prec=prec)
         else:
-            self.vp_linear_prob = P.LeastSquares(self.lin_model, self.data, self.h_op.h_lin, prec=prec)
+            self.vp_linear_prob = LeastSquares(self.lin_model, self.data, self.h_op.h_lin, prec=prec)
         # Zeroing out the residual vector
         self.res.zero()
         # Dresidual vector
@@ -390,10 +443,6 @@ class VarProRegularized(P.Problem):
         self.warm_start = warm_start
         return
     
-    def __del__(self):
-        """Default destructor"""
-        return
-    
     def estimate_epsilon(self, verbose=False, logger=None):
         """Method returning epsilon that balances the two terms of the objective function"""
         if self.epsilon is None:
@@ -403,7 +452,7 @@ class VarProRegularized(P.Problem):
             msg = "Epsilon Scale evaluation"
             if verbose: print(msg)
             if logger: logger.addToLog("REGULARIZED PROBLEM log file\n" + msg)
-            # Keeping the initial model vector
+            # Keeping the initial domain vector
             prblm_mdl = self.get_model()
             # Keeping user-predefined epsilon if any
             epsilon = self.epsilon
@@ -414,10 +463,10 @@ class VarProRegularized(P.Problem):
             res_data_norm = prblm_res.vecs[0].norm()
             res_model_norm = prblm_res.vecs[1].norm()
             if isnan(res_model_norm) or isnan(res_data_norm):
-                raise ValueError("ERROR! Obtained NaN: Residual-data-side-norm = %s, Residual-model-side-norm = %s" % (
+                raise ValueError("ERROR! Obtained NaN: Residual-data-side-norm = %s, Residual-domain-side-norm = %s" % (
                     res_data_norm, res_model_norm))
             if res_model_norm == 0.0:
-                msg = "Model residual component norm is zero, cannot find epsilon scale! Provide a different initial model"
+                msg = "Model residual component norm is zero, cannot find epsilon scale! Provide a different initial domain"
                 if (logger): logger.addToLog(msg)
                 raise ValueError(msg)
             # Resetting user-predefined epsilon if any
@@ -429,7 +478,7 @@ class VarProRegularized(P.Problem):
             if verbose: print(msg)
             if logger: logger.addToLog(msg + "\nREGULARIZED PROBLEM end log file")
         elif self.h_op_reg is not None:
-            # Setting non-linear component of the model
+            # Setting non-linear component of the domain
             self.h_op.set_nl(self.model)
             self.h_op_reg.set_nl(self.model)
             # Problem is linearly regularized (fixing non-linear part and evaluating the epsilon on the linear
@@ -437,7 +486,6 @@ class VarProRegularized(P.Problem):
         return self.vp_linear_prob.estimate_epsilon(verbose, logger)
     
     def resf(self, model):
-        """Method to return residual vector"""
         # Zero-out residual vector
         self.res.zero()
         ###########################################
@@ -470,11 +518,11 @@ class VarProRegularized(P.Problem):
         # Running linear inversion
         # Getting fevals for saving linear inversion results
         fevals = self.get_fevals()
-        # Setting initial linear inversion model
+        # Setting initial linear inversion domain
         if not self.warm_start:
             self.lin_model.zero()
         self.vp_linear_prob.set_model(self.lin_model)
-        # Setting non-linear component of the model
+        # Setting non-linear component of the domain
         self.h_op.set_nl(model)
         if self.h_op_reg is not None:
             self.h_op_reg.set_nl(model)
@@ -494,7 +542,7 @@ class VarProRegularized(P.Problem):
         if self.lin_solver.logger is not None:
             self.lin_solver.logger.addToLog(
                 "#########################################################################################\n")
-        # Copying inverted linear optimal model
+        # Copying inverted linear optimal domain
         self.lin_model.copy(self.vp_linear_prob.get_model())
         # Flushing internal saved results of the linear inversion
         self.lin_solver.flush_results()
@@ -510,13 +558,16 @@ class VarProRegularized(P.Problem):
         return self.res
     
     def gradf(self, model, res):
-        """
-           Method to return gradient vector
-           grad= [G(m)' + H(m_nl;m_lin)'] r_d + epsilon * [G'(m_nl)' + H'(m_nl;m_lin)'] r_m
+        r"""
+        Method to return gradient vector
+    
+        .. math::
+           \mathbf{g} = [\mathbf{G}(\mathbf{m})' + \mathbf{H}(\mathbf{m}_nl, \; \mathbf{m}_lin)'] \mathbf{r}_d +
+           \varepsilon [\mathbf{G}'(\mathbf{m}_nl)' + \mathbf{H}'(\mathbf{m}_nl, \; \mathbf{m}_lin)'] \mathbf{r}_m
         """
         # Zero-out gradient vector
         self.grad.zero()
-        # Setting the optimal linear model component and background of the Jacobian matrices
+        # Setting the optimal linear domain component and background of the Jacobian matrices
         self.h_op.set_lin_jac(self.lin_model)  # H(_,m_lin_opt)
         self.h_op.h_nl.set_background(model)  # H(m_nl,m_lin_opt)
         if self.h_op_reg is not None:
@@ -555,15 +606,18 @@ class VarProRegularized(P.Problem):
             "ERROR! dresf is not currently supported! Provide an initial step-length value different than zero.")
     
     def objf(self, residual):
-        """
+        r"""
         Method to return objective function value
-        1/2*|g(m_nl) + h(m_nl)m_lin - d|_2 + epsilon^2/2*|g'(m_nl) + h'(m_nl)m_lin - d'|_2'
+        
+        .. math::
+            \phi(\mathbf{m}) = \frac{1}{2} \Vert g(\mathbf{m}_nl) + h(\mathbf{m}_nl)\mathbf{m}_lin - \mathbf{d}\Vert_2^2
+            + \frac{\varepsilon^2}{2} \Vert g'(\mathbf{m}_nl) + h'(\mathbf{m}_nl)\mathbf{m}_lin - \mathbf{d}'\Vert_2^2
         """
         if "obj_terms" in dir(self):
             # data term
             val = residual.vecs[0].norm()
             self.obj_terms[0] = 0.5 * val * val
-            # model term
+            # domain term
             val = residual.vecs[1].norm()
             self.obj_terms[1] = 0.5 * val * val
             obj = self.obj_terms[0] + self.obj_terms[1]

@@ -1,36 +1,61 @@
-from __future__ import division, print_function, absolute_import
-
-from time import time
 from copy import deepcopy
+from time import time
+from typing import Union
 
 import numpy as np
 import torch
 
-from occamypy import problem as P
-from occamypy import solver as S
-from occamypy.vector import Vector, superVector
+from occamypy.vector.base import Vector, superVector
 
 
 class Operator:
-    """Abstract python operator class"""
+    """
+    Abstract python operator class
     
-    # Default class methods/functions
-    def __init__(self, domain, range):
-        """Generic class for operator"""
+    Args:
+        domain: domain vector
+        range: range vector
+    
+    Attributes:
+        domain: domain vector space
+        range: range vector space
+        name: string that describes the operator
+        H: hermitian operator
+        
+    Methods:
+        dot: dot-product with input object
+        getDomain: get domain vector space
+        getRange: get range vector space
+        setDomainRange: set both domain and range space
+        checkDomainRange: check whether the input domain and range match with operator
+        powerMethod: estimate the maximum eigenvalue iteratively
+        dotTest: dot-product test, or adjointness test
+        forward: forward operation
+        adjoint: adjoint (conjugate-tranpose) operation
+    """
+
+    def __init__(self, domain: Vector, range: Vector):
+        """
+        Operator constructor
+        
+        Args:
+            domain: domain vector
+            range: range vector
+        """
         self.domain = domain.cloneSpace()
         self.range = range.cloneSpace()
+        self.name = "Operator"
     
     def __del__(self):
         """Default destructor"""
         return
     
     def __str__(self):
-        return "Operator"
+        return self.name
     
     def __repr__(self):
         return self.__str__()
     
-    # unary operators
     def __add__(self, other):  # self + other
         if isinstance(other, Operator):
             return _sumOperator(self, other)
@@ -48,20 +73,21 @@ class Operator:
     
     __rmul__ = __mul__  # other * self
     
-    def __truediv__(self, other, niter=2000):
+    def __truediv__(self, other: Vector, niter: int = 2000):
         """x = A / y through CG"""
+        from occamypy.solver.linear import CG
+        from occamypy.solver.stopper import BasicStopper
+        from occamypy.problem.linear import LeastSquares
         
         if not self.range.checkSame(other):
             raise ValueError('Operator range and data domain mismatch')
         
-        stopper = S.BasicStopper(niter=niter)
-        problem = P.LeastSquares(model=self.domain.clone(), data=other, op=self)
-        CGsolver = S.CG(stopper)
+        problem = LeastSquares(model=self.domain.clone().zero(), data=other, op=self)
+        CGsolver = CG(BasicStopper(niter=niter))
         CGsolver.run(problem, verbose=False)
         
         return problem.model
     
-    # main function for all kinds of multiplication
     def dot(self, other):
         """Matrix-matrix or matrix-vector or matrix-scalar multiplication."""
         if isinstance(other, Operator):  # A * B
@@ -98,7 +124,7 @@ class Operator:
         return
     
     def checkDomainRange(self, x, y):
-        """Function to check model and data vector sizes"""
+        """Function to check domain and data vector sizes"""
         if not self.domain.checkSame(x):
             raise ValueError("Provided x vector does not match operator domain")
         if not self.range.checkSame(y):
@@ -311,12 +337,26 @@ class Operator:
         del d1, d2, r1, r2
         return
     
-    def forward(self, add, model, data):
-        """Forward operator"""
+    def forward(self, add: bool, model: Vector, data: Vector):
+        """
+        Forward computation
+        
+        Args:
+            add: whether to add the result to data vector
+            model: domain vector
+            data: range vector to store the result
+        """
         raise NotImplementedError("Forward must be defined")
     
     def adjoint(self, add, model, data):
-        """Adjoint operator"""
+        """
+        Adjoint computation
+        
+        Args:
+            add: whether to add the result to domain vector
+            model: domain vector to store the result
+            data: range vector
+        """
         raise NotImplementedError("Adjoint must be defined")
     
     def hermitian(self):
@@ -324,13 +364,13 @@ class Operator:
         return _Hermitian(self)
     
     H = property(hermitian)
-    T = H  # misleading (H is the conjugate transpose), probably we can delete it
+    T = H  # misleading (H isw the conjugate transpose), probably we can delete it
 
 
 class _Hermitian(Operator):
     
-    def __init__(self, op):
-        super(_Hermitian, self).__init__(op.range, op.domain)
+    def __init__(self, op: Operator):
+        super(_Hermitian, self).__init__(domain=op.range, range=op.domain)
         self.op = op
     
     def forward(self, add, model, data):
@@ -340,13 +380,22 @@ class _Hermitian(Operator):
         return self.op.forward(add, data, model)
 
 
-class _CustomOperator(Operator):
-    """Linear operator defined in terms of user-specified operations."""
+class CustomOperator(Operator):
+    """Linear operator defined in terms of user-specified operations"""
     
-    def __init__(self, domain, range, forward_function, adjoint_function):
-        super(_CustomOperator, self).__init__(domain, range)
-        self.forward_function = forward_function
-        self.adjoint_function = adjoint_function
+    def __init__(self, domain: Vector, range: Vector, fwd_fn: callable, adj_fn: callable):
+        """
+        CustomOperator constructor
+        
+        Args:
+            domain: domain vector
+            range: range vectorr
+            fwd_fn: callable function of the kind f(add, domain, data)
+            adj_fn: callable function of the kind f(add, domain, data)
+        """
+        super(CustomOperator, self).__init__(domain=domain, range=range)
+        self.forward_function = fwd_fn
+        self.adjoint_function = adj_fn
     
     def forward(self, add, model, data):
         return self.forward_function(add, model, data)
@@ -363,8 +412,6 @@ class Vstack(Operator):
     """
     
     def __init__(self, *args):
-        """Constructor for the stacked operator"""
-        
         self.ops = []
         for _, arg in enumerate(args):
             if arg is None:
@@ -390,9 +437,7 @@ class Vstack(Operator):
             op_range += [self.ops[idx].range]
         
         super(Vstack, self).__init__(domain=self.ops[0].domain, range=superVector(op_range))
-    
-    def __str__(self):
-        return " VStack "
+        self.name = "vstack("+",".join([op.__str__() for op in self.ops]) + ")"
     
     def forward(self, add, model, data):
         """Forward operator Cm"""
@@ -416,8 +461,6 @@ class Hstack(Operator):
     """
     
     def __init__(self, *args):
-        """Constructor for the stacked operator"""
-        
         self.ops = []
         for _, arg in enumerate(args):
             if arg is None:
@@ -442,10 +485,8 @@ class Hstack(Operator):
                     raise ValueError('Range incompatibility between Op %d and Op %d' % (idx, idx + 1))
             domain += [self.ops[0].domain]
         super(Hstack, self).__init__(domain=superVector(domain), range=self.ops[0].range)
-    
-    def __str__(self):
-        return " HStack "
-    
+        self.name = "hstack(" + ",".join([op.__str__() for op in self.ops]) + ")"
+
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
         self.ops[0].forward(add, model.vecs[0], data)
@@ -462,13 +503,12 @@ class Hstack(Operator):
 class Dstack(Operator):
     """
     Diagonal stack of operators
+    
     y1 = | A  0 |  x1
     y2   | 0  B |  x2
     """
     
     def __init__(self, *args):
-        """Constructor for the stacked operator"""
-        
         self.ops = []
         for _, arg in enumerate(args):
             if arg is None:
@@ -493,9 +533,7 @@ class Dstack(Operator):
             op_range += [self.ops[idx].range]
         
         super(Dstack, self).__init__(domain=superVector(op_domain), range=superVector(op_range))
-    
-    def __str__(self):
-        return " DStack "
+        self.name = "dstack("+",".join([op.__str__() for op in self.ops]) +")"
     
     def forward(self, add, model, data):
         """Forward operator"""
@@ -517,18 +555,16 @@ class _sumOperator(Operator):
         C.H = A.H + B.H
     """
     
-    def __init__(self, A, B):
+    def __init__(self, A: Operator, B: Operator):
         """Sum operator constructor"""
         if not isinstance(A, Operator) or not isinstance(B, Operator):
             raise TypeError('Both operands have to be a Operator')
         if not A.range.checkSame(B.range) or not A.domain.checkSame(B.domain):
             raise ValueError('Cannot add operators: shape mismatch')
         
-        super(_sumOperator, self).__init__(A.domain, A.range)
+        super(_sumOperator, self).__init__(domain=A.domain, range=A.range)
         self.args = (A, B)
-    
-    def __str__(self):
-        return self.args[0].__str__()[:3] + "+" + self.args[1].__str__()[:4]
+        self.name = self.args[0].__str__() + "+" + self.args[1].__str__()
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -548,18 +584,16 @@ class _prodOperator(Operator):
     C.H = B.H * A.H
     """
     
-    def __init__(self, A, B):
+    def __init__(self, A: Operator, B: Operator):
         if not isinstance(A, Operator) or not isinstance(B, Operator):
             raise TypeError('Both operands have to be a Operator')
         if not A.domain.checkSame(B.range):
             raise ValueError('Cannot multiply operators: shape mismatch')
-        super(_prodOperator, self).__init__(B.domain, A.range)
+        super(_prodOperator, self).__init__(domain=B.domain, range=A.range)
         self.args = (A, B)
         self.temp = B.getRange().clone()
-    
-    def __str__(self):
-        return self.args[0].__str__()[:3] + "*" + self.args[1].__str__()[:4]
-    
+        self.name = self.args[0].__str__() + "*" + self.args[1].__str__()
+
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
         self.args[1].forward(False, model, self.temp)
@@ -572,26 +606,34 @@ class _prodOperator(Operator):
 
 
 class _scaledOperator(Operator):
-    """
-    Scalar matrix multiplication
-    """
+    """Scaled operator B = c A"""
     
-    def __init__(self, A, const):
-        if not isinstance(A, Operator):
+    def __init__(self, op: Operator, const: Union[float, int]):
+        """
+        ScaledOperator constructor.
+        
+        Args:
+            op: operator
+            const: scaling factor
+        """
+        if not isinstance(op, Operator):
             raise TypeError('Operator expected as A')
         if not type(const) in [int, float]:
             raise ValueError('scalar expected as const')
-        super(_scaledOperator, self).__init__(A.domain, A.range)
+        super(_scaledOperator, self).__init__(domain=op.domain, range=op.range)
         self.const = const
-        self.op = A
-    
-    def __str__(self):
+        self.op = op
+        
+        self.name = self._build_name()
+
+    def _build_name(self):
         op_name = self.op.__str__().replace(" ", "")
         op_name_len = len(op_name)
-        if op_name_len <= 6:
-            name = "sc" + op_name + "" * (6 - op_name_len)
-        else:
-            name = "sc" + op_name[:6]
+        # if op_name_len <= 6:
+        #     name = "sc" + op_name + "" * (6 - op_name_len)
+        # else:
+        #     name = "sc" + op_name[:6]
+        name = "sc_" + op_name
         return name
     
     def forward(self, add, model, data):
@@ -601,15 +643,18 @@ class _scaledOperator(Operator):
         self.op.adjoint(add, model, data.clone().scale(np.conj(self.const)))
 
 
+# for backward compatibility
 def Chain(A, B):
     """
-         Chain of two operators
-                d = B A m
+    Chain of two linear operators:
+        d = B A m
+    
+    Notes:
+        this function is deprecated, as you can simply write (B * A). Watch out for the order!
     """
     return _prodOperator(B, A)
 
 
-# for backward compatibility
 Transpose = Operator.H
 sumOperator = _sumOperator
 stackOperator = Vstack

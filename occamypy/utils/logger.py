@@ -1,17 +1,25 @@
 class Logger:
-    """System logger class"""
-    
-    def __init__(self, file, bufsize=1):
-        """Initialize writing to a file logfile"""
+    """System logger class to store messages to a log file"""
+    def __init__(self, file, bufsize: int = 1):
+        """
+        Logger constructor
+        
+        Args:
+            file: path/to/file to write the log
+            bufsize: buffer size
+        """
         self.file = open(file, "a", bufsize)
-        return
     
     def __del__(self):
-        """Destructor where the log file is closed"""
+        """Close the log file"""
         self.file.close()
         return
     
-    def addToLog(self, msg):
-        """Function to write message to log file"""
+    def addToLog(self, msg: str):
+        """Write a message to log file
+        
+        Args:
+            msg: message to be added to log file
+        """
         self.file.write(msg + "\n")
         return

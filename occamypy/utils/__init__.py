@@ -1,7 +1,7 @@
+from .backend import *
+from .logger import *
 from .os import *
 from .sep import *
-from .logger import *
-from .backend import *
 
 __all__ = [
     "Logger",

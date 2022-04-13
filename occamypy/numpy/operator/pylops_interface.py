@@ -1,10 +1,12 @@
 import numpy as np
-from occamypy import Operator
+
+from occamypy.numpy.vector import VectorNumpy
+from occamypy.operator.base import Operator
 
 try:
     import pylops
-except ImportError:
-    print("PyLops is not installed. To use this feature please run: pip install pylops")
+except ModuleNotFoundError:
+    print("PyLops is not installed. To use this feature please run:\t\npip install pylops")
 
 __all__ = [
     "ToPylops",
@@ -13,10 +15,16 @@ __all__ = [
 
 
 class FromPylops(Operator):
+    """Cast a pylops.LinearOperator to occamypy.Operator"""
     
-    def __init__(self, domain, range, op):
+    def __init__(self, domain: VectorNumpy, range: VectorNumpy, op: pylops.LinearOperator):
         """
-        Cast a pylops LinearOperator to Operator
+        FromPylops constructor
+        
+        Args:
+            domain: domain vector
+            range: range vector
+            op: pylops LinearOperator
         """
         if not isinstance(op, pylops.LinearOperator):
             raise TypeError("op has to be a pylops.LinearOperator")
@@ -29,9 +37,7 @@ class FromPylops(Operator):
         self.op = op
         
         super(FromPylops, self).__init__(domain, range)
-    
-    def __str__(self):
-        return self.name.replace("<", "").replace(">", "")
+        self.name = self.name.replace("<", "").replace(">", "")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -53,11 +59,14 @@ class FromPylops(Operator):
 
 
 class ToPylops(pylops.LinearOperator):
+    """Cast an numpy-based occamypy.Operator to pylops.LinearOperator"""
     
     def __init__(self, op: Operator):
         """
-        Cast an in-core Operator to pylops.LinearOperator
-        :param op: `occamypy.Operator` object (or child)
+        ToPylops constructor
+        
+        Args:
+            op: occamypy.Operator
         """
         super(ToPylops, self).__init__(explicit=False)
         self.shape = (op.range.size, op.domain.size)
