@@ -1,17 +1,17 @@
-import numpy as np
 import os
-import dask.distributed as daskD
 
-from occamypy.utils.os import BUF_SIZE
+import dask.distributed as daskD
+import numpy as np
+
+from occamypy.numpy.vector import VectorNumpy
 from occamypy.utils import sep
-from occamypy import Vector, VectorNumpy
-from .utils import DaskClient
+from occamypy.utils.os import BUF_SIZE
+from occamypy.vector.base import Vector
+from occamypy.dask.utils import DaskClient
 
 # Verify if SepVector modules are presents
 try:
     import SepVector
-    
-    
     def call_constr_hyper(axes_in):
         """Function to remotely construct an SepVector using the axis object"""
         return SepVector.getSepVector(axes=axes_in)
@@ -236,7 +236,7 @@ def _call_isDifferent(vecObj, vec2):
 
 def _call_clipVector(vecObj, low, high):
     """Function to call multiply method"""
-    res = vecObj.clipVector(low, high)
+    res = vecObj.clip(low, high)
     return res
 
 
@@ -259,17 +259,20 @@ class DaskVector(Vector):
     
     def __init__(self, dask_client, **kwargs):
         """
-        Dask Vector constructor
-        dask_client = [no default] - DaskClient; client object to use when submitting tasks (see dask_util module)
-        kwargs:
-         - vector_template = [no default] - vector class; Vector to use to create chunks of vectors
-         - chunks          = [no default] - list; List defininig the size of the multiple instances of the vector template
-         or
-         - vectors         = [no default] - list; List containing vectors to be spread across Dask workers
-         - copy            = [True] - boolean; Whether to copy the content of the vectors or not
-         - chunks          = [None] - list; List defininig how the vector list should be spread; if not specified the vectors will be evenly distributed
-         or
-         - dask_vectors    = [no default] - list; List containing pointers to futures to vector object (useful for clone function)
+        DaskVector constructor.
+        
+        Args:
+            dask_client: client object to use when submitting tasks (see dask_util module)
+            **kwargs:
+                1)
+                    vector_template: vector to use to create chunks of vectors
+                    chunks: tuple defining the size of the multiple instances of the vector template
+                2)
+                    vectors: list of vectors to be spread across Dask workers
+                    copy: boolean to copy the content of vectors or not [default: True]
+                    chunks: tuple defining the size of the multiple instances of the vector template
+                3)
+                    dask_vectors: list of pointers to futures to vector object (useful for clone function)
         """
         # Client to submit tasks
         super(DaskVector).__init__()
@@ -646,7 +649,7 @@ class DaskVector(Vector):
         results = self.client.gather(futures)
         return any(results)
     
-    def clipVector(self, low, high):
+    def clip(self, low, high):
         """Function to bound vector values based on input vectors min and max"""
         checkVector(self, low)  # Checking low-bound vector
         checkVector(self, high)  # Checking high-bound vector
@@ -656,7 +659,7 @@ class DaskVector(Vector):
         return self
 
 
-# DASK I/O TO READ LARGE-SCALE VECTORS DIRECTLY WITHIN EACH WORKER
+# DASK I/o TO READ LARGE-SCALE VECTORS DIRECTLY WITHIN EACH WORKER
 def _get_binaries(**kwargs):
     """
     Function to obtain associated binary files to each file name

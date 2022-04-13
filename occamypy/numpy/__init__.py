@@ -1,5 +1,5 @@
-from .vector import VectorNumpy
 from .operator import *
+from .vector import VectorNumpy
 
 __all__ = [
     "VectorNumpy",

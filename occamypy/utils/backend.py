@@ -13,7 +13,13 @@ __all__ = [
 
 
 def get_backend(vector):
-    
+    """
+    Get the vector content backend
+    Args:
+        vector: vector to analyze
+
+    Returns: package (one of numpy, cupy, torch)
+    """
     if vector.whoami == "VectorTorch":
         backend = torch
     elif vector.whoami == "VectorNumpy":
@@ -25,6 +31,13 @@ def get_backend(vector):
 
 
 def get_vector_type(vector):
+    """
+    Get the vector content original classs
+    Args:
+        vector: vector to analyze
+
+    Returns: array class (numpy.ndarray, cupy.ndarray, torch.Tensor)
+    """
     if vector.whoami == "VectorTorch":
         return torch.Tensor
     elif vector.whoami == "VectorNumpy":

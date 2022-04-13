@@ -1,7 +1,6 @@
-import torch
 import numpy as np
+import torch
 from GPUtil import getFirstAvailable
-
 
 __all__ = [
     "set_backends",
@@ -12,12 +11,14 @@ __all__ = [
 
 
 def set_backends():
+    """Set the GPU backend to enable reproducibility"""
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
 
 
-def set_seed_everywhere(seed=0):
+def set_seed_everywhere(seed: int = 0):
+    """Set random seed for numpy and torch"""
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -25,10 +26,14 @@ def set_seed_everywhere(seed=0):
 
 def get_device(devID: int = None) -> torch.device:
     """
-    Decide
-    :param devID: device id to be used (None for CPU, -1 for max free memory)
-    :return: torch.device object
+    Get the computation device
+    
+    Args:
+        devID: device id to be used (None for CPU, -1 for max free memory)
+
+    Returns: torch.device object
     """
+    
     if devID is None:
         dev = "cpu"
     elif devID == -1:
@@ -43,6 +48,13 @@ def get_device(devID: int = None) -> torch.device:
 
 
 def get_device_name(devID: int = None) -> str:
+    """
+    Get the device name as a nice string
+    
+    Args:
+        devID: device ID for torch
+    """
+    
     if devID is None or isinstance(torch.cuda.get_device_name(devID), torch.NoneType):
         return "CPU"
     else:

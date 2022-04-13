@@ -1,15 +1,24 @@
+from typing import Union
+
 import numpy as np
-from .base import Operator
+
+from occamypy.operator.base import Operator
+from occamypy.vector.base import Vector
 
 
 class Zero(Operator):
     """Zero matrix operator; useful for Jacobian matrices that are zeros"""
     
-    def __init__(self, domain, range):
-        super(Zero, self).__init__(domain, range)
-    
-    def __str__(self):
-        return "  Zero  "
+    def __init__(self, domain: Vector, range: Vector):
+        """
+        Zero constructor
+        
+        Args:
+            domain: domain vector
+            range: range vector
+        """
+        super(Zero, self).__init__(domain=domain, range=range)
+        self.name = "Zero"
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -25,11 +34,15 @@ class Zero(Operator):
 class Identity(Operator):
     """Identity operator"""
     
-    def __init__(self, domain):
-        super(Identity, self).__init__(domain, domain)
-    
-    def __str__(self):
-        return "Identity"
+    def __init__(self, domain: Vector):
+        """
+        Identity constructor
+        
+        Args:
+            domain: domain vector
+        """
+        super(Identity, self).__init__(domain=domain, range=domain)
+        self.name = "Identity"
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -49,14 +62,19 @@ class Identity(Operator):
 class Scaling(Operator):
     """scalar multiplication operator"""
     
-    def __init__(self, domain, scalar):
-        super(Scaling, self).__init__(domain, domain)
+    def __init__(self, domain: Vector, scalar: Union[float, int]):
+        """
+        Scaling constructor
+        
+        Args:
+            domain: domain vector
+            scalar: scaling coefficient
+        """
+        super(Scaling, self).__init__(domain=domain, range=domain)
         if not np.isscalar(scalar):
             raise ValueError('scalar has to be (indeed) a scalar variable')
         self.scalar = scalar
-    
-    def __str__(self):
-        return "Scaling "
+        self.name = "Scaling"
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -70,14 +88,18 @@ class Scaling(Operator):
 class Diagonal(Operator):
     """Diagonal operator for performing element-wise multiplication"""
     
-    def __init__(self, diag):
+    def __init__(self, diag: Vector):
+        """
+        Diagonal constructor
+        
+        Args:
+            diag: vector to be stored on the diagonal
+        """
         # if not isinstance(diag, vector):
         #     raise TypeError('diag has to be a vector')
-        super(Diagonal, self).__init__(diag, diag)
+        super(Diagonal, self).__init__(domain=diag, range=diag)
         self.diag = diag
-    
-    def __str__(self):
-        return "Diagonal"
+        self.name = "Diagonal"
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)

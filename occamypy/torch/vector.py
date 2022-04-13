@@ -1,20 +1,29 @@
 from math import sqrt
 
 import torch
-from .back_utils import get_device, get_device_name
 from numpy import ndarray
 
-from occamypy import Vector
+from occamypy.torch.back_utils import get_device, get_device_name
+from occamypy.vector.base import Vector
 
 
 class VectorTorch(Vector):
-    """In-core python vector class"""
+    """
+    Vector class based on torch.Tensor
+
+    Notes:
+        tensors are stored in C-contiguous memory
+    """
     
     def __init__(self, in_content, device: int = None, *args, **kwargs):
         """
-        VectorTorch constructor: arr = torch.Tensor
-        :param in_content: numpy ndarray or torch.Tensor or InCore Vector
-        :param device: int - GPU id (None for CPU, -1 for max free memory)
+        VectorTorch constructor
+        
+        Args:
+            in_content: Vector, np.ndarray, torch.Tensor or tuple
+            device: computation device (None for CPU, -1 for least used GPU)
+            *args: list of arguments for Vector construction
+            **kwargs: dict of arguments for Vector construction
         """
         super(VectorTorch, self).__init__(*args, **kwargs)
 
@@ -39,7 +48,7 @@ class VectorTorch(Vector):
         self.ndim = self.arr.ndim           # Number of axes (integer)
         self.size = self.arr.numel()        # Total number of elements (integer)
         
-    def _check_same_device(self, other):
+    def _check_same_device(self, other) -> bool:
         if not isinstance(self, VectorTorch):
             raise TypeError("The self vector has to be a VectorTorch")
         if not isinstance(other, VectorTorch):
@@ -57,6 +66,7 @@ class VectorTorch(Vector):
             return None
     
     def setDevice(self, devID):
+        """Set the computation device (CPU, GPU) of the vector"""
         if isinstance(devID, int):
             self.arr = self.arr.to(get_device(devID))
         elif isinstance(devID, torch.device):
@@ -64,40 +74,33 @@ class VectorTorch(Vector):
         else:
             ValueError("Device type not understood")
     
-    def deviceName(self):
+    def deviceName(self) -> str:
         return get_device_name(self.device.index)
         
     def getNdArray(self):
-        """Function to return Ndarray of the vector"""
         return self.arr
     
     def norm(self, N=2):
-        """Function to compute vector N-norm"""
         norm = torch.linalg.norm(self.getNdArray().flatten(), ord=N)
         return norm.item()
     
     def zero(self):
-        """Function to zero out a vector"""
         self.set(0)
         return self
     
     def max(self):
-        """Function to obtain maximum value in the vector"""
         max = self.getNdArray().max()
         return max.item()
     
     def min(self):
-        """Function to obtain minimum value in the vector"""
         min = self.getNdArray().min()
         return min.item()
     
     def set(self, val: float or int):
-        """Function to set all values in the vector"""
         self.getNdArray().fill_(val)
         return self
     
     def scale(self, sc: float or int):
-        """Function to scale a vector"""
         self.getNdArray()[:] *= sc
         return self
     
@@ -106,7 +109,6 @@ class VectorTorch(Vector):
         return self
     
     def rand(self, snr: float or int = 1.):
-        """Fill vector with random number (~U[1,-1]) with a given SNR"""
         rms = torch.sqrt(torch.mean(torch.square(self.getNdArray())))
         amp_noise = 1.0
         if rms != 0.:
@@ -116,7 +118,6 @@ class VectorTorch(Vector):
         return self
     
     def randn(self, snr=1.):
-        """Fill vector with random number (~N[0,-1]) with a given SNR"""
         rms = torch.sqrt(torch.mean(torch.square(self.getNdArray())))
         amp_noise = 1.0
         if rms != 0.:
@@ -126,7 +127,6 @@ class VectorTorch(Vector):
         return self
     
     def clone(self):
-        """Function to clone (deep copy) a vector from a vector or a Space"""
         # If self is a Space vector, it is empty and it has only the shape, size and ndim attributes
         if self.getNdArray().numel() == 0:  # this is the shape of tensor!
             vec_clone = VectorTorch(torch.zeros(self.shape).type(self.getNdArray().dtype), ax_info=self.ax_info.copy())
@@ -138,7 +138,6 @@ class VectorTorch(Vector):
         return vec_clone
     
     def cloneSpace(self):
-        """Function to clone vector space only (vector without actual vector array by using empty array of size 0)"""
         vec_space = self.__class__(torch.empty(0).type(self.getNdArray().dtype))
         vec_space.setDevice(self.device.index)
         vec_space.ax_info = self.ax_info
@@ -149,7 +148,6 @@ class VectorTorch(Vector):
         return vec_space
     
     def checkSame(self, other):
-        """Function to check dimensionality of vectors"""
         return self.shape == other.shape
     
     def abs(self):
@@ -184,22 +182,18 @@ class VectorTorch(Vector):
         return other
     
     def pow(self, power):
-        """Compute element-wise power of the vector"""
         self.getNdArray()[:].pow_(power)
         return self
     
     def real(self):
-        """Return the real part of the vector"""
         self.getNdArray()[:] = torch.real(self.getNdArray())
         return self
     
     def imag(self, ):
-        """Return the imaginary part of the vector"""
         self.getNdArray()[:] = torch.imag(self.getNdArray())
         return self
     
     def copy(self, other):
-        """Function to copy vector from input vector"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorTorch):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
@@ -211,7 +205,6 @@ class VectorTorch(Vector):
         return self
     
     def scaleAdd(self, other, sc1=1.0, sc2=1.0):
-        """Function to scale a vector"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorTorch):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
@@ -224,7 +217,6 @@ class VectorTorch(Vector):
         return self
     
     def dot(self, other):
-        """Function to compute dot product between two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorTorch):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
@@ -237,7 +229,6 @@ class VectorTorch(Vector):
         return torch.vdot(self.getNdArray().flatten(), other.getNdArray().flatten())
     
     def multiply(self, other):
-        """Function to multiply element-wise two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorTorch):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
@@ -252,15 +243,13 @@ class VectorTorch(Vector):
         return self
     
     def isDifferent(self, other):
-        """Function to check if two vectors are identical using built-in hash function"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorTorch):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
         isDiff = not torch.equal(self.getNdArray(), other.getNdArray())
         return isDiff
     
-    def clipVector(self, low, high):
-        """Function to bound vector values based on input vectors low and high"""
+    def clip(self, low, high):
         if not isinstance(low, VectorTorch):
             raise TypeError("Provided input low vector not a %s!" % self.whoami)
         if not isinstance(high, VectorTorch):

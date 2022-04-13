@@ -1,12 +1,19 @@
-"""
-@Author: Francesco Picetti
-"""
 from typing import Tuple
+
 import numpy as np
-import imageio
+from imageio import mimsave
 
 
 def float2png(in_content: np.ndarray) -> np.ndarray:
+    """
+    Convert a np.ndarray dynamics to [0,255] uint8
+    
+    Args:
+        in_content: float image to be converted
+
+    Returns:
+        image in the png dynamics
+    """
     in_min = np.min(in_content)
     in_max = np.max(in_content)
     in_content = 255 * (in_content - in_min) / (in_max - in_min)  # x in [0,255]
@@ -14,17 +21,17 @@ def float2png(in_content: np.ndarray) -> np.ndarray:
 
 
 def vector2gif(in_content: np.ndarray, filename: str, transpose: bool = False, clip: float = 100., frame_axis=-1,
-               fps: int = 25):
+               fps: int = 25) -> None:
     """
     Save a 3D vector to an animated GIF file.
     
-    :param in_content: `ndarray` - must have 3 dimensions
-    :param filename: `str` - path to file to be written with extension
-    :param transpose: `bool` - transpose the image axis [False]. Notice that sepvector have the axis swapped w.r.t. numpy
-    :param clip: `float` - percentile for clipping the data
-    :param frame_axis: `int` - frame axis of data [-1]
-    :param fps: `int`- frames per second [25]
-
+    Args:
+        in_content: 3D numpy.array
+        filename: path to file to be written with extension
+        transpose: whether to transpose the image axis [False]. Notice that sepvector have the axis swapped w.r.t. numpy
+        clip: percentile for clipping the data
+        frame_axis: frame axis of data [-1]
+        fps: number of frames per second [25]
     """
     if in_content.ndim != 3:
         raise ValueError("in_content has to be a 3D vector")
@@ -42,9 +49,19 @@ def vector2gif(in_content: np.ndarray, filename: str, transpose: bool = False, c
     else:
         frames = [in_content[_] for _ in range(in_content.shape[0])]
     
-    imageio.mimsave(filename, frames, **{'fps': fps})
+    mimsave(filename, frames, **{'fps': fps})
 
 
 def clim(in_content: np.ndarray, ratio: float = 95) -> Tuple[float, float]:
+    """
+    Compute the clim tuple for plotting an array
+    
+    Args:
+        in_content: array to be analyzed
+        ratio: percentile value for clipping
+
+    Returns:
+        tuple (-c, c) of clipping values
+    """
     c = np.percentile(np.absolute(in_content), ratio)
     return -c, c
