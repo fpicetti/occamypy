@@ -1,0 +1,24 @@
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - jupyter
+  - numpy>=1.15
+  - scipy>=1.4
+  - numba
+  - matplotlib
+  - imageio
+  - dask
+  - dask-jobqueue
+  - dask-kubernetes
+  - bokeh>=2.1.1
+  - pylops
+  - cython  # for the tomography example
+  - pip
+  - pip:
+      - gputil
+      - torch>=1.7 # here for automatic cuda installation
+      - functorch
+      - git+https://github.com/devitocodes/devito.git  # for the LS-RTM example
+      - git+https://github.com/malcolmw/pykonal@0.2.3b3 # for the tomography example
+      - occamypy
