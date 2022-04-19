@@ -411,7 +411,7 @@ class Vector:
         """
         raise NotImplementedError("isDifferent must be overwritten")
     
-    def clipVector(self, low, high):  # TODO rename
+    def clip(self, low, high):  # TODO rename
         """
         Bound vector values between two values
 
@@ -419,7 +419,7 @@ class Vector:
             low: lower bound value
             high: upper bound value
         """
-        raise NotImplementedError("clipVector must be overwritten")
+        raise NotImplementedError("clip must be overwritten")
     
     def plot(self):
         """Get a plottable array"""
@@ -615,9 +615,9 @@ class superVector(Vector):
             raise TypeError("Input variable is not a superVector")
         return any([self.vecs[idx].isDifferent(vecs_in.vecs[idx]) for idx in range(self.n)])
     
-    def clipVector(self, lows, highs):
+    def clip(self, lows, highs):
         for idx in range(self.n):
-            self.vecs[idx].clipVector(lows[idx], highs[idx])
+            self.vecs[idx].clip(lows[idx], highs[idx])
         return self
     
     def abs(self):

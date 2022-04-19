@@ -41,17 +41,17 @@ class Bounds:
             if not input_vec.checkSame(self.minBound):
                 raise ValueError("Input vector not consistent with bound space")
             input_vec.scale(-1.0)
-            input_vec.clipVector(input_vec, self.minBound)
+            input_vec.clip(input_vec, self.minBound)
             input_vec.scale(-1.0)
         elif self.minBound is None and self.maxBound is not None:
             if not input_vec.checkSame(self.maxBound):
                 raise ValueError("Input vector not consistent with bound space")
-            input_vec.clipVector(input_vec, self.maxBound)
+            input_vec.clip(input_vec, self.maxBound)
         elif self.minBound is not None and self.maxBound is not None:
             if (not (input_vec.checkSame(self.minBound) and input_vec.checkSame(
                     self.maxBound))):
                 raise ValueError("Input vector not consistent with bound space")
-            input_vec.clipVector(self.minBound, self.maxBound)
+            input_vec.clip(self.minBound, self.maxBound)
         return
 
 

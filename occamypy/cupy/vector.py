@@ -255,7 +255,7 @@ class VectorCupy(Vector):
             isDiff = (not cp.equal(self.getNdArray(), other.getNdArray()).all())
         return isDiff
 
-    def clipVector(self, low, high):
+    def clip(self, low, high):
         if not isinstance(low, VectorCupy):
             raise TypeError("Provided input low vector not a %s!" % self.whoami)
         if not isinstance(high, VectorCupy):

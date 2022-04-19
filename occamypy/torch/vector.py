@@ -248,7 +248,7 @@ class VectorTorch(Vector):
         isDiff = not torch.equal(self.getNdArray(), other.getNdArray())
         return isDiff
     
-    def clipVector(self, low, high):
+    def clip(self, low, high):
         if not isinstance(low, VectorTorch):
             raise TypeError("Provided input low vector not a %s!" % self.whoami)
         if not isinstance(high, VectorTorch):

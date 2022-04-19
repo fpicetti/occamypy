@@ -202,7 +202,7 @@ class VectorNumpy(Vector):
             isDiff = (not np.array_equal(self.getNdArray(), other.getNdArray()))
         return isDiff
     
-    def clipVector(self, low, high):
+    def clip(self, low, high):
         if not isinstance(low, VectorNumpy):
             raise TypeError("Provided input low vector not a %s!" % self.whoami)
         if not isinstance(high, VectorNumpy):

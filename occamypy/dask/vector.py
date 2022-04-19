@@ -238,9 +238,9 @@ def _call_isDifferent(vecObj, vec2):
     return res
 
 
-def _call_clipVector(vecObj, low, high):
-    """Function to call multiply method"""
-    res = vecObj.clipVector(low, high)
+def _call_clip(vecObj, low, high):
+    """Function to call clip method"""
+    res = vecObj.clip(low, high)
     return res
 
 
@@ -585,8 +585,7 @@ class DaskVector(Vector):
         checkVector(self, other)
         sc1 = [sc1] * len(self.vecDask)
         sc2 = [sc2] * len(self.vecDask)
-        futures = self.client.map(_call_scaleAdd, self.vecDask, other.vecDask, sc1, sc2,
-                                  pure=False)
+        futures = self.client.map(_call_scaleAdd, self.vecDask, other.vecDask, sc1, sc2, pure=False)
         daskD.wait(futures)
         return self
     
@@ -612,11 +611,10 @@ class DaskVector(Vector):
         results = self.client.gather(futures)
         return any(results)
     
-    def clipVector(self, low, high):
+    def clip(self, low, high):
         checkVector(self, low)  # Checking low-bound vector
         checkVector(self, high)  # Checking high-bound vector
-        futures = self.client.map(_call_clipVector, self.vecDask, low.vecDask,
-                                  high.vecDask, pure=False)
+        futures = self.client.map(_call_clip, self.vecDask, low.vecDask, high.vecDask, pure=False)
         daskD.wait(futures)
         return self
 
