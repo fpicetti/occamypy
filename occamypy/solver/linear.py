@@ -11,7 +11,7 @@ class CG(Solver):
     """Linear-Conjugate Gradient and Steepest-Descent Solver"""
 
     # Default class methods/functions
-    def __init__(self, stopper, steepest=False, logger=None):
+    def __init__(self, stopper, steepest=False, **kwargs):
         """
         CG/SD constructor
         
@@ -20,16 +20,11 @@ class CG(Solver):
             steepest: whether to use the steepest-descent instead of conjugate gradient
             logger: Logger to write inversion log file
         """
-        # Calling parent construction
-        super(CG, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
+        super(CG, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+
         # Whether to run steepest descent or not
         self.steepest = steepest
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %s"
 
@@ -304,7 +299,7 @@ class CG(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(obj1) or isnan(prblm_grad.norm()):
                 raise ValueError("Either gradient norm or objective function value NaN!")
-            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
 
         # Writing last inverted model
@@ -325,8 +320,8 @@ class CG(Solver):
 
 
 class SD(CG):
-    def __init__(self, stopper, logger=None):
-        super(SD, self).__init__(stopper, steepest=True, logger=logger)
+    def __init__(self, stopper, **kwargs):
+        super(SD, self).__init__(stopper, steepest=True, **kwargs)
     
     
 def _sym_ortho(a, b):
@@ -375,7 +370,7 @@ class LSQR(Solver):
          3. Add the correction dx to obtain a final solution ``x = x0 + dx``.
     """
 
-    def __init__(self, stopper, estimate_cond=False, estimate_var=False, logger=None):
+    def __init__(self, stopper, estimate_cond=False, estimate_var=False, **kwargs):
         """
         LSQR constructor
         
@@ -385,17 +380,12 @@ class LSQR(Solver):
             estimate_var: whether the diagonal of A'A^-1 is estimated or not (stored in self.var)
             logger: Logger to write inversion log file
         """
-        # Calling parent construction
-        super(LSQR, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
-        # Logger object to write on log file
-        self.logger = logger
+        super(LSQR, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        
         # Create var variable if estimate var is requested
         self.est_cond = True if estimate_cond or estimate_var else False
         self.var = estimate_var
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %s"
 
@@ -650,7 +640,7 @@ class LSQR(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(problem.get_obj(prblm_mdl)) or isnan(problem.get_gnorm(prblm_mdl)):
                 raise ValueError("Either gradient norm or objective function value NaN!")
-            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
 
         # Writing last inverted model
@@ -676,8 +666,7 @@ class LSQR(Solver):
 class CGsym(Solver):
     """Linear-Conjugate Gradient and Steepest-Descent Solver for symmetric systems"""
 
-    # Default class methods/functions
-    def __init__(self, stopper, steepest=False, logger=None):
+    def __init__(self, stopper, steepest=False, **kwargs):
         """
         CG/SD for symmetric systems constructor
 
@@ -686,16 +675,11 @@ class CGsym(Solver):
             steepest: whether to use the steepest-descent instead of conjugate gradient
             logger: Logger to write inversion log file
         """
-        # Calling parent construction
-        super(CGsym, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
+        super(CGsym, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+
         # Whether to run steepest descent or not
         self.steepest = steepest
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        
         # Setting defaults for saving results
         self.setDefaults()
         # print formatting
@@ -927,7 +911,7 @@ class CGsym(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(obj1):
                 raise ValueError("Error! Objective function value NaN!")
-            if self.stopper.run(problem, iiter, verbose=verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose):
                 break
 
         # Writing last inverted model

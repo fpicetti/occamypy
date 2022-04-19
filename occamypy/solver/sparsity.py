@@ -59,7 +59,7 @@ def _proximal_L2(x, thresh, eps=1e-10):
 class ISTA(Solver):
     """Iterative Shrikage-Thresholding Algorithm (ISTA) Solver"""
     
-    def __init__(self, stopper, fast=False, logger=None):
+    def __init__(self, stopper, fast=False, **kwargs):
         """
         ISTA constructor
         
@@ -68,14 +68,8 @@ class ISTA(Solver):
             fast: use the Fast-ISTA implementation
             logger: Logger to write inversion log file
         """
-        # Calling parent construction
-        super(ISTA, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        super(ISTA, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        
         # Setting the fast flag
         self.fast = fast
         # print formatting
@@ -221,7 +215,7 @@ class ISTA(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(obj1) or isnan(prblm_grad.norm()):
                 raise ValueError("Either gradient norm or objective function value NaN!")
-            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
         
         # Writing last inverted model
@@ -256,7 +250,7 @@ class FISTA(ISTA):
 class ISTC(Solver):
     """Iterative Shrikage-Thresholding Algorithm with Cooling (ISTC) Solver"""
     
-    def __init__(self, stopper, inner_it, cooling_start, cooling_end, logger=None):
+    def __init__(self, stopper, inner_it, cooling_start, cooling_end, **kwargs):
         """
         ISTC constructor
         
@@ -267,19 +261,14 @@ class ISTC(Solver):
             cooling_end: end of cooling continuation as fraction of size of sorted array |A'd|
             logger: Logger to write inversion log file
         """
-        # Calling parent construction
-        super(ISTC, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        
+        super(ISTC, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+
         self.iter_msg = "Inner_iter = %s, obj = %.5e, rnorm = %.2e, gnorm= %.2e, feval = %s"
         
         # ISTC parameters
         if self.stopper.niter <= 0:
-            raise ValueError("niter for stopper object must be positive and greater than 0!")
+            raise ValueError("iiter for stopper object must be positive and greater than 0!")
         self.inner_it = inner_it  # number of inner iterations, the outer iterations are taken care by the stopper
         # cooling_start and cooling_end are numbers between 0 and 1 such that cooling_start <= cooling_end
         if not 0 <= cooling_start <= 1 or not 0 <= cooling_end <= 1 or cooling_end < cooling_start:
@@ -464,7 +453,7 @@ class ISTC(Solver):
                 if isnan(obj1) or isnan(prblm_grad.norm()):
                     raise ValueError("Either gradient norm or objective function value NaN!")
             iiter = iiter + 1
-            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
         
         # Removing preconditioning scaling factor from inverted model
@@ -487,8 +476,8 @@ class ISTC(Solver):
 class SplitBregman(Solver):
     """Split-Bregman algorithm for Generalized LASSO problems"""
     
-    def __init__(self, stopper, logger=None, niter_inner=3, niter_solver=5, breg_weight=1., linear_solver='CG',
-                 warm_start=False, mod_tol=1e-10):
+    def __init__(self, stopper, niter_inner=3, niter_solver=5, breg_weight=1., linear_solver='CG',
+                 warm_start=False, mod_tol=1e-10, **kwargs):
         """
         SplitBregman constructor
         
@@ -502,25 +491,19 @@ class SplitBregman(Solver):
             warm_start: run linear solver from previous solution of inner problem
             mod_tol: stop criterion for relative change of domain norm
         """
-        # Calling parent construction
-        super(SplitBregman, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        super(SplitBregman, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        
         # Model norm change stop criterion
         self.mod_tol = mod_tol
         
         # Logger for internal linear solver
         self.logger_lin_solv = None
-        if logger is not None:
-            if "/" in logger.file.name:
-                folder = "/".join(logger.file.name.split("/")[:-1]) + "/"
+        if self.logger is not None:
+            if "/" in self.logger.file.name:
+                folder = "/".join(self.logger.file.name.split("/")[:-1]) + "/"
             else:
                 folder = ""
-            filename = "inner_inv_" + logger.file.name.split("/")[-1]
+            filename = "inner_inv_" + self.logger.file.name.split("/")[-1]
             self.logger_lin_solv = Logger(folder + filename)
         
         self.niter_inner = niter_inner  # number of iterations for the shrinkage
@@ -633,7 +616,7 @@ class SplitBregman(Solver):
                         self.logger.addToLog("\n" + msg)
             
             if self.logger_lin_solv:
-                self.logger_lin_solv.addToLog("\n\t\t\tOuter iteration: %s"
+                self.logger_lin_solv.addToLog("\n" + 12 * " " + "Outer iteration: %s"
                                               % (str(outer_iter).zfill(self.stopper.zfill)))
             
             if isnan(obj0):
@@ -648,7 +631,7 @@ class SplitBregman(Solver):
             for iter_inner in range(self.niter_inner):
                 
                 if self.logger_lin_solv:
-                    msg = "\t\tstarting inner iter %d with d = %.2e, b = %.2e" \
+                    msg = 8 * " " + "starting inner iter %d with d = %.2e, b = %.2e" \
                           % (iter_inner, breg_d.norm(), breg_b.norm())
                     self.logger_lin_solv.addToLog("\n" + msg)
                 
@@ -671,7 +654,7 @@ class SplitBregman(Solver):
                 breg_d.copy(_soft_thresh(RL1x.clone() + breg_b, thresh=problem.eps))
                 
                 if self.logger_lin_solv:
-                    msg = "\t\tfinished inner iter %d with sb_mdl = %.2e, RL1x = %.2e" \
+                    msg = 8 * " " + "finished inner iter %d with sb_mdl = %.2e, RL1x = %.2e" \
                           % (iter_inner, linear_problem.model.norm(), RL1x.norm())
                     self.logger_lin_solv.addToLog(msg)
             
@@ -713,7 +696,7 @@ class SplitBregman(Solver):
             self.restart.save_parameter("iter", outer_iter)
             self.restart.save_vector("sb_mdl", sb_mdl)
             
-            if self.stopper.run(problem, outer_iter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=outer_iter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
         
         # writing last inverted model

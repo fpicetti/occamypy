@@ -1,5 +1,4 @@
 from collections import deque
-from copy import deepcopy
 from math import isnan
 
 import numpy as np
@@ -162,7 +161,7 @@ def _betaSD(grad, grad0, dir, logger):
 class NLCG(Solver):
     """Non-Linear Conjugate Gradient and Steepest-Descent Solver object"""
     
-    def __init__(self, stopper, stepper=None, beta_type="FR", logger=None):
+    def __init__(self, stopper, stepper=ParabolicStep(), beta_type="FR", **kwargs):
         """
         NLCG constructor
 
@@ -172,46 +171,38 @@ class NLCG(Solver):
             beta_type: beta function to be used
             logger: Logger to write inversion log file
         """
-        # Calling parent construction
-        super(NLCG, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
+        
+        super(NLCG, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
         
         # Defining stepper object
-        self.stepper = stepper if stepper is not None else ParabolicStep()
-        # Beta function to use during the inversion
-        self.beta_type = beta_type
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        self.stepper = stepper
+        
         # print formatting
         self.iter_msg = "iter = %s, obj = %.2e, rnorm = %.2e, gnorm = %.2e, feval = %s, geval = %s"
     
-    def beta_func(self, grad, grad0, dir):
-        """Beta function interface"""
-        beta_type = self.beta_type
-        if beta_type == "FR":
-            beta = _betaFR(grad, grad0, dir, self.logger)
+        # Beta function to use during the inversion
+        self.beta_type = beta_type.upper()
+        if self.beta_type not in ["FR", "PRP", "HS", "CD", "LS", "DY", "BAN", "HZ", "SD"]:
+            raise ValueError("Beta function type has to be one of [FR, PRP, HS, CD, LS, DY, BAN, HZ, SD]")
+        
         elif beta_type == "PRP":
-            beta = _betaPRP(grad, grad0, dir, self.logger)
+            self.beta_func = lambda g, g0, d: _betaPRP(g, g0, d, self.logger)
         elif beta_type == "HS":
-            beta = _betaHS(grad, grad0, dir, self.logger)
+            self.beta_func = lambda g, g0, d: _betaHS(g, g0, d, self.logger)
         elif beta_type == "CD":
-            beta = _betaCD(grad, grad0, dir, self.logger)
+            self.beta_func = lambda g, g0, d: _betaCD(g, g0, d, self.logger)
         elif beta_type == "LS":
-            beta = _betaLS(grad, grad0, dir, self.logger)
+            self.beta_func = lambda g, g0, d: _betaLS(g, g0, d, self.logger)
         elif beta_type == "DY":
-            beta = _betaDY(grad, grad0, dir, self.logger)
+            self.beta_func = lambda g, g0, d: _betaDY(g, g0, d, self.logger)
         elif beta_type == "BAN":
-            beta = _betaBAN(grad, grad0, dir, self.logger)
+            self.beta_func = lambda g, g0, d: _betaBAN(g, g0, d, self.logger)
         elif beta_type == "HZ":
-            beta = _betaHZ(grad, grad0, dir, self.logger)
+            self.beta_func = lambda g, g0, d: _betaHZ(g, g0, d, self.logger)
         elif beta_type == "SD":
-            beta = _betaSD(grad, grad0, dir, self.logger)
+            self.beta_func = lambda g, g0, d: _betaSD(g, g0, d, self.logger)
         else:
-            raise ValueError("ERROR! Requested Beta function type not existing")
-        return beta
+            self.beta_func = lambda g, g0, d: _betaFR(g, g0, d, self.logger)
     
     def run(self, problem, verbose=False, restart=False):
         """Run NLCG solver"""
@@ -371,7 +362,7 @@ class NLCG(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(obj1) or isnan(prblm_grad.norm()):
                 raise ValueError("ERROR! Either gradient norm or objective function value NaN!")
-            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
         
         # Writing last inverted model
@@ -394,8 +385,7 @@ class NLCG(Solver):
 class TNewton(Solver):
     """Truncated Newton/Gauss-Newton solver object"""
     
-    def __init__(self, stopper, niter_max, HessianOp, stepper=None, niter_min=None, warm_start=True, Newton_prefix=None,
-                 logger=None):
+    def __init__(self, stopper, niter_max, Hessian, stepper=None, niter_min=None, warm_start=True, Newton_prefix=None, **kwargs):
         """
         Truncated-Newton constructor
 
@@ -408,6 +398,7 @@ class TNewton(Solver):
             niter_min: number of iterations for solving Newton system when linear inversion starts from previous search direction
             warm_start: start the linear Hessian inversion from the previous search direction if aligned with the current gradient
         """
+        super(TNewton, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
         # Defining stopper
         self.stopper = stopper  # Stopper for non-linear problem
         # Setting maximum and minimum number of iterations
@@ -424,13 +415,13 @@ class TNewton(Solver):
         # Warm starts requested?
         self.warm_start = warm_start
         # Hessian operator
-        if HessianOp is not None:
-            if "set_background" not in dir(HessianOp):
+        if Hessian is not None:
+            if "set_background" not in dir(Hessian):
                 raise AttributeError("Hessian operator must have a set_background function.")
         # Setting linear solver for solving Newton system and problem class
         StopLin = BasicStopper(niter=self.niter_max)
         self.lin_solver = CGsym(StopLin)
-        self.NewtonPrblm = LeastSquaresSymmetric(HessianOp.domain.clone(), HessianOp.domain.clone(), HessianOp)
+        self.NewtonPrblm = LeastSquaresSymmetric(Hessian.domain.clone(), Hessian.domain.clone(), Hessian)
     
     def run(self, problem, verbose=False, restart=False):
         """Run Truncated Newton solver"""
@@ -440,7 +431,7 @@ class TNewton(Solver):
 class LBFGS(Solver):
     """Limited-memory Broyden-Fletcher-Goldfarb-Shanno (L-BFGS) solver"""
     
-    def __init__(self, stopper, stepper=None, save_alpha=False, m_steps=None, H0=None, logger=None, save_est=False):
+    def __init__(self, stopper, stepper=None, save_alpha=False, m_steps=None, H0=None, save_est=False, **kwargs):
         """
         LBFGS constructor
         
@@ -453,16 +444,12 @@ class LBFGS(Solver):
             logger: Logger to write inversion log file
             save_est: save inverse Hessian estimate vectors (self.prefix must not be None)
         """
-        # Calling parent construction
-        super(LBFGS, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
+        
+        super(LBFGS, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        
         # Defining stepper object
         self.stepper = stepper if stepper is not None else CvSrchStep()
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+
         # LBFGS-specific parameters
         self.save_alpha = save_alpha
         self.H0 = H0
@@ -789,7 +776,7 @@ class LBFGS(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(obj1) or isnan(prblm_grad.norm()):
                 raise ValueError("Either gradient norm or objective function value NaN!")
-            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
         
         # Writing last inverted model
@@ -821,7 +808,7 @@ class LBFGSB(Solver):
         Implementation inspired by: https://github.com/bgranzow/L-BFGS-B.git
     """
     
-    def __init__(self, stopper, stepper=None, m_steps=np.inf, logger=None):
+    def __init__(self, stopper, stepper=StrongWolfe(), m_steps=np.inf, **kwargs):
         """
         LBFGSB constructor
         
@@ -831,16 +818,11 @@ class LBFGSB(Solver):
             m_steps: maximum number of steps to store to estimate the inverse Hessian (by default it runs BFGS method)
             logger: Logger to write inversion log file
         """
-        # Calling parent construction
-        super(LBFGSB, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
+        super(LBFGSB, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        
         # Defining stepper object
-        self.stepper = stepper if stepper is not None else StrongWolfe()
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        self.stepper = stepper
+        
         # LBFGSB-specific parameters
         self.m_steps = m_steps
         self.epsmch = None
@@ -1242,7 +1224,6 @@ class LBFGSB(Solver):
                                        str(problem.get_gevals()).zfill(self.stopper.zfill))
                 if verbose:
                     print(msg)
-                # Writing on log file
                 if self.logger:
                     self.logger.addToLog(msg)
                 # Check if either objective function value or gradient norm is NaN
@@ -1393,7 +1374,7 @@ class LBFGSB(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(obj1) or isnan(prblm_grad.norm()):
                 raise ValueError("Either gradient norm or objective function value NaN!")
-            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
         
         # Writing last inverted model
@@ -1411,219 +1392,3 @@ class LBFGSB(Solver):
                 self.logger.addToLog(msg)
         self.restart.clear_restart()
 
-
-class MCMC(Solver):
-    """Markov chain Monte Carlo sampling algorithm"""
-    
-    def __init__(self, **kwargs):
-        """
-        MCMC Solver/Sampler constructor
-        
-        Args:
-            stopper: Stopper object to terminate sampling
-            prop_distr: proposal distribution to be employed ["u","N"]
-            temperature: coefficient for Temperature Metropolis sampling algorithm
-            logger: Logger to write inversion log file
-            sigma: standard deviation if prop_distr="N"
-            max_step: upper bound if prop_distr="u"
-            min_step: lower bound if prop_distr="u"
-        """
-        # Calling parent construction
-        super(MCMC, self).__init__()
-        # Defining stopper object
-        self.stopper = kwargs.get("stopper")
-        # Logger object to write on log file
-        self.logger = kwargs.get("logger", None)
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
-        # Proposal distribution parameters
-        self.prop_dist = kwargs.get("prop_distr")
-        if self.prop_dist == "Uni":
-            self.max_step = kwargs.get("max_step")
-            self.min_step = kwargs.get("min_step", -self.max_step)
-        elif self.prop_dist == "Gauss":
-            self.sigma = kwargs.get("sigma")
-        else:
-            raise ValueError("Not supported prop_distr")
-        # print formatting
-        self.iter_msg = "sample number = %s, log-obj = %.2e, rnorm = %.2e, feval = %s, ar = %2.5f%%, alpha = %1.5f"
-        self.ndigits = self.stopper.zfill
-        # Temperature Metropolis sampling algorithm (see, Monte Carlo sampling of
-        # solutions to inverse problems by Mosegaard and Tarantola, 1995)
-        # If not provided the likelihood is assumed to be passed to the run method
-        self.T = kwargs.get("T", None)
-        # Reject sample outside of bounds or project it onto them
-        self.reject_bound = True
-    
-    def run(self, problem, verbose=False, restart=False):
-        """
-        Run MCMC solver/sampler
-
-        Args:
-            problem: problem to be minimized
-            verbose: verbosity flag
-            restart: restart previously crashed inversion
-        """
-        create_msg = verbose or self.logger
-        # Resetting stopper before running the inversion
-        self.stopper.reset()
-        # Checking if user is saving the sampled models
-        if not self.save_model:
-            msg = "WARNING! save_model=False! Running MCMC sampling method will not save accepted model samples!"
-            print(msg)
-            if self.logger:
-                self.logger.addToLog(msg)
-        
-        if not restart:
-            if create_msg:
-                msg = 90 * "#" + "\n"
-                msg += 12 * " " + "MCMC Solver log file\n"
-                msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
-                msg += 90 * "#" + "\n"
-                if verbose:
-                    print(msg.replace("log file", ""))
-                if self.logger:
-                    self.logger.addToLog(msg)
-            prblm_mdl = problem.get_model()
-            mcmc_mdl_cur = prblm_mdl.clone()
-            
-            # Other internal variables
-            accepted = 1  # number of accepted samples
-            iiter = 1  # number of tested point so far
-        else:
-            msg = "Restarting previous solver run from: %s" % self.restart.restart_folder
-            if verbose:
-                print(msg)
-            if self.logger:
-                self.logger.addToLog(msg)
-            self.restart.read_restart()
-            mcmc_mdl_cur = self.restart.retrieve_vector("mcmc_mdl_cur")
-            accepted = self.restart.retrieve_parameter("accepted")
-            iiter = self.restart.retrieve_parameter("iiter")
-            # Setting the last accepted model
-            problem.set_model(mcmc_mdl_cur)
-            prblm_mdl = problem.get_model()
-        
-        # Common parameters
-        mcmc_mdl_prop = prblm_mdl.clone()
-        mcmc_dmodl = prblm_mdl.clone().zero()
-        mcmc_mdl_check = prblm_mdl.clone()
-        
-        # Computing current objective function
-        obj_current = problem.get_obj(mcmc_mdl_cur)  # Compute objective function value
-        res_norm = problem.get_rnorm(mcmc_mdl_cur)
-        # getting each objective function term if present
-        obj_terms = problem.obj_terms if "obj_terms" in dir(problem) else None
-        if not restart:
-            # iteration info
-            msg = self.iter_msg % (str(iiter).zfill(self.ndigits),
-                                   np.log(obj_current),
-                                   res_norm,
-                                   str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
-                                   100. * float(accepted) / iiter,
-                                   1.0)
-            if verbose:
-                print(msg)
-            # Writing on log file
-            if self.logger:
-                self.logger.addToLog("\n" + msg)
-            # Check if objective function value is NaN
-            if isnan(obj_current):
-                raise ValueError("objective function value NaN!")
-            self.save_results(iiter, problem, force_save=False)
-        # Sampling loop
-        while True:
-            # Generate a candidate y from x according to the proposal distribution r(x_cur, x_prop)
-            if self.prop_dist == "Uni":
-                mcmc_dmodl.getNdArray()[:] = np.random.uniform(low=self.min_step, high=self.max_step,
-                                                               size=mcmc_dmodl.shape)
-            elif self.prop_dist == "Gauss":
-                mcmc_dmodl.getNdArray()[:] = np.random.normal(scale=self.sigma, size=mcmc_dmodl.shape)
-            # Compute a(x_cur, x_prop)
-            mcmc_mdl_prop.copy(mcmc_mdl_cur)
-            mcmc_mdl_prop.scaleAdd(mcmc_dmodl)
-            # Checking if model parameters hit the bounds
-            mcmc_mdl_check.copy(mcmc_mdl_prop)
-            # Projecting model onto the bounds (if any)
-            if "bounds" in dir(problem):
-                problem.bounds.apply(mcmc_mdl_check)
-            if mcmc_mdl_prop.isDifferent(mcmc_mdl_check):
-                msg = "\tModel hit provided bounds. Projecting onto them."
-                if self.reject_bound:
-                    msg = "\tModel hit provided bounds. Resampling proposed point."
-                # Model hit bounds
-                if self.logger:
-                    self.logger.addToLog(msg)
-                if self.reject_bound:
-                    continue
-                else:
-                    mcmc_mdl_prop.copy(mcmc_mdl_check)
-            
-            obj_prop = problem.get_obj(mcmc_mdl_prop)
-            # Check if objective function value is NaN
-            if isnan(obj_prop):
-                raise ValueError("objective function of proposed model is NaN!")
-            if self.T:
-                # Using Metropolis method assuming an objective function was passed
-                alpha = 1.0
-                if obj_prop > obj_current:
-                    alpha = np.exp(-(obj_prop - obj_current) / self.T)
-            else:
-                # computing log acceptance ratio assuming likelihood function
-                if obj_current > ZERO and obj_prop > ZERO:
-                    alpha = min(1.0, obj_prop / obj_current)
-                elif obj_current <= ZERO < obj_prop:
-                    # condition to avoid zero/zero
-                    alpha = 0.
-                else:
-                    # condition to avoid division by zero
-                    alpha = 1.
-            
-            # Increase counter of tested samples
-            iiter += 1
-            
-            # Accept the x_prop with probability a
-            if np.random.uniform() <= alpha:
-                # accepted proposed model
-                mcmc_mdl_cur.copy(mcmc_mdl_prop)
-                obj_current = deepcopy(obj_prop)
-                obj_terms = deepcopy(problem.obj_terms) if "obj_terms" in dir(problem) else None
-                res_norm = problem.get_rnorm(mcmc_mdl_cur)
-                accepted += 1  # Increase counter of accepted samples
-            
-            # iteration info
-            msg = self.iter_msg % (str(iiter).zfill(self.ndigits),
-                                   np.log(obj_current),
-                                   res_norm,
-                                   str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
-                                   100. * float(accepted) / iiter,
-                                   alpha)
-            if verbose:
-                print(msg)
-            # Writing on log file
-            if self.logger:
-                self.logger.addToLog("\n" + msg)
-            
-            # Saving sampled point
-            self.save_results(iiter, problem, model=mcmc_mdl_cur, obj=obj_current, obj_terms=obj_terms, force_save=True,
-                              force_write=True)
-            
-            # saving inversion vectors and parameters for restart
-            self.restart.save_vector("mcmc_mdl_cur", mcmc_mdl_cur)
-            self.restart.save_parameter("accepted", accepted)
-            self.restart.save_parameter("iiter", iiter)
-            
-            # Checking stopping criteria
-            if self.stopper.run(problem, iiter, verbose=verbose):
-                break
-        
-        if create_msg:
-            msg = 90 * "#" + "\n"
-            msg += 12 * " " + "MCMC Solver log file end\n"
-            msg += 90 * "#" + "\n"
-            if verbose:
-                print(msg.replace("log file ", ""))
-            if self.logger:
-                self.logger.addToLog(msg)
-        self.restart.clear_restart()
-        return

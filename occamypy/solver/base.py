@@ -12,12 +12,13 @@ from occamypy.vector.base import VectorSet
 from occamypy.vector.out_core import VectorOC
 from occamypy.problem.base import Problem
 from occamypy.utils import mkdir, sep
+from occamypy.utils.logger import Logger
 
 
 class Solver:
     """Base solver class"""
     
-    def __init__(self):
+    def __init__(self, stopper, logger: Logger = None):
         # Parameter for saving results
         self.save_obj = False
         self.save_res = False
@@ -25,8 +26,12 @@ class Solver:
         self.save_model = False
         self.flush_memory = False
         self.overwrite = True  # Flag to overwrite results if first time writing on disk
-        
         self.prefix = None
+        
+        self.logger = logger
+
+        self.stopper = stopper
+        self.stopper.logger = logger
         
         # Iteration axis-sampling parameters
         self.iter_buffer_size = None

@@ -4,6 +4,7 @@ from .linear import *
 from .nonlinear import *
 from .sparsity import *
 from .stepper import *
+from .mcmc import *
 
 __all__ = [
     "Solver",
