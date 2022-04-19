@@ -80,10 +80,6 @@ class ISTA(Solver):
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d"
     
-    def __del__(self):
-        """Default destructor"""
-        return
-    
     def run(self, problem, verbose=False, restart=False):
         """Run ISTA solver"""
         
@@ -290,10 +286,6 @@ class ISTC(Solver):
             raise ValueError("Cooling_start and end must be within [0,1] interval and cooling_start <= cooling_end")
         self.cooling_start = cooling_start  # start of cooling continuation as fraction of size of sorted array |op'y|
         self.cooling_end = cooling_end  # end of cooling continuation as fraction of size of sorted array |op'y|
-    
-    def __del__(self):
-        """Default destructor"""
-        return
     
     def run(self, problem, verbose=False, restart=False):
         """Run ISTC solver"""

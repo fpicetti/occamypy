@@ -57,10 +57,6 @@ class NonlinearLeastSquares(P.Problem):
         self.linear = False
         return
     
-    def __del__(self):
-        """Default destructor"""
-        return
-    
     def resf(self, model):
         r"""
         Method to return residual vector
@@ -189,10 +185,6 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         self.linear = False
         # Objective function terms (useful to analyze each term)
         self.obj_terms = [None, None]
-        return
-    
-    def __del__(self):
-        """Default destructor"""
         return
     
     def estimate_epsilon(self, verbose=False, logger=None):
@@ -454,10 +446,6 @@ class VarProRegularized(P.Problem):
         self.lin_solver_prefix = self.lin_solver.prefix
         self.vp_linear_prob.linear = True
         self.warm_start = warm_start
-        return
-    
-    def __del__(self):
-        """Default destructor"""
         return
     
     def estimate_epsilon(self, verbose=False, logger=None):

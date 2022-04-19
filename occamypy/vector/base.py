@@ -68,10 +68,7 @@ class Vector:
     
     def __repr__(self):
         return self.getNdArray().__repr__()
-    
-    def __del__(self):
-        """Default destructor"""
-    
+
     def __add__(self, other):  # self + other
         if type(other) in [int, float]:
             self.addbias(other)
@@ -433,10 +430,7 @@ class VectorSet:
     def __init__(self):
         """VectorSet constructor"""
         self.vecSet = []
-    
-    def __del__(self):
-        """Default destructor"""
-    
+
     def append(self, other, copy=True):
         """Method to add vector to the set
         Args:
@@ -507,10 +501,7 @@ class superVector(Vector):
     @property
     def size(self):
         return sum([self.vecs[idx].size for idx in range(self.n)])
-    
-    def __del__(self):
-        del self.vecs, self.n
-    
+
     def __getitem__(self, item):
         return self.vecs[item]
     

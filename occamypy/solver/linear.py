@@ -34,10 +34,6 @@ class CG(Solver):
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d"
 
-    def __del__(self):
-        """Default destructor"""
-        return
-
     def run(self, problem, verbose=False, restart=False):
         """Run CG/SD solver"""
         self.create_msg = verbose or self.logger
@@ -409,10 +405,6 @@ class LSQR(Solver):
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d"
 
-    def __del__(self):
-        """Default destructor"""
-        return
-
     def run(self, problem, verbose=False, restart=False):
         """Run LSQR solver"""
         self.create_msg = verbose or self.logger
@@ -716,10 +708,6 @@ class CGsym(Solver):
         self.setDefaults()
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, feval = %d"
-        return
-
-    def __del__(self):
-        """Default destructor"""
         return
 
     def run(self, problem, verbose=False, restart=False):

@@ -78,10 +78,6 @@ class Problem:
         self.counter = 0
         self.linear = False  # By default all problem are non-linear
 
-    def __del__(self):
-        """Default destructor"""
-        return
-
     def setDefaults(self):
         """Default common variables for any inverse problem"""
         self.obj_updated = False

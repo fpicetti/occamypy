@@ -50,10 +50,6 @@ class Solver:
         self.setDefaults()
         return
     
-    def __del__(self):
-        """Default destructor"""
-        return
-    
     def setPrefix(self, prefix):
         """Mutator to change prefix and file names for saving inversion results"""
         self.prefix = prefix

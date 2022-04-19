@@ -187,10 +187,6 @@ class NLCG(S.Solver):
         self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d, geval = %d"
         return
     
-    def __del__(self):
-        """Default destructor"""
-        return
-    
     def beta_func(self, grad, grad0, dir):
         """Beta function interface"""
         beta_type = self.beta_type

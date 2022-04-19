@@ -58,10 +58,6 @@ class LeastSquares(Problem):
         self.linear = True
         return
 
-    def __del__(self):
-        """Default destructor"""
-        return
-
     def resf(self, model):
         r"""
         Method to return residual vector
@@ -164,10 +160,6 @@ class LeastSquaresSymmetric(Problem):
         # Setting default variables
         self.setDefaults()
         self.linear = True
-
-    def __del__(self):
-        """Default destructor"""
-        return
 
     def resf(self, model):
         r"""
@@ -284,10 +276,6 @@ class LeastSquaresRegularized(Problem):
         self.prec = prec
         # Objective function terms (useful to analyze each term)
         self.obj_terms = [None, None]
-
-    def __del__(self):
-        """Default destructor"""
-        return
     
     def estimate_epsilon(self, verbose=False, logger=None):
         """
@@ -575,10 +563,6 @@ class GeneralizedLasso(Problem):
         self.res_reg = self.reg_op.range.clone().zero()
         # this last superVector is instantiated with pointers to res_data and res_reg!
         self.res = superVector(self.res_data, self.res_reg)
-
-    def __del__(self):
-        """Default destructor"""
-        return
 
     def objf(self, residual, eps=None):
         r"""

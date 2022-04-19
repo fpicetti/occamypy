@@ -9,10 +9,6 @@ class Stepper:
     def __init__(self):
         return
 
-    def __del__(self):
-        """Default destructor"""
-        return
-
     def run(self, model, search_dir):
         """Dummy stepper running method"""
         raise NotImplementedError("Implement run stepper in the derived class.")

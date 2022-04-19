@@ -48,10 +48,6 @@ class Operator:
         self.domain = domain.cloneSpace()
         self.range = range.cloneSpace()
     
-    def __del__(self):
-        """Default destructor"""
-        return
-    
     def __str__(self):
         return "Operator"
     
