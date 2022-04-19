@@ -184,7 +184,7 @@ class NLCG(S.Solver):
         # Overwriting logger of the Stopper object
         self.stoppr.logger = self.logger
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d, geval = %d"
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d, geval = %d"
         return
     
     def __del__(self):
@@ -217,7 +217,7 @@ class NLCG(S.Solver):
         return beta
     
     def run(self, problem, verbose=False, restart=False):
-        """Running NLCG solver"""
+        """Run NLCG solver"""
         
         self.create_msg = verbose or self.logger
         
@@ -439,7 +439,7 @@ class TNewton(S.Solver):
         return
     
     def run(self, problem, verbose=False, restart=False):
-        """Running Truncated Newton solver"""
+        """Run Truncated Newton solver"""
         return
 
 
@@ -477,7 +477,7 @@ class LBFGS(S.Solver):
         self.tmp_vector = None  # op copy of the model vector will be create when the function run is invoked
         self.iistep = 0  # necessary to re-used the estimated hessian inverse from previous runs
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d, geval = %d"
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d, geval = %d"
     
     def save_hessian_estimate(self, index, iiter):
         """Function to save current vector of estimated Hessian inverse"""
@@ -849,7 +849,7 @@ class LBFGSB(S.Solver):
         self.m_steps = m_steps
         self.epsmch = None
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d, geval = %d"
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d, geval = %d"
     
     def get_breakpoints(self, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound):
         """
@@ -1447,7 +1447,7 @@ class MCMC(S.Solver):
         else:
             raise ValueError("Not supported prop_distr")
         # print formatting
-        self.iter_msg = "sample number = %s, log-obj = %.5e, resnorm = %.2e, feval = %d, acceptance rate = %2.5f%%, alpha = %1.5f"
+        self.iter_msg = "sample number = %s, log-obj = %.5e, rnorm = %.2e, feval = %d, ar = %2.5f%%, alpha = %1.5f"
         self.ndigits = self.stopper.zfill
         # Temperature Metropolis sampling algorithm (see, Monte Carlo sampling of
         # solutions to inverse problems by Mosegaard and Tarantola, 1995)
@@ -1458,7 +1458,7 @@ class MCMC(S.Solver):
     
     def run(self, problem, verbose=False, restart=False):
         """
-        Running MCMC solver/sampler
+        Run MCMC solver/sampler
 
         Args:
             problem: problem to be minimized

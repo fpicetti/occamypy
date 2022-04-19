@@ -32,14 +32,14 @@ class CG(Solver):
         # Overwriting logger of the Stopper object
         self.stopper.logger = self.logger
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d"
 
     def __del__(self):
         """Default destructor"""
         return
 
     def run(self, problem, verbose=False, restart=False):
-        """Running CG/SD solver"""
+        """Run CG/SD solver"""
         self.create_msg = verbose or self.logger
 
         # Resetting stopper before running the inversion
@@ -407,14 +407,14 @@ class LSQR(Solver):
         # Overwriting logger of the Stopper object
         self.stopper.logger = self.logger
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d"
 
     def __del__(self):
         """Default destructor"""
         return
 
     def run(self, problem, verbose=False, restart=False):
-        """Running LSQR solver"""
+        """Run LSQR solver"""
         self.create_msg = verbose or self.logger
 
         # Resetting stopper before running the inversion
@@ -715,7 +715,7 @@ class CGsym(Solver):
         # Setting defaults for saving results
         self.setDefaults()
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, feval = %d"
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, feval = %d"
         return
 
     def __del__(self):
@@ -723,7 +723,7 @@ class CGsym(Solver):
         return
 
     def run(self, problem, verbose=False, restart=False):
-        """Running LCG solver for symmetric systems"""
+        """Run LCG solver for symmetric systems"""
         self.create_msg = verbose or self.logger
 
         # Resetting stopper before running the inversion

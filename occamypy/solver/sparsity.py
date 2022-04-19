@@ -78,14 +78,14 @@ class ISTA(Solver):
         # Setting the fast flag
         self.fast = fast
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d"
     
     def __del__(self):
         """Default destructor"""
         return
     
     def run(self, problem, verbose=False, restart=False):
-        """Running ISTA solver"""
+        """Run ISTA solver"""
         
         self.create_msg = verbose or self.logger
         # Resetting stopper before running the inversion
@@ -101,7 +101,7 @@ class ISTA(Solver):
             if self.create_msg:
                 msg = 90 * "#" + "\n"
                 msg += "\t\t\t\tFAST " if self.fast else "\t\t\t\t\t"
-                msg += "ITERATIVE SHRINKAGE-THRESHOLDING ALGORITHM log file\n"
+                msg += "ISTA log file\n"
                 msg += "\tRestart folder: %s\n" % self.restart.restart_folder
                 msg += "\tModeling Operator:\t\t%s\n" % problem.op
                 msg += "\tRegularization weight:\t%.2e\n" % problem.lambda_value
@@ -233,7 +233,7 @@ class ISTA(Solver):
         if self.create_msg:
             msg = 90 * "#" + "\n"
             msg += "\t\t\t\tFAST " if self.fast else "\t\t\t\t\t"
-            msg += "ITERATIVE SHRINKAGE-THRESHOLDING ALGORITHM log file end\n"
+            msg += "ISTA log file end\n"
             msg += 90 * "#" + "\n"
             if verbose:
                 print(msg.replace(" log file", ""))
@@ -279,7 +279,7 @@ class ISTC(Solver):
         self.logger = logger
         # Overwriting logger of the Stopper object
         self.stopper.logger = self.logger
-        self.iter_msg = "Inner_iter = %s, obj = %.5e, resnorm = %.2e, gradnorm= %.2e, feval = %d"
+        self.iter_msg = "Inner_iter = %s, obj = %.5e, rnorm = %.2e, gnorm= %.2e, feval = %d"
         
         # ISTC parameters
         if self.stopper.niter <= 0:
@@ -296,7 +296,7 @@ class ISTC(Solver):
         return
     
     def run(self, problem, verbose=False, restart=False):
-        """Running ISTC solver"""
+        """Run ISTC solver"""
         
         self.create_msg = verbose or self.logger
         
@@ -310,7 +310,7 @@ class ISTC(Solver):
         if not restart:
             if self.create_msg:
                 msg = 90 * "#" + "\n"
-                msg += "\t\t\tITERATIVE SOFT-THRESHOLDING WITH COOLING SOLVER log file\n"
+                msg += "\t\t\tISTC SOLVER log file\n"
                 msg += "\tRestart folder: %s\n" % self.restart.restart_folder
                 msg += "\tModeling Operator:\t\t%s\n" % problem.op
                 msg += "\tRegularization weight:\t%.2e\n" % problem.lambda_value
@@ -483,7 +483,7 @@ class ISTC(Solver):
         self.save_results(iiter, problem, model=istc_mdl_save, force_save=True, force_write=True)
         if self.create_msg:
             msg = 90 * "#" + "\n"
-            msg += "\t\t\tITERATIVE SOFT-THRESHOLDING WITH COOLING SOLVER log file end\n"
+            msg += "\t\t\tISTC SOLVER log file end\n"
             msg += 90 * "#" + "\n"
             if verbose:
                 print(msg.replace(" log file", ""))
@@ -550,10 +550,10 @@ class SplitBregman(Solver):
         self.linear_solver.setDefaults(iter_sampling=1, flush_memory=True)
         
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, df_obj = %.2e, reg_obj = %.2e, resnorm = %.2e"
+        self.iter_msg = "iter = %s, obj = %.5e, df_obj = %.2e, reg_obj = %.2e, rnorm = %.2e"
     
     def run(self, problem, verbose=False, inner_verbose=False, restart=False):
-        """Running SplitBregman solver"""
+        """Run SplitBregman solver"""
         if type(problem) != P.GeneralizedLasso:
             raise TypeError("Input problem object must be a GeneralizedLasso")
         
@@ -602,7 +602,7 @@ class SplitBregman(Solver):
             outer_iter = 0
             if self.create_msg:
                 msg = 90 * '#' + '\n'
-                msg += "\t\t\tSPLIT-BREGMAN ALGORITHM log file\n\n"
+                msg += "\t\t\tSPLIT-BREGMAN SOLVER log file\n\n"
                 msg += "\tRestart folder: %s\n" % self.restart.restart_folder
                 msg += "\tModeling Operator:\t%s\n" % problem.op
                 msg += "\tInner iterations:\t%d\n" % self.niter_inner
@@ -619,7 +619,7 @@ class SplitBregman(Solver):
                     self.logger.addToLog(msg)
                 if self.logger_lin_solv:
                     msg = 90 * '#' + '\n'
-                    msg += "\t\t\tSPLIT-BREGMAN ALGORITHM internal inversions log file\n"
+                    msg += "\t\t\tSPLIT-BREGMAN SOLVER internal inversions log file\n"
                     msg += 90 * '#' + '\n'
                     self.logger_lin_solv.addToLog(msg)
         
@@ -733,7 +733,7 @@ class SplitBregman(Solver):
         # ending message and log file
         if self.create_msg:
             msg = 90 * '#' + '\n'
-            msg += "\t\t\tSPLIT-BREGMAN ALGORITHM log file end\n"
+            msg += "\t\t\tSPLIT-BREGMAN SOLVER log file end\n"
             msg += 90 * '#'
             if verbose:
                 print(msg.replace(" log file", ""))

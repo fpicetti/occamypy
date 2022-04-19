@@ -327,7 +327,7 @@ class CvSrchStep(Stepper):
         return stx, fx, dx, sty, fy, dy, stp, fp, dp, brackt, success
 
     def run(self, problem, modl, dmodl, logger=None):
-        """Running CvSrch stepper"""
+        """Run CvSrch stepper"""
         if logger:
             logger.addToLog("CVSRCH STEPPER BY STEP-LENGTH BRACKETING")
             logger.addToLog("xtol=%.2e ftol=%.2e gtol=%.2e alpha_min=%.2e alpha_max=%.2e maxfev=%d xtrapf=%.2e"
