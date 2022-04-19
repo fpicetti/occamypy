@@ -110,13 +110,15 @@ class VectorCupy(Vector):
         self.getNdArray()[:] += bias
         return self
 
-    def rand(self, snr=1.):
-        rms = cp.sqrt(cp.mean(cp.square(self.getNdArray())))
-        amp_noise = 1.0
-        if rms != 0.:
-            amp_noise = cp.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
-        self.getNdArray()[:] = amp_noise * (2. * cp.random.random(self.getNdArray().shape) - 1.)
-        return self
+    def rand(self, low: float = -1., high: float = 1.):
+        self.zero()
+        self[:] += cp.random.uniform(low=low, high=high, size=self.shape)
+        return
+
+    def randn(self, mean: float = 0., std: float = 1.):
+        self.zero()
+        self[:] += cp.random.normal(loc=mean, scale=std, size=self.shape)
+        return
 
     def clone(self):
         vec_clone = deepcopy(self)  # Deep clone of vector

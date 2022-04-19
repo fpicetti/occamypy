@@ -91,16 +91,10 @@ class VectorOC(Vector):
                     get_stat=False, get_output=False)
         return
     
-    def rand(self, snr=1.0):
+    def randn(self, mean: float = 0., std: float = 1.):
         # Computing RMS amplitude of the vector
-        rms = RunShellCmd("Attr < %s want=rms param=1 maxsize=5000" % (self.vecfile), get_stat=False)[0]
-        rms = float(rms.split("=")[1])  # Standard deviation of the signal
-        amp_noise = 1.0
-        if rms != 0.:
-            amp_noise = np.sqrt(3.0 / snr) * rms  # sqrt(3*Power_signal/SNR)
-        # Filling file with random number with the proper scale
         RunShellCmd("Noise file=%s rep=1 type=0 var=0.3333333333; Solver_ops file1=%s scale1_r=%s op=scale" % (
-            self.vecfile, self.vecfile, amp_noise), get_stat=False, get_output=False)
+        self.vecfile, self.vecfile, std), get_stat=False, get_output=False)
         return
     
     def clone(self):

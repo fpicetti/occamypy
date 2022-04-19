@@ -128,12 +128,16 @@ def _call_addbias(vecObj, bias):
     return res
 
 
-def _call_rand(vecObj):
+def _call_rand(vecObj, low, high):
     """Function to call rand method"""
-    res = vecObj.rand()
+    res = vecObj.rand(low=low, high=high)
     return res
 
-# todo add _call_randn()
+
+def _call_randn(vecObj, mean, std):
+    """Function to call rand method"""
+    res = vecObj.randn(mean=mean, std=std)
+    return res
 
 
 def _call_clone(vecObj):
@@ -448,8 +452,12 @@ class DaskVector(Vector):
         daskD.wait(self.client.map(_call_addbias, self.vecDask, bias=bias, pure=False))
         return self
     
-    def rand(self):
-        daskD.wait(self.client.map(_call_rand, self.vecDask, pure=False))
+    def rand(self, low: float = -1., high: float = 1.):
+        daskD.wait(self.client.map(_call_rand, self.vecDask, low=low, high=high, pure=False))
+        return self
+    
+    def randn(self, mean: float = 0., std: float = 1.):
+        daskD.wait(self.client.map(_call_randn, self.vecDask, mean=mean, std=std, pure=False))
         return self
     
     def clone(self):

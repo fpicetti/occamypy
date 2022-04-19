@@ -187,21 +187,22 @@ class Vector:
         self.getNdArray()[:] += bias
         return self
     
-    def rand(self):
-        """Fill vector with random number ~U[1,-1] with a given SNR
-        
+    def rand(self, low: float = -1., high: float = 1.):
+        """Fill vector with random number ~U[low, high]
         Args:
-            snr: SNR value
+            low: lower distribution bound
+            high: upper distribution bound
         """
         raise NotImplementedError("rand must be overwritten")
     
-    def randn(self, snr: float = 1.):
-        """Fill vector with random number ~N[0, 1] with a given SNR
+    def randn(self, mean: float = 0., std: float = 1.):
+        """Fill vector with random number ~N[mean, std]
         
         Args:
-            snr: SNR value
+            mean: distribution mean
+            std: distribution standard deviation
         """
-        raise NotImplementedError("rand must be overwritten")
+        raise NotImplementedError("randn must be overwritten")
     
     def clone(self):
         """Function to clone (deep copy) a vector from a vector or a Space"""
@@ -348,9 +349,7 @@ class Vector:
     def imag(self):
         """Return the in-place imaginary part of the vector"""
         raise NotImplementedError('imag method must be implemented')
-    
-    # Combination of different vectors
-    
+        
     def copy(self, other):
         """
         Copy input vector
@@ -411,7 +410,7 @@ class Vector:
         """
         raise NotImplementedError("isDifferent must be overwritten")
     
-    def clip(self, low, high):  # TODO rename
+    def clip(self, low, high):
         """
         Bound vector values between two values
 
@@ -544,11 +543,16 @@ class superVector(Vector):
             self.vecs[idx].addbias(bias[idx])
         return self
     
-    def rand(self, snr=1.0):
+    def rand(self, low: float = -1., high: float = 1.):
         for idx in range(self.n):
-            self.vecs[idx].rand()
+            self.vecs[idx].rand(low=low, high=high)
         return self
     
+    def randn(self, mean: float = 0., std: float = 1.):
+        for idx in range(self.n):
+            self.vecs[idx].randn(mean=mean, std=std)
+        return self
+   
     def clone(self):
         vecs = [self.vecs[idx].clone() for idx in range(self.n)]
         return superVector(vecs)

@@ -63,13 +63,13 @@ class VectorNumpy(Vector):
         self.getNdArray()[:] += bias
         return self
     
-    def rand(self, snr=1.):
-        rms = np.sqrt(np.mean(np.square(self.getNdArray())))
-        amp_noise = 1.0
-        if rms > 0. and rms != np.inf:
-            amp_noise = np.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
-        self.getNdArray()[:] = amp_noise * (2. * np.random.random(self.getNdArray().shape) - 1.)
-        return self
+    def rand(self, low: float = -1., high: float = 1.):
+        self.arr = np.random.uniform(low=low, high=high, size=self.shape)
+        return
+    
+    def randn(self, mean: float = 0., std: float = 1.):
+        self.arr = np.random.normal(loc=mean, scale=std, size=self.shape)
+        return
     
     def clone(self):
         vec_clone = deepcopy(self)  # Deep clone of vector

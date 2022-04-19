@@ -107,22 +107,12 @@ class VectorTorch(Vector):
         self.getNdArray()[:] += bias
         return self
     
-    def rand(self, snr: float or int = 1.):
-        rms = torch.sqrt(torch.mean(torch.square(self.getNdArray())))
-        amp_noise = 1.0
-        if rms != 0.:
-            amp_noise = sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
-        self.getNdArray()[:].uniform_(-1, 1)
-        self.scale(amp_noise)
+    def rand(self, low: float = -1., high: float = 1.):
+        self.arr.uniform_(low, high)
         return self
     
-    def randn(self, snr=1.):
-        rms = torch.sqrt(torch.mean(torch.square(self.getNdArray())))
-        amp_noise = 1.0
-        if rms != 0.:
-            amp_noise = sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
-        self.getNdArray()[:].normal_(0, 1)
-        self.scale(amp_noise)
+    def randn(self, mean: float = 0., std: float = 1.):
+        self.arr.normal_(mean, std)
         return self
     
     def clone(self):
