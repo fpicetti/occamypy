@@ -57,6 +57,25 @@ def direct_arrival_mask(data: o.Vector, rec_pos: np.ndarray, src_pos: np.ndarray
     return mask
 
 
+def depth_compensation_mask(model: o.Vector, z_pow: float = 1., depth_axis: int = 1) -> o.Vector:
+    mask = np.ones(model.shape)
+    
+    if z_pow != 0.:
+        for z in range(mask.shape[depth_axis]):
+            
+            if depth_axis != 0:
+                mask = np.swapaxes(mask, 0, depth_axis)
+                
+            mask[z] *= pow(z, z_pow)
+            
+            if depth_axis != 0:
+                mask = np.swapaxes(mask, 0, depth_axis)
+            
+    mask = model.__class__(mask, ax_info=model.ax_info)
+    
+    return mask
+
+    
 def _propagate_shot(model: SeismicModel, rec_pos: np.ndarray, src_pos: np.ndarray, param: dict) -> o.VectorNumpy:
     geometry = AcquisitionGeometry(model, rec_pos, src_pos, **param)
     solver = AcousticWaveSolver(model, geometry, **param)
@@ -107,12 +126,9 @@ class BornSingleSource(o.Operator):
                                 "rec pos x [m]")]
         
         super(BornSingleSource, self).__init__(self.velocity, csg)
-        
+        self.name = "DeviBorn"
         # store source wavefield
         self.src_wfld = self.solver.forward(save=True)[1]
-    
-    def __str__(self):
-        return "DeviBorn"
     
     def forward(self, add, model, data):
         """Modeling function: image -> residual data"""

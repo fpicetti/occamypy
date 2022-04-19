@@ -2,7 +2,7 @@
 * Added support for F-contiguous arrays
 * Added [PyLops](https://pylops.readthedocs.io/en/stable/) interface [operators](ea8505947c926e376a6def40b1fccfbadf3940d2)
 * Added plot utilities
-* Added [`AxInfo`](tutorials/ax_info.py) class for handling physical vectors
+* Added [`AxInfo`](tutorials/AxInfo%20-%20exploit%20physical%20vectors.ipynb) class for handling physical vectors
 * Added Padding operators different from ZeroPad
 * Improvements on VectorTorch methods and attributes
 * Added FISTA solver wrapper
