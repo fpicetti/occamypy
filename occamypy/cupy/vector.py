@@ -74,12 +74,13 @@ class VectorCupy(Vector):
             else:
                 self.arr = cp.asnumpy(self.arr)
     
-    def printDevice(self):
+    @property
+    def deviceName(self):
         if self.device is None:
-            print('CPU')
+            return "CPU"
         else:
             name = getGPUs()[self.device.id].name
-            print('GPU %d - %s' % (self.device.id, name))
+            return "GPU %d - %s" % (self.device.id, name)
 
     def getNdArray(self):
         return self.arr

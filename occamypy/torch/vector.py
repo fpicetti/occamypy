@@ -72,6 +72,7 @@ class VectorTorch(Vector):
         else:
             ValueError("Device type not understood")
     
+    @ property
     def deviceName(self):
         return get_device_name(self.device.index)
         
