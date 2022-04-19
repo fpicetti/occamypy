@@ -1,6 +1,6 @@
 import numpy as np
 
-from .base import Operator, Vstack, _sumOperator, _prodOperator
+from occamypy.operator.base import Operator, Vstack, _sumOperator, _prodOperator
 
 
 def dummy_set_background(dummy_arg):
@@ -147,6 +147,7 @@ class NonlinearComb(NonlinearOperator):
 
 def CombNonlinearOp(g, f):
     """CombNonlinearOp is deprecated! Please use NonlinearComb instead"""
+    print("CombNonlinearOp is deprecated! Please use NonlinearComb instead. Watch out for the operators order")
     return NonlinearComb(f, g)
 
 

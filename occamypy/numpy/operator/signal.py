@@ -1,8 +1,10 @@
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from scipy.signal import convolve, correlate
-from occamypy import superVector, Operator, Dstack
+
+from occamypy.operator.base import Operator, Dstack
 from occamypy.numpy.vector import VectorNumpy
+from occamypy.vector.base import superVector
 
 
 class GaussianFilter(Operator):
@@ -19,7 +21,6 @@ class GaussianFilter(Operator):
         self.sigma = sigma
         self.scaling = np.sqrt(np.prod(np.array(self.sigma) / np.pi))  # in order to have the max amplitude 1
         super(GaussianFilter, self).__init__(model, model)
-        return
     
     def __str__(self):
         return "GausFilt"

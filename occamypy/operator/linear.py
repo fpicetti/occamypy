@@ -1,5 +1,5 @@
 import numpy as np
-from .base import Operator
+from occamypy.operator.base import Operator
 
 
 class Zero(Operator):

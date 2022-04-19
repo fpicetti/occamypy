@@ -1,12 +1,14 @@
 from collections import deque
-from math import isnan
-import numpy as np
 from copy import deepcopy
+from math import isnan
 
-from occamypy import operator as O
-from occamypy import problem as P
-from occamypy import solver as S
-
+import numpy as np
+from occamypy.operator.linear import Scaling
+from occamypy.problem.linear import LeastSquaresSymmetric
+from occamypy.solver.base import Solver
+from occamypy.solver.stopper import BasicStopper
+from occamypy.solver.stepper import StrongWolfe, CvSrchStep, ParabolicStep
+from occamypy.solver.linear import CGsym
 from occamypy.utils import ZERO
 
 
@@ -157,10 +159,10 @@ def _betaSD(grad, grad0, dir, logger):
     return beta
 
 
-class NLCG(S.Solver):
+class NLCG(Solver):
     """Non-Linear Conjugate Gradient and Steepest-Descent Solver object"""
     
-    def __init__(self, stoppr, stepper=None, beta_type="FR", logger=None):
+    def __init__(self, stopper, stepper=None, beta_type="FR", logger=None):
         """
         NLCG constructor
 
@@ -173,19 +175,18 @@ class NLCG(S.Solver):
         # Calling parent construction
         super(NLCG, self).__init__()
         # Defining stopper object
-        self.stoppr = stoppr
+        self.stopper = stopper
         
         # Defining stepper object
-        self.stepper = stepper if stepper is not None else S.ParabolicStep()
+        self.stepper = stepper if stepper is not None else ParabolicStep()
         # Beta function to use during the inversion
         self.beta_type = beta_type
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
-        self.stoppr.logger = self.logger
+        self.stopper.logger = self.logger
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d, geval = %d"
-        return
+        self.iter_msg = "iter = %s, obj = %.2e, rnorm = %.2e, gnorm = %.2e, feval = %s, geval = %s"
     
     def beta_func(self, grad, grad0, dir):
         """Beta function interface"""
@@ -215,19 +216,18 @@ class NLCG(S.Solver):
     def run(self, problem, verbose=False, restart=False):
         """Run NLCG solver"""
         
-        self.create_msg = verbose or self.logger
+        create_msg = verbose or self.logger
         
         # Resetting stopper before running the inversion
-        self.stoppr.reset()
+        self.stopper.reset()
         
         if not restart:
-            if self.create_msg:
+            if create_msg:
                 msg = 90 * "#" + "\n"
-                msg += "\t\t\tNON-LINEAR %s SOLVER log file\n" % (
-                    "STEEPEST-DESCENT" if self.beta_type == "SD" else "CONJUGATE GRADIENT")
-                msg += "\tRestart folder: %s\n" % self.restart.restart_folder
+                msg += 12 * " " + "Nonlinear %s Solver log file\n" % ("SD" if self.beta_type == "SD" else "CG")
+                msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
                 if self.beta_type != "SD":
-                    msg += "\tConjugate method used: %s\n" % self.beta_type
+                    msg += 4 * " " + "Conjugate method used: %s\n" % self.beta_type
                 msg += 90 * "#" + "\n"
                 if verbose:
                     print(msg.replace("log file", ""))
@@ -246,7 +246,7 @@ class NLCG(S.Solver):
             iiter = 0
         else:
             # Retrieving parameters and vectors to restart the solver
-            if self.create_msg:
+            if create_msg:
                 msg = "Restarting previous solver run from: %s" % self.restart.restart_folder
                 if verbose:
                     print(msg)
@@ -279,13 +279,13 @@ class NLCG(S.Solver):
                 # Saving objective function value
                 self.restart.save_parameter("obj_initial", initial_obj_value)
                 # iteration info
-                if self.create_msg:
-                    msg = self.iter_msg % (str(iiter).zfill(self.stoppr.zfill),
+                if create_msg:
+                    msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                            obj0,
                                            problem.get_rnorm(cg_mdl),
                                            problem.get_gnorm(cg_mdl),
-                                           problem.get_fevals(),
-                                           problem.get_gevals())
+                                           str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
+                                           str(problem.get_gevals()).zfill(self.stopper.zfill))
                     # Writing on log file
                     if verbose:
                         print(msg)
@@ -320,7 +320,7 @@ class NLCG(S.Solver):
             # Calling line search
             alpha, success = self.stepper.run(problem, cg_mdl, cg_dmodl, self.logger)
             if not success:
-                if self.create_msg:
+                if create_msg:
                     msg = "Stepper couldn't find a proper step size, will terminate solver"
                     if verbose:
                         print(msg)
@@ -335,7 +335,7 @@ class NLCG(S.Solver):
             obj1 = problem.get_obj(cg_mdl)  # Compute objective function value
             # Redundant tests on verifying convergence
             if obj0 <= obj1:
-                if self.create_msg:
+                if create_msg:
                     msg = "Objective function at new point greater or equal than previous one:\n\t" \
                           "obj_new = %.5e\tobj_cur = %.5e\n" \
                           "Potential issue in the stepper or in revaluation of objective function! Solver will stop!" \
@@ -356,13 +356,13 @@ class NLCG(S.Solver):
             # Saving data space vectors
             self.restart.save_vector("prblm_res", prblm_res)
             # iteration info
-            if self.create_msg:
-                msg = self.iter_msg % (str(iiter).zfill(self.stoppr.zfill),
+            if create_msg:
+                msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                        obj1,
                                        problem.get_rnorm(cg_mdl),
                                        problem.get_gnorm(cg_mdl),
-                                       problem.get_fevals(),
-                                       problem.get_gevals())
+                                       str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
+                                       str(problem.get_gevals()).zfill(self.stopper.zfill))
                 if verbose:
                     print(msg)
                 if self.logger:
@@ -371,15 +371,14 @@ class NLCG(S.Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(obj1) or isnan(prblm_grad.norm()):
                 raise ValueError("ERROR! Either gradient norm or objective function value NaN!")
-            if self.stoppr.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
                 break
         
         # Writing last inverted model
         self.save_results(iiter, problem, force_save=True, force_write=True)
-        if self.create_msg:
+        if create_msg:
             msg = 90 * "#" + "\n"
-            msg += "\t\t\tNON-LINEAR %s SOLVER log file end\n" % (
-                "STEEPEST-DESCENT" if self.beta_type == "SD" else "CONJUGATE GRADIENT")
+            msg += 4 * " " + "Nonlinear %s Solver log file end\n" % ("SD" if self.beta_type == "SD" else "CG")
             msg += 90 * "#" + "\n"
             if verbose:
                 print(msg.replace(" log file", ""))
@@ -392,7 +391,7 @@ class NLCG(S.Solver):
         return
 
 
-class TNewton(S.Solver):
+class TNewton(Solver):
     """Truncated Newton/Gauss-Newton solver object"""
     
     def __init__(self, stopper, niter_max, HessianOp, stepper=None, niter_min=None, warm_start=True, Newton_prefix=None,
@@ -421,7 +420,7 @@ class TNewton(S.Solver):
                     "niter_min of %d must be smaller or equal than niter_max of %d." % (niter_min, niter_max))
             self.niter_min = niter_min
         # Defining stepper object
-        self.stepper = stepper if stepper is not None else S.CvSrchStep()
+        self.stepper = stepper if stepper is not None else CvSrchStep()
         # Warm starts requested?
         self.warm_start = warm_start
         # Hessian operator
@@ -429,17 +428,16 @@ class TNewton(S.Solver):
             if "set_background" not in dir(HessianOp):
                 raise AttributeError("Hessian operator must have a set_background function.")
         # Setting linear solver for solving Newton system and problem class
-        StopLin = S.BasicStopper(niter=self.niter_max)
-        self.lin_solver = S.CGsym(StopLin)
-        self.NewtonPrblm = P.LeastSquaresSymmetric(HessianOp.domain.clone(), HessianOp.domain.clone(), HessianOp)
-        return
+        StopLin = BasicStopper(niter=self.niter_max)
+        self.lin_solver = CGsym(StopLin)
+        self.NewtonPrblm = LeastSquaresSymmetric(HessianOp.domain.clone(), HessianOp.domain.clone(), HessianOp)
     
     def run(self, problem, verbose=False, restart=False):
         """Run Truncated Newton solver"""
         return
 
 
-class LBFGS(S.Solver):
+class LBFGS(Solver):
     """Limited-memory Broyden-Fletcher-Goldfarb-Shanno (L-BFGS) solver"""
     
     def __init__(self, stopper, stepper=None, save_alpha=False, m_steps=None, H0=None, logger=None, save_est=False):
@@ -460,7 +458,7 @@ class LBFGS(S.Solver):
         # Defining stopper object
         self.stopper = stopper
         # Defining stepper object
-        self.stepper = stepper if stepper is not None else S.CvSrchStep()
+        self.stepper = stepper if stepper is not None else CvSrchStep()
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
@@ -473,7 +471,7 @@ class LBFGS(S.Solver):
         self.tmp_vector = None  # op copy of the model vector will be create when the function run is invoked
         self.iistep = 0  # necessary to re-used the estimated hessian inverse from previous runs
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d, geval = %d"
+        self.iter_msg = "iter = %s, obj = %.2e, rnorm = %.2e, gnorm = %.2e, feval = %s, geval = %s"
     
     def save_hessian_estimate(self, index, iiter):
         """Function to save current vector of estimated Hessian inverse"""
@@ -511,7 +509,6 @@ class LBFGS(S.Solver):
             self.save_hessian_estimate(step_index, iiter)
         return
     
-    # BFGSMultiply function
     def BFGSMultiply(self, dmodl, grad, iiter):
         """Function to apply approximated inverse Hessian"""
         # Array containing dot-products
@@ -572,6 +569,7 @@ class LBFGS(S.Solver):
             keep_hessian: use hessian inverse estimate build from previous runs
             restart: restart previously crashed inversion
         """
+        create_msg = verbose or self.logger
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Getting model vector
@@ -589,19 +587,20 @@ class LBFGS(S.Solver):
             self.iistep = 0
         
         if not restart:
-            msg = 90 * "#" + "\n"
-            if self.m_steps is not None:
-                msg += "Limited-memory Broyden-Fletcher-Goldfarb-Shanno (L-BFGS) algorithm log file\n"
-                msg += "Maximum number of steps to be used for Hessian inverse estimation: %s \n" % self.m_steps
-            else:
-                msg += "Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm log file\n"
-            # Printing restart folder
-            msg += "Restart folder: %s\n" % self.restart.restart_folder
-            msg += 90 * "#" + "\n"
-            if verbose:
-                print(msg.replace("log file", ""))
-            if self.logger:
-                self.logger.addToLog(msg)
+            if create_msg:
+                msg = 90 * "#" + "\n"
+                if self.m_steps is not None:
+                    msg += 12 * " " + "L-BFGS Solver log file\n"
+                    msg += 4 * " " + "Max steps to invert the Hessian: %d \n" % self.m_steps
+                else:
+                    msg += 12 * " " + "BFGS Solver log file\n"
+                # Printing restart folder
+                msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 90 * "#" + "\n"
+                if verbose:
+                    print(msg.replace("log file", ""))
+                if self.logger:
+                    self.logger.addToLog(msg)
             
             # Setting internal vectors (model, search direction, and previous gradient vectors)
             bfgs_mdl = prblm_mdl.clone()
@@ -661,8 +660,8 @@ class LBFGS(S.Solver):
                                        obj0,
                                        problem.get_rnorm(bfgs_mdl),
                                        problem.get_gnorm(bfgs_mdl),
-                                       problem.get_fevals(),
-                                       problem.get_gevals())
+                                       str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
+                                       str(problem.get_gevals()).zfill(self.stopper.zfill))
                 if verbose:
                     print(msg)
                 # Writing on log file
@@ -748,7 +747,7 @@ class LBFGS(S.Solver):
             # Making first step-length value Hessian guess if not provided by user
             if iiter == 0 and alpha != 1.0:
                 self.restart.save_parameter("fist_alpha", alpha)
-                self.H0 = O.Scaling(bfgs_dmodl, alpha) if self.H0 is None else self.H0 * O.Scaling(bfgs_dmodl, alpha)
+                self.H0 = Scaling(bfgs_dmodl, alpha) if self.H0 is None else self.H0 * Scaling(bfgs_dmodl, alpha)
                 if self.logger:
                     self.logger.addToLog("First step-length value added to first Hessian inverse estimate!")
                 self.stepper.alpha = 1.0
@@ -780,8 +779,8 @@ class LBFGS(S.Solver):
                                    obj1,
                                    problem.get_rnorm(bfgs_mdl),
                                    problem.get_gnorm(bfgs_mdl),
-                                   problem.get_fevals(),
-                                   problem.get_gevals())
+                                   str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
+                                   str(problem.get_gevals()).zfill(self.stopper.zfill))
             if verbose:
                 print(msg)
             # Writing on log file
@@ -795,16 +794,17 @@ class LBFGS(S.Solver):
         
         # Writing last inverted model
         self.save_results(iiter, problem, force_save=True, force_write=True)
-        msg = 90 * "#" + "\n"
-        if self.m_steps is not None:
-            msg += "Limited-memory Broyden-Fletcher-Goldfarb-Shanno (L-BFGS) algorithm log file end\n"
-        else:
-            msg += "Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm log file end\n"
-        msg += 90 * "#" + "\n"
-        if verbose:
-            print(msg.replace("log file ", ""))
-        if self.logger:
-            self.logger.addToLog(msg)
+        if create_msg:
+            msg = 90 * "#" + "\n"
+            if self.m_steps is not None:
+                msg += 12 * " " + "L-BFGS Solver log file end\n"
+            else:
+                msg += 12 * " " + "BFGS Solver log file end\n"
+            msg += 90 * "#" + "\n"
+            if verbose:
+                print(msg.replace("log file ", ""))
+            if self.logger:
+                self.logger.addToLog(msg)
         self.restart.clear_restart()
         # Resetting inverse Hessian matrix
         if not keep_hessian:
@@ -813,7 +813,7 @@ class LBFGS(S.Solver):
         self.tmp_vector = None
 
 
-class LBFGSB(S.Solver):
+class LBFGSB(Solver):
     """
     Limited-memory Broyden-Fletcher-Goldfarb-Shanno with Bounds (L-BFGS-B) Solver
 
@@ -836,7 +836,7 @@ class LBFGSB(S.Solver):
         # Defining stopper object
         self.stopper = stopper
         # Defining stepper object
-        self.stepper = stepper if stepper is not None else S.StrongWolfe()
+        self.stepper = stepper if stepper is not None else StrongWolfe()
         # Logger object to write on log file
         self.logger = logger
         # Overwriting logger of the Stopper object
@@ -845,7 +845,7 @@ class LBFGSB(S.Solver):
         self.m_steps = m_steps
         self.epsmch = None
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %d, geval = %d"
+        self.iter_msg = "iter = %s, obj = %.2e, rnorm = %.2e, gnorm = %.2e, feval = %s, geval = %s"
     
     def get_breakpoints(self, bfgsb_dmodl, bfgsb_mdl, prblm_grad, minBound, maxBound):
         """
@@ -1131,6 +1131,7 @@ class LBFGSB(S.Solver):
             verbose: verbosity flag
             restart: restart previously crashed inversion
         """
+        create_msg = verbose or self.logger
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Getting model vector
@@ -1152,19 +1153,20 @@ class LBFGSB(S.Solver):
         M = np.zeros((1, 1))
         
         if not restart:
-            msg = 90 * "#" + "\n"
-            if self.m_steps is not None:
-                msg += "Limited-memory Broyden-Fletcher-Goldfarb-Shanno with Bounds (L-BFGS-B) algorithm log file\n"
-                msg += "Maximum number of steps to be used for Hessian inverse estimation: %s \n" % self.m_steps
-            else:
-                msg += "Broyden-Fletcher-Goldfarb-Shanno with Bounds (BFGS-B) algorithm log file\n"
-            # Printing restart folder
-            msg += "Restart folder: %s\n" % self.restart.restart_folder
-            msg += 90 * "#" + "\n"
-            if verbose:
-                print(msg.replace("log file", ""))
-            if self.logger:
-                self.logger.addToLog(msg)
+            if create_msg:
+                msg = 90 * "#" + "\n"
+                if self.m_steps is not None:
+                    msg += 12 * " " + "L-BFGS-B Solver log file\n"
+                    msg += 4 * " " + "Max steps to invert the Hessian: %d \n" % self.m_steps
+                else:
+                    msg += 12 * " " + "BFGS-B Solver log file\n"
+                # Printing restart folder
+                msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 90 * "#" + "\n"
+                if verbose:
+                    print(msg.replace("log file", ""))
+                if self.logger:
+                    self.logger.addToLog(msg)
             
             # Setting internal vectors (model, search direction, and previous gradient vectors)
             bfgsb_mdl = prblm_mdl.clone()
@@ -1236,8 +1238,8 @@ class LBFGSB(S.Solver):
                                        obj0,
                                        problem.get_rnorm(bfgsb_mdl),
                                        problem.get_gnorm(bfgsb_mdl),
-                                       problem.get_fevals(),
-                                       problem.get_gevals())
+                                       str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
+                                       str(problem.get_gevals()).zfill(self.stopper.zfill))
                 if verbose:
                     print(msg)
                 # Writing on log file
@@ -1381,8 +1383,8 @@ class LBFGSB(S.Solver):
                                    obj1,
                                    problem.get_rnorm(bfgsb_mdl),
                                    problem.get_gnorm(bfgsb_mdl),
-                                   problem.get_fevals(),
-                                   problem.get_gevals())
+                                   str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
+                                   str(problem.get_gevals()).zfill(self.stopper.zfill))
             if verbose:
                 print(msg)
             # Writing on log file
@@ -1396,20 +1398,21 @@ class LBFGSB(S.Solver):
         
         # Writing last inverted model
         self.save_results(iiter, problem, force_save=True, force_write=True)
-        msg = 90 * "#" + "\n"
-        if self.m_steps is not None:
-            msg += "Limited-memory Broyden-Fletcher-Goldfarb-Shanno with Bounds (L-BFGS-B) algorithm log file end\n"
-        else:
-            msg += "Broyden-Fletcher-Goldfarb-Shanno with Bounds (BFGS-B) algorithm log file end\n"
-        msg += 90 * "#" + "\n"
-        if verbose:
-            print(msg.replace("log file ", ""))
-        if self.logger:
-            self.logger.addToLog(msg)
+        if create_msg:
+            msg = 90 * "#" + "\n"
+            if self.m_steps is not None:
+                msg += 12 * " " + "L-BFGS-B Solver log file end\n"
+            else:
+                msg += 12 * " " + "BFGS-B Solver log file end\n"
+            msg += 90 * "#" + "\n"
+            if verbose:
+                print(msg.replace("log file ", ""))
+            if self.logger:
+                self.logger.addToLog(msg)
         self.restart.clear_restart()
 
 
-class MCMC(S.Solver):
+class MCMC(Solver):
     """Markov chain Monte Carlo sampling algorithm"""
     
     def __init__(self, **kwargs):
@@ -1443,7 +1446,7 @@ class MCMC(S.Solver):
         else:
             raise ValueError("Not supported prop_distr")
         # print formatting
-        self.iter_msg = "sample number = %s, log-obj = %.5e, rnorm = %.2e, feval = %d, ar = %2.5f%%, alpha = %1.5f"
+        self.iter_msg = "sample number = %s, log-obj = %.2e, rnorm = %.2e, feval = %s, ar = %2.5f%%, alpha = %1.5f"
         self.ndigits = self.stopper.zfill
         # Temperature Metropolis sampling algorithm (see, Monte Carlo sampling of
         # solutions to inverse problems by Mosegaard and Tarantola, 1995)
@@ -1461,6 +1464,7 @@ class MCMC(S.Solver):
             verbose: verbosity flag
             restart: restart previously crashed inversion
         """
+        create_msg = verbose or self.logger
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if user is saving the sampled models
@@ -1471,14 +1475,15 @@ class MCMC(S.Solver):
                 self.logger.addToLog(msg)
         
         if not restart:
-            msg = 90 * "#" + "\n"
-            msg += "Markov Chain Monte Carlo (MCMC) algorithm log file\n"
-            msg += "Restart folder: %s\n" % self.restart.restart_folder
-            msg += 90 * "#" + "\n"
-            if verbose:
-                print(msg.replace("log file", ""))
-            if self.logger:
-                self.logger.addToLog(msg)
+            if create_msg:
+                msg = 90 * "#" + "\n"
+                msg += 12 * " " + "MCMC Solver log file\n"
+                msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 90 * "#" + "\n"
+                if verbose:
+                    print(msg.replace("log file", ""))
+                if self.logger:
+                    self.logger.addToLog(msg)
             prblm_mdl = problem.get_model()
             mcmc_mdl_cur = prblm_mdl.clone()
             
@@ -1486,7 +1491,6 @@ class MCMC(S.Solver):
             accepted = 1  # number of accepted samples
             iiter = 1  # number of tested point so far
         else:
-            # Retrieving parameters and vectors to restart the solver
             msg = "Restarting previous solver run from: %s" % self.restart.restart_folder
             if verbose:
                 print(msg)
@@ -1515,7 +1519,7 @@ class MCMC(S.Solver):
             msg = self.iter_msg % (str(iiter).zfill(self.ndigits),
                                    np.log(obj_current),
                                    res_norm,
-                                   problem.get_fevals(),
+                                   str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
                                    100. * float(accepted) / iiter,
                                    1.0)
             if verbose:
@@ -1591,7 +1595,7 @@ class MCMC(S.Solver):
             msg = self.iter_msg % (str(iiter).zfill(self.ndigits),
                                    np.log(obj_current),
                                    res_norm,
-                                   problem.get_fevals(),
+                                   str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
                                    100. * float(accepted) / iiter,
                                    alpha)
             if verbose:
@@ -1613,12 +1617,13 @@ class MCMC(S.Solver):
             if self.stopper.run(problem, iiter, verbose=verbose):
                 break
         
-        msg = 90 * "#" + "\n"
-        msg += "Markov Chain Monte Carlo (MCMC) algorithm algorithm log file end\n"
-        msg += 90 * "#" + "\n"
-        if verbose:
-            print(msg.replace("log file ", ""))
-        if self.logger:
-            self.logger.addToLog(msg)
+        if create_msg:
+            msg = 90 * "#" + "\n"
+            msg += 12 * " " + "MCMC Solver log file end\n"
+            msg += 90 * "#" + "\n"
+            if verbose:
+                print(msg.replace("log file ", ""))
+            if self.logger:
+                self.logger.addToLog(msg)
         self.restart.clear_restart()
         return

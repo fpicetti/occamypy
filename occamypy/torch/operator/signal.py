@@ -1,11 +1,13 @@
-from typing import Union, List, Tuple
 from itertools import accumulate, product
+from typing import Union, List, Tuple
+
 import numpy as np
 import torch
 
-from occamypy import superVector, Operator, Dstack
-from occamypy.torch.vector import VectorTorch
+from occamypy.operator.base import Operator, Dstack
 from occamypy.torch.back_utils import set_backends
+from occamypy.torch.vector import VectorTorch
+from occamypy.vector.base import superVector
 
 set_backends()
 

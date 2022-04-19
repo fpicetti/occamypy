@@ -1,7 +1,9 @@
 import os
+
 import numpy as np
+
 from occamypy.utils import sep
-from .axis_info import AxInfo
+from occamypy.vector.axis_info import AxInfo
 
 
 class Vector:

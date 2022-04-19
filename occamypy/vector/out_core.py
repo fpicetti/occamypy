@@ -1,14 +1,15 @@
-import numpy as np
 import os
-from time import time
 from copy import deepcopy
+from re import compile
 from shutil import copyfile
+from time import time
 
-from .base import Vector
+import numpy as np
+
 from occamypy.utils import sep
 from occamypy.utils.os import RunShellCmd, hashfile, BUF_SIZE
+from occamypy.vector.base import Vector
 
-from re import compile
 re_dpr = compile("DOT RESULT(.*)")
 
 
@@ -57,7 +58,6 @@ class VectorOC(Vector):
         self.shape = tuple(reversed(axis_elements))
         self.size = np.product(self.shape)
         self.ndim = len(self.shape)
-        return
     
     def __del__(self):
         if self.remove_file:

@@ -1,11 +1,13 @@
-import numpy as np
 import os
-import dask.distributed as daskD
 
-from occamypy.utils.os import BUF_SIZE
+import dask.distributed as daskD
+import numpy as np
+
+from occamypy.vector.base import Vector
+from occamypy. numpy.vector import VectorNumpy
 from occamypy.utils import sep
-from occamypy import Vector, VectorNumpy
-from .utils import DaskClient
+from occamypy.utils.os import BUF_SIZE
+from occamypy.dask.utils import DaskClient
 
 # Verify if SepVector modules are presents
 try:
@@ -367,7 +369,6 @@ class DaskVector(Vector):
             raise ValueError("Wrong arguments passed to constructor! Please, read object help!")
         # Waiting vectors to be instantiated
         daskD.wait(self.vecDask)
-        return
     
     def getNdArray(self):
         # Retriving arrays by chunks (useful for large arrays)

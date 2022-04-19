@@ -1,6 +1,6 @@
-from occamypy import Vector
-from .base import Operator
-from occamypy.utils import get_backend, get_vector_type
+from occamypy.vector.base import Vector
+from occamypy.operator.base import Operator
+from occamypy.utils.backend import get_backend, get_vector_type
 
 
 class Matrix(Operator):

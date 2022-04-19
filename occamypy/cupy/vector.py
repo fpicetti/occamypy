@@ -5,7 +5,8 @@ import cupy as cp
 import numpy as np
 from GPUtil import getGPUs, getFirstAvailable
 
-from occamypy import Vector, VectorNumpy
+from occamypy.vector.base import Vector
+from occamypy.numpy.vector import VectorNumpy
 
 
 class VectorCupy(Vector):

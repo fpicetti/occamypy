@@ -1,7 +1,6 @@
-import torch
 import numpy as np
+import torch
 from GPUtil import getFirstAvailable
-
 
 __all__ = [
     "set_backends",

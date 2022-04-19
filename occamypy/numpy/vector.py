@@ -3,7 +3,7 @@ from sys import version_info
 
 import numpy as np
 
-from occamypy import Vector
+from occamypy.vector.base import Vector
 
 
 class VectorNumpy(Vector):

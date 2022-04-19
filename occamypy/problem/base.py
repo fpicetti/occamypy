@@ -1,3 +1,9 @@
+__all__ = [
+    "Bounds",
+    "Problem",
+]
+
+
 class Bounds:
     """
     Class used to enforce boundary constraints during the inversion
@@ -23,7 +29,6 @@ class Bounds:
         # If only the lower bound was provided we use the opposite of the lower bound to clip the values
         if self.minBound is not None and self.maxBound is None:
             self.minBound.scale(-1.0)
-        return
 
     def apply(self, input_vec):
         """

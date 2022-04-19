@@ -1,5 +1,5 @@
 from occamypy.utils import get_backend
-from .base import Operator, Vstack
+from occamypy.operator.base import Operator, Vstack
 
 
 class FirstDerivative(Operator):

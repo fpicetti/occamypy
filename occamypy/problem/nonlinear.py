@@ -1,10 +1,13 @@
 from math import isnan
-from occamypy.vector import superVector
-from occamypy import problem as P
-from occamypy import operator as O
+
+from occamypy.vector.base import superVector
+from occamypy.operator.linear import Identity
+from occamypy.operator.nonlinear import NonlinearOperator, NonlinearVstack, VarProOperator
+from occamypy.problem.base import Problem
+from occamypy.problem.linear import LeastSquares, LeastSquaresRegularized
 
 
-class NonlinearLeastSquares(P.Problem):
+class NonlinearLeastSquares(Problem):
     r"""
     Nonlinear inverse problem of the form
 
@@ -42,7 +45,7 @@ class NonlinearLeastSquares(P.Problem):
         # Dresidual vector
         self.dres = self.res.clone()
         # Setting non-linear and linearized operators
-        if isinstance(op, O.NonlinearOperator):
+        if isinstance(op, NonlinearOperator):
             self.op = op
         else:
             raise TypeError("Not provided a non-linear operator!")
@@ -55,7 +58,6 @@ class NonlinearLeastSquares(P.Problem):
         # Setting default variables
         self.setDefaults()
         self.linear = False
-        return
     
     def resf(self, model):
         r"""
@@ -110,7 +112,7 @@ class NonlinearLeastSquares(P.Problem):
         return obj
 
 
-class NonlinearLeastSquaresRegularized(P.Problem):
+class NonlinearLeastSquaresRegularized(Problem):
     r"""
     Nonlinear inverse problem with a linear regularization
 
@@ -157,17 +159,17 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         # Setting linear operators
         # Assuming identity operator if regularization operator was not provided
         if reg_op is None:
-            Id_op = O.Identity(self.model)
-            reg_op = O.NonlinearOperator(Id_op, Id_op)
+            Id_op = Identity(self.model)
+            reg_op = NonlinearOperator(Id_op, Id_op)
         # Checking if space of the prior model is constistent with range of regularization operator
         if self.prior_model is not None:
             if not self.prior_model.checkSame(reg_op.range):
                 raise ValueError("Prior model space no constistent with range of regularization operator")
         # Setting non-linear and linearized operators
-        if not isinstance(op, O.NonlinearOperator):
+        if not isinstance(op, NonlinearOperator):
             raise TypeError("Not provided a non-linear operator!")
         # Setting non-linear stack of operators
-        self.op = O.NonlinearVstack(op, reg_op)
+        self.op = NonlinearVstack(op, reg_op)
         self.epsilon = epsilon  # Regularization weight
         # Residual vector (data and model residual vectors)
         self.res = self.op.nl_op.range.clone()
@@ -185,7 +187,6 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         self.linear = False
         # Objective function terms (useful to analyze each term)
         self.obj_terms = [None, None]
-        return
     
     def estimate_epsilon(self, verbose=False, logger=None):
         """
@@ -337,7 +338,7 @@ class NonlinearLeastSquaresRegularized(P.Problem):
         return obj
 
 
-class VarProRegularized(P.Problem):
+class VarProRegularized(Problem):
     r"""
     Non-linear inverse problem of the form
     
@@ -354,7 +355,8 @@ class VarProRegularized(P.Problem):
     """
     
     def __init__(self, model_nl, lin_model, h_op, data, lin_solver, g_op=None, g_op_reg=None, h_op_reg=None,
-                 data_reg=None, epsilon=None, minBound=None, maxBound=None, boundProj=None, prec=None, warm_start=False):
+                 data_reg=None, epsilon=None, minBound=None, maxBound=None, boundProj=None, prec=None,
+                 warm_start=False):
         """
         VarProRegularized constructor
         
@@ -375,7 +377,7 @@ class VarProRegularized(P.Problem):
             prec: preconditioner linear operator
             warm_start: start VP problem from previous linearly inverted domain
         """
-        if not isinstance(h_op, O.VarProOperator):
+        if not isinstance(h_op, VarProOperator):
             raise TypeError("ERROR! Not provided an operator class for the variable projection problem")
         # Setting the bounds (if any)
         super(VarProRegularized, self).__init__(minBound, maxBound, boundProj)
@@ -389,7 +391,7 @@ class VarProRegularized(P.Problem):
         # Copying the pointer to data vector
         self.data = data
         # Setting non-linear/linear operator
-        if not isinstance(h_op, O.VarProOperator):
+        if not isinstance(h_op, VarProOperator):
             raise TypeError("ERROR! Provide a VpOperator operator class for h_op")
         self.h_op = h_op
         # Setting non-linear operator (if any)
@@ -411,7 +413,7 @@ class VarProRegularized(P.Problem):
             if self.g_op_reg is not None:
                 res_reg = self.g_op_reg.nl_op.range.clone()
             elif self.h_op_reg is not None:
-                if not isinstance(h_op_reg, O.VarProOperator):
+                if not isinstance(h_op_reg, VarProOperator):
                     raise TypeError("ERROR! Provide a VpOperator operator class for h_op_reg")
                 res_reg = self.h_op_reg.h_lin.range.clone()
             elif self.data_reg is not None:
@@ -426,11 +428,11 @@ class VarProRegularized(P.Problem):
             self.res = data.clone()
         # Instantiating linear inversion problem
         if self.h_op_reg is not None:
-            self.vp_linear_prob = P.LeastSquaresRegularized(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
-                                                            reg_op=self.h_op_reg.h_lin, prior_model=self.data_reg,
-                                                            prec=prec)
+            self.vp_linear_prob = LeastSquaresRegularized(self.lin_model, self.data, self.h_op.h_lin, self.epsilon,
+                                                          reg_op=self.h_op_reg.h_lin, prior_model=self.data_reg,
+                                                          prec=prec)
         else:
-            self.vp_linear_prob = P.LeastSquares(self.lin_model, self.data, self.h_op.h_lin, prec=prec)
+            self.vp_linear_prob = LeastSquares(self.lin_model, self.data, self.h_op.h_lin, prec=prec)
         # Zeroing out the residual vector
         self.res.zero()
         # Dresidual vector
@@ -446,7 +448,6 @@ class VarProRegularized(P.Problem):
         self.lin_solver_prefix = self.lin_solver.prefix
         self.vp_linear_prob.linear = True
         self.warm_start = warm_start
-        return
     
     def estimate_epsilon(self, verbose=False, logger=None):
         """
@@ -616,7 +617,8 @@ class VarProRegularized(P.Problem):
         return self.grad
     
     def dresf(self, model, dmodel):
-        raise NotImplementedError("ERROR! dresf is not currently supported! Provide an initial step-length value different than zero.")
+        raise NotImplementedError(
+            "ERROR! dresf is not currently supported! Provide an initial step-length value different than zero.")
     
     def objf(self, residual):
         r"""

@@ -1,5 +1,6 @@
 import numpy as np
-from occamypy import Operator
+
+from occamypy.operator.base import Operator
 
 try:
     import pylops

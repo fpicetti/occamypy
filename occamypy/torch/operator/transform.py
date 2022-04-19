@@ -1,10 +1,12 @@
+from itertools import product
+
 import torch
 import torch.fft as fft
-from occamypy import Operator
-from itertools import product
 from numpy.fft import fftfreq
-from ..back_utils import set_backends
-from ..vector import VectorTorch
+
+from occamypy.operator.base import Operator
+from occamypy.torch.back_utils import set_backends
+from occamypy.torch.vector import VectorTorch
 
 set_backends()
 

@@ -1,13 +1,15 @@
-from __future__ import division, print_function, absolute_import
-import numpy as np
 import cupy as cp
+import numpy as np
 from cupyx.scipy.ndimage import gaussian_filter
+
 try:
     from cusignal.convolution import convolve, correlate
 except ModuleNotFoundError:
     raise ModuleNotFoundError("cuSIGNAL is not installed. Please install it")
-from occamypy import Operator, Dstack, Vector, superVector
-from occamypy.cupy import VectorCupy
+
+from occamypy.vector.base import Vector, superVector
+from occamypy.operator.base import Operator, Dstack
+from occamypy.cupy.vector import VectorCupy
 
 
 class GaussianFilter(Operator):
@@ -25,7 +27,6 @@ class GaussianFilter(Operator):
         self.scaling = np.sqrt(np.prod(np.array(self.sigma) / cp.pi))  # in order to have the max amplitude 1
         
         super(GaussianFilter, self).__init__(model, model)
-        return
     
     def __str__(self):
         return "GausFilt"

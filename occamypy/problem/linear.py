@@ -1,8 +1,9 @@
 from math import isnan
 
-from .base import Problem
-from occamypy import operator as O
-from occamypy.vector import superVector
+from occamypy.vector.base import superVector
+from occamypy.operator.base import Vstack
+from occamypy.operator.linear import Identity
+from occamypy.problem.base import Problem
 
 
 class LeastSquares(Problem):
@@ -56,7 +57,6 @@ class LeastSquares(Problem):
         # Setting default variables
         self.setDefaults()
         self.linear = True
-        return
 
     def resf(self, model):
         r"""
@@ -250,13 +250,13 @@ class LeastSquaresRegularized(Problem):
         # Setting linear operators
         # Assuming identity operator if regularization operator was not provided
         if reg_op is None:
-            reg_op = O.Identity(self.model)
+            reg_op = Identity(self.model)
         # Checking if space of the prior model is consistent with range of
         # regularization operator
         if self.prior_model is not None:
             if not self.prior_model.checkSame(reg_op.range):
                 raise ValueError("Prior model space no consistent with range of regularization operator")
-        self.op = O.Vstack(op, reg_op)  # Modeling operator
+        self.op = Vstack(op, reg_op)  # Modeling operator
         self.epsilon = epsilon  # Regularization weight
         # Checking if a gradient mask was provided
         self.grad_mask = grad_mask
@@ -456,7 +456,6 @@ class Lasso(Problem):
         self.lambda_value = lambda_value
         # Objective function terms (useful to analyze each term)
         self.obj_terms = [None, None]
-        return
 
     def set_lambda(self, lambda_in):
         self.lambda_value = lambda_in
@@ -552,7 +551,7 @@ class GeneralizedLasso(Problem):
         self.boundProj = boundProj
 
         # L1 Regularization
-        self.reg_op = reg if reg is not None else O.Identity(model)
+        self.reg_op = reg if reg is not None else Identity(model)
         self.eps = eps
 
         # Last settings

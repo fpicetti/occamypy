@@ -1,13 +1,16 @@
-import numpy as np
-from math import isnan
 from copy import deepcopy
+from math import isnan
+
+import numpy as np
+
+from occamypy.utils.os import ZERO
 
 
 class Stepper:
     """Base stepper class"""
 
     def __init__(self):
-        return
+        pass
 
     def run(self, model, search_dir):
         """Dummy stepper running method"""
@@ -94,8 +97,6 @@ class CvSrchStep(Stepper):
         self.maxfev = maxfev
         self.xtrapf = xtrapf
         self.delta = delta
-        self.zero = 10 ** (np.floor(
-            np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
         # Checking stepper parameters
         if xtol < 0.:
             raise ValueError("ERROR! xtol must be greater than 0.0, current value %.2e" % xtol)
@@ -345,7 +346,7 @@ class CvSrchStep(Stepper):
         # Initial step length value
         alpha = deepcopy(self.alpha)
         # Estimating initial step length value
-        if alpha < self.zero:
+        if alpha < ZERO:
             alpha = self.estimate_initial_guess(problem, modl, dmodl, logger)
         if logger:
             logger.addToLog("\tinitial-steplength=%.2e" % alpha)
@@ -529,10 +530,7 @@ class ParabolicStep(Stepper):
         self.alpha_scale_min = alpha_scale_min  # Maximum scaling value for the step length
         self.alpha_scale_max = alpha_scale_max  # Minimum scaling value for the step length
         self.shrink = shrink  # Shrinking scaling factor if trial is unsuccessful
-        self.zero = 10 ** (np.floor(
-            np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
         self.eval_parab = eval_parab
-        return
 
     def run(self, problem, modl, dmodl, logger=None):
         """Method to apply parabolic stepper"""
@@ -569,7 +567,7 @@ class ParabolicStep(Stepper):
                 logger.addToLog("\ttrial number: %d" % itry)
                 logger.addToLog("\tinitial-steplength=%.2e" % alpha)
             # Find the first guess as if the problem was linear (Tangent method)
-            if (itry == self.ntry) or (alpha < self.zero):
+            if (itry == self.ntry) or (alpha < ZERO):
                 alpha = self.estimate_initial_guess(problem, modl, dmodl, logger)
                 if logger:
                     logger.addToLog("\tGuessing step length of: %.2e" % alpha)
@@ -800,9 +798,6 @@ class ParabolicStepConst(Stepper):
         self.alpha_scale_min = alpha_scale_min  # Minimum scaling value for the step length
         self.alpha_scale_max = alpha_scale_max  # Maximum scaling value for the step length
         self.shrink = shrink  # Shrinking scaling factor if trial is unsuccessful
-        self.zero = 10 ** (np.floor(
-            np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
-        return
 
     def run(self, problem, modl, dmodl, logger=None):
         """Method to apply parabolic stepper"""
@@ -838,7 +833,7 @@ class ParabolicStepConst(Stepper):
                 logger.addToLog("\ttrial number: %d" % itry)
                 logger.addToLog("\tinitial-steplength=%.2e" % alpha)
             # Find the first guess as if the problem was linear (Tangent method)
-            if (itry == self.ntry) or (alpha < self.zero):
+            if (itry == self.ntry) or (alpha < ZERO):
                 alpha = self.estimate_initial_guess(problem, modl, dmodl, logger)
                 if logger:
                     logger.addToLog("\tGuessing step length of: %.2e" % alpha)
@@ -1015,10 +1010,7 @@ class StrongWolfe(Stepper):
         self.alpha = alpha  # Initial step length guess
         self.alpha_max = alpha_max  # Maximum step-length value
         self.alpha_scale = alpha_scale
-        self.zero = 10 ** (np.floor(
-            np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
         self.keepAlpha = keepAlpha
-        return
 
     def alpha_zoom(self, problem, mdl0, mdl, obj0, dphi0, dmodl, alpha_lo, alpha_hi, logger=None):
         """Algorithm 3.6, Page 61. "Numerical Optimization". Nocedal & Wright."""
@@ -1098,7 +1090,7 @@ class StrongWolfe(Stepper):
                 logger.addToLog("\ttrial number: %d" % (itry+1))
                 logger.addToLog("\tinitial-steplength=%.2e" % alpha_i)
             # Find the first guess as if the problem was linear (Tangent method)
-            if alpha_i <= self.zero:
+            if alpha_i <= ZERO:
                 alpha_i = self.estimate_initial_guess(problem, modl, dmodl, logger)
                 self.alpha_max *= alpha_i
                 if logger:
@@ -1131,7 +1123,7 @@ class StrongWolfe(Stepper):
                     logger.addToLog("\tCondition 2 matched; step-length value of: %.2e" % alpha)
                 success = True
                 break
-            if dphi >= self.zero:
+            if dphi >= ZERO:
                 alpha = self.alpha_zoom(problem, modl, model_step, obj0, dphi0, dmodl, alpha_i, alpha_im1, logger)
                 if logger:
                     logger.addToLog("\tCondition 3 matched; step-length value of: %.2e" % alpha)

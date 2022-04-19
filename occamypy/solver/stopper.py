@@ -2,7 +2,7 @@ import time
 from timeit import default_timer as timer
 import numpy as np
 
-from occamypy import problem as P
+from occamypy.problem.base import Problem
 
 
 class Stopper:
@@ -15,16 +15,26 @@ class Stopper:
         run(problem): apply its criteria to the problem
     """
 
-    def __init__(self):
-        """Default class constructor for Stopper"""
-        return
-
+    def __init__(self, logger=None):
+        """Stopper constructor"""
+        self.logger = logger
+    
     def reset(self):
         """Function to reset stopper variables"""
         raise NotImplementedError("Implement reset stopper in the derived class.")
 
-    def run(self, problem):
-        """Dummy stopper running method"""
+    def run(self, problem: Problem, niter: int, verbose: bool = False):
+        """
+        Apply the stopping criteria to the problem
+        
+        Args:
+            problem: problem that is being solved
+            niter: number of iterations allowed
+            verbose: verbosity flag
+
+        Notes:
+            Beware stopper is going to change the gradient/obj/res files
+        """
         raise NotImplementedError("Implement run stopper in the derived class.")
 
 
@@ -54,8 +64,7 @@ class BasicStopper(Stopper):
             tolobjchng: step-relative tolerance on objective function value (phi(m_i) - phi(m_i-1))/ phi(m_0).
                note: modify the internal variable 'ave_pts' to change the number of points on which to compute the criterion)
         """
-        # Criteria to evaluate whether or not to stop the solver
-        super(BasicStopper, self).__init__()
+        super(BasicStopper, self).__init__(logger=logger)
         self.niter = niter
         self.zfill = int(np.floor(np.log10(self.niter)) + 1)  # number of digits for printing the iteration number
         self.maxfevals = maxfevals
@@ -71,11 +80,8 @@ class BasicStopper(Stopper):
         # number of points to average plus the oldest one to compute objetive the change
         self.ave_pts = 3
         self.obj_pts = list()
-        # Logger to write to file stopper information
-        self.logger = logger
         # Starting timer
         self.__start = timer()
-        return
 
     def reset(self):
         """Function to reset stopper variables"""
@@ -86,7 +92,7 @@ class BasicStopper(Stopper):
 
     # Beware stopper is going to change the gradient/obj/res files
     def run(self, problem, niter, initial_obj_value=None, verbose=False):
-        if not isinstance(problem, P.Problem):
+        if not isinstance(problem, Problem):
             raise TypeError("Input variable is not a Problem object")
         # Variable to impose stopping to solver
         stop = False
@@ -239,7 +245,7 @@ class SamplingStopper(Stopper):
             logger: Logger object
         """
         # Criteria to evaluate whether or not to stop the solver
-        super(SamplingStopper, self).__init__()
+        super(SamplingStopper, self).__init__(logger=logger)
         self.nsamples = nsamples
         self.zfill = int(np.floor(np.log10(self.nsamples)) + 1)  # number of digits for printing the iteration number
         self.maxhours = maxhours
@@ -247,7 +253,6 @@ class SamplingStopper(Stopper):
         self.logger = logger
         # Starting timer
         self.__start = timer()
-        return
 
     def reset(self):
         """Function to reset stopper variables"""
@@ -256,7 +261,7 @@ class SamplingStopper(Stopper):
         return
 
     def run(self, problem, nsamples, verbose=False):
-        if not isinstance(problem, P.Problem):
+        if not isinstance(problem, Problem):
             raise TypeError("Input variable is not a Problem object")
         # Variable to impose stopping to solver
         stop = False

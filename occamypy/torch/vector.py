@@ -1,10 +1,10 @@
 from math import sqrt
 
 import torch
-from .back_utils import get_device, get_device_name
 from numpy import ndarray
 
-from occamypy import Vector
+from occamypy.vector.base import Vector
+from occamypy.torch.back_utils import get_device, get_device_name
 
 
 class VectorTorch(Vector):

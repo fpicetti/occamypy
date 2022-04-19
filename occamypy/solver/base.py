@@ -1,16 +1,17 @@
-# Module containing generic Solver and Restart definitions
 import atexit
+import datetime
 import os
 import pickle
 import re
-import numpy as np
-from shutil import rmtree
 from copy import deepcopy
-import datetime
+from shutil import rmtree
 
+import numpy as np
+
+from occamypy.vector.base import VectorSet
+from occamypy.vector.out_core import VectorOC
+from occamypy.problem.base import Problem
 from occamypy.utils import mkdir, sep
-from occamypy import problem as P
-from occamypy import VectorSet, VectorOC
 
 
 class Solver:
@@ -45,10 +46,9 @@ class Solver:
         
         # Set Restart object
         self.restart = Restart()
-        self.create_msg = False
+        create_msg = False
         # Setting defaults for saving results
         self.setDefaults()
-        return
     
     def setPrefix(self, prefix):
         """Mutator to change prefix and file names for saving inversion results"""
@@ -150,7 +150,7 @@ class Solver:
                 obj: objective function to be saved
                 obj_terms: if problem objective function has more than one term
         """
-        if not isinstance(problem, P.Problem):
+        if not isinstance(problem, Problem):
             raise TypeError("Input variable is not a Problem object")
         force_save = kwargs.get("force_save", False)
         force_write = kwargs.get("force_write", False)

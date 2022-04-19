@@ -1,11 +1,12 @@
-import numpy as np
-import dask.distributed as daskD
 from collections.abc import Iterable
 
-from occamypy import Vector, Operator
-from .vector import DaskVector
-from .utils import DaskClient
-from .vector import scatter_large_data
+import dask.distributed as daskD
+import numpy as np
+
+from occamypy.dask.utils import DaskClient
+from occamypy.dask.vector import DaskVector, scatter_large_data
+from occamypy.operator.base import Operator
+from occamypy.vector.base import Vector
 
 
 def call_constructor(constr, args, kwargs=None):
@@ -218,7 +219,6 @@ class DaskOperator(Operator):
                 if not isinstance(self.SprdAux, DaskSpread):
                     raise TypeError("Provided spread_op_aux not a DaskSpreadOp class!")
                 self.tmp_aux = self.SprdAux.getRange().clone()
-        return
 
     def __str__(self):
         return " DaskOp "
@@ -327,7 +327,6 @@ class DaskSpread(Operator):
         self.client = self.dask_client.getClient()
         self.chunks = chunks
         self.setDomainRange(domain, DaskVector(self.dask_client, vector_template=domain, chunks=chunks))
-        return
     
     def __str__(self):
         return "DaskSprd"

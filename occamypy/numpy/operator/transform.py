@@ -1,7 +1,7 @@
 import numpy as np
 
-from occamypy import Operator
-from ..vector import VectorNumpy
+from occamypy.operator.base import Operator
+from occamypy.numpy.vector import VectorNumpy
 
 
 class FFT(Operator):

@@ -6,9 +6,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 
-from occamypy import problem as P
-from occamypy import solver as S
-from occamypy.vector import Vector, superVector
+from occamypy.vector.base import Vector, superVector
 
 
 class Operator:
@@ -36,7 +34,6 @@ class Operator:
         forward: forward operation
         adjoint: adjoint (conjugate-tranpose) operation
     """
-    # Default class methods/functions
     def __init__(self, domain, range):
         """
         Operator constructor
@@ -54,7 +51,6 @@ class Operator:
     def __repr__(self):
         return self.__str__()
     
-    # unary operators
     def __add__(self, other):  # self + other
         if isinstance(other, Operator):
             return _sumOperator(self, other)
@@ -72,15 +68,18 @@ class Operator:
     
     __rmul__ = __mul__  # other * self
     
-    def __truediv__(self, other, niter=2000):
+    def __truediv__(self, other, niter: int = 2000):
         """x = op / y through CG"""
+        from occamypy.problem.linear import LeastSquares
+        from occamypy.solver.stopper import BasicStopper
+        from occamypy.solver.linear import CG
         
         if not self.range.checkSame(other):
             raise ValueError('Operator range and data domain mismatch')
         
-        stopper = S.BasicStopper(niter=niter)
-        problem = P.LeastSquares(model=self.domain.clone(), data=other, op=self)
-        CGsolver = S.CG(stopper)
+        stopper = BasicStopper(niter=niter)
+        problem = LeastSquares(model=self.domain.clone(), data=other, op=self)
+        CGsolver = CG(stopper)
         CGsolver.run(problem, verbose=False)
         
         return problem.model
