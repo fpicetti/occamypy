@@ -1,6 +1,6 @@
 import numpy as np
 
-from occamypy.operator.base import Operator, Vstack, _sumOperator, _prodOperator
+from .base import Operator, Vstack, _sumOperator, _prodOperator
 
 
 def dummy_set_background(dummy_arg):
@@ -13,7 +13,7 @@ def dummy_set_background(dummy_arg):
 class NonlinearOperator(Operator):
     """
     Non-linear operator
-    
+
     Methods:
         linTest: perform linearization test
     """
@@ -21,7 +21,7 @@ class NonlinearOperator(Operator):
     def __init__(self, nl_op, lin_op=None, set_background_func=dummy_set_background):
         """
         NonlinearOperator
-        
+
         Args:
             nl_op: Operator where only the forward is defined
             lin_op: Jacobian operator (if not necessary, use occamypy.Zero)
@@ -37,12 +37,11 @@ class NonlinearOperator(Operator):
         if not self.nl_op.range.checkSame(self.lin_op.range):
             raise ValueError("ERROR! The two provided operators have different ranges")
         super(NonlinearOperator, self).__init__(self.nl_op.domain, self.nl_op.range)
-        self.name = "NLOperator"
-        
+    
     def dotTest(self, **kwargs):
         raise NotImplementedError("Perform dot-product tests directly on the linear operator.")
     
-    def linTest(self, background, pert=None, alpha=np.logspace(-6, 0, 100), plot: bool = False):
+    def linTest(self, background, pert=None, alpha=np.logspace(-6, 0, 100), plot=False):
         r"""
         Compute the linearization error of the operator as
         
@@ -58,7 +57,7 @@ class NonlinearOperator(Operator):
         Returns:
             alpha array, error array
         """
-        # Creating domain perturbation if not provided
+        # Creating model perturbation if not provided
         if pert is None:
             pert = self.getDomain().clone().rand()
         # List containing linearization error and perturbation scale/norm
@@ -89,17 +88,17 @@ class NonlinearOperator(Operator):
         lin_err = np.array(lin_err)
         if plot:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(figsize=(6, 4))
-            ax.plot(alpha, lin_err, 'r')
-            ax.set_xlim(0,1), ax.set_ylim(0)
-            ax.set_xlabel(r"$\alpha$")
-            ax.set_ylabel(r"$|f(m_0+\alpha dm) - f(m_0) - \alpha F(m_0)dm|_2$")
-            ax.grid(True)
-            plt.suptitle('Linearization error')
-            plt.tight_layout()
+            fig, ax = plt.subplots(figsize=(6, 3))
+            plt.plot(alpha, lin_err, 'r')
+            ax.autoscale(enable=True, axis='y', tight=True)
+            ax.autoscale(enable=True, axis='x', tight=True)
+            plt.xlabel(r"$\alpha$")
+            plt.ylabel(r"$|f(m_0+\alpha dm) - f(m_0) - \alpha F(m_0)dm|_2$")
+            plt.title('Linearization error')
             plt.show()
         return alpha, lin_err
     
+    # unary operators
     def __add__(self, other):  # self + other
         if isinstance(other, NonlinearOperator):
             return _sumNlOperator(self, other)
@@ -114,11 +113,10 @@ class NonlinearComb(NonlinearOperator):
     .. math::
         f(g(\mathbf{m}))
     """
-    
     def __init__(self, f, g):
         """
         NonlinearComb constructor
-        
+
         Args:
             f: last operator to be applied
             g: first operator to be applied
@@ -137,12 +135,9 @@ class NonlinearComb(NonlinearOperator):
         self.g_nl_op = g.nl_op
         self.g_range_tmp = g.nl_op.range.clone()
         super(NonlinearComb, self).__init__(self.nl_op, self.lin_op, self.set_background)
-        self.name = f.__str__()+"("+g.__str__()+")"
-
+    
     def set_background(self, model):
-        """
-        Set background function for the chain of Jacobian matrices
-        """
+        """ Set background function for the chain of Jacobian matrices"""
         # Setting G(m0)
         self.set_background_g(model)
         # Setting F(g(m0))
@@ -150,15 +145,15 @@ class NonlinearComb(NonlinearOperator):
         self.set_background_f(self.g_range_tmp)
 
 
-# Necessary for backward compatibility
 def CombNonlinearOp(g, f):
+    """CombNonlinearOp is deprecated! Please use NonlinearComb instead"""
     return NonlinearComb(f, g)
 
 
 class _sumNlOperator(NonlinearOperator):
-    """
+    r"""
     Sum of two non-linear operators
-    
+
     .. math::
         h = g + f
     """
@@ -166,7 +161,7 @@ class _sumNlOperator(NonlinearOperator):
     def __init__(self, g, f):
         """
         sumNlOperator constructor
-        
+
         Args:
             g: first operator
             f: second operator
@@ -188,12 +183,11 @@ class _sumNlOperator(NonlinearOperator):
         self.g_nl_op = g.nl_op
         self.g_range_tmp = g.nl_op.range.clone()
         super(_sumNlOperator, self).__init__(self.nl_op, self.lin_op, self.set_background)
-        self.name = self.args[0].__str__() + "+" + self.args[1].__str__()
+    
+    def __str__(self):
+        return self.args[0].__str__()[:3] + "+" + self.args[1].__str__()[:4]
     
     def set_background(self, model):
-        """
-        Set background function for the sum of Jacobian matrices
-        """
         # Setting G(m0)
         self.set_background_g(model)
         # Setting F(m0)
@@ -207,16 +201,15 @@ def NonlinearSum(f, g):
 class NonlinearVstack(NonlinearOperator):
     """
     Stack of operators class
-    
-            | d1 |   | f(m) |
-     h(m) = |    | = |      |
-            | d2 |   | g(m) |
+
+           | d1 |   | f(m) |
+    h(m) = |    | = |      |
+           | d2 |   | g(m) |
     """
-    
     def __init__(self, nl_op1, nl_op2):
         """
         NonlinearVstack constructor
-        
+
         Args:
             nl_op1: first operator
             nl_op2: second operator
@@ -234,7 +227,9 @@ class NonlinearVstack(NonlinearOperator):
         self.set_background1 = nl_op1.set_background
         self.set_background2 = nl_op2.set_background
         super(NonlinearVstack, self).__init__(self.nl_op, self.lin_op, self.set_background)
-        self.name = "vstack("+",".join([nl_op1.__str__(), nl_op2.__str__()]) + ")"
+    
+    def __str__(self):
+        return "NLVstack"
     
     def set_background(self, model):
         # Setting F(m0)
@@ -246,12 +241,12 @@ class NonlinearVstack(NonlinearOperator):
 class VarProOperator(Operator):
     r"""
     Variable-projection Operator of the form:
-    
+
     .. math::
         h(\mathbf{m}_nl) \mathbf{m}_lin
     """
     
-    def __init__(self, h_nl: NonlinearOperator, h_lin: Operator, set_nl, set_lin_jac, set_lin=None):
+    def __init__(self, h_nl, h_lin, set_nl, set_lin_jac, set_lin=None):
         """
         VarProOperator constructor
         
@@ -272,7 +267,6 @@ class VarProOperator(Operator):
         self.set_nl = set_nl  # Function to set the non-linear component of the h(m_nl)
         self.set_lin_jac = set_lin_jac  # Function to set the non-linear component of the Jacobian H(m_nl;m_lin)
         self.set_lin = set_lin  # Function to set the non-linear component h(m_nl)m_lin
-        self.name = "VarProOp"
     
     def dotTest(self, verb=False, maxError=.0001):
         raise NotImplementedError("ERROR! Perform dot-product tests directly onto linear operator and Jacobian of h(m_nl).")
@@ -284,10 +278,8 @@ class cosOperator(Operator):
     
     def __init__(self, domain):
         super(cosOperator, self).__init__(domain, domain)
-        self.name = "Cosine"
-        
+    
     def forward(self, add, model, data):
-        """Forward operator cos(x)"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -302,10 +294,8 @@ class cosJacobian(Operator):
         super(cosJacobian, self).__init__(domain, domain)
         self.background = domain.clone()
         self.backgroundNd = self.background.getNdArray()
-        self.name = "J(cosine)"
-        
+    
     def forward(self, add, model, data):
-        """Forward operator"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -313,7 +303,6 @@ class cosJacobian(Operator):
         return
     
     def adjoint(self, add, model, data):
-        """Adjoint operator"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -321,6 +310,5 @@ class cosJacobian(Operator):
         return
     
     def set_background(self, background):
-        """ Setting -sin(x0)"""
         self.background.copy(background)
         return

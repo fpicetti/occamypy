@@ -1,20 +1,19 @@
 from math import sqrt
 
 import torch
+from .back_utils import get_device, get_device_name
 from numpy import ndarray
 
-from occamypy.torch.back_utils import get_device, get_device_name
-from occamypy.vector.base import Vector
+from occamypy import Vector
 
 
 class VectorTorch(Vector):
     """
     Vector class based on torch.Tensor
-
-    Notes:
-        tensors are stored in C-contiguous memory
-    """
     
+    Notes:
+       tensors are stored in C-contiguous memory
+    """
     def __init__(self, in_content, device: int = None, *args, **kwargs):
         """
         VectorTorch constructor
@@ -48,7 +47,7 @@ class VectorTorch(Vector):
         self.ndim = self.arr.ndim           # Number of axes (integer)
         self.size = self.arr.numel()        # Total number of elements (integer)
         
-    def _check_same_device(self, other) -> bool:
+    def _check_same_device(self, other):
         if not isinstance(self, VectorTorch):
             raise TypeError("The self vector has to be a VectorTorch")
         if not isinstance(other, VectorTorch):
@@ -66,7 +65,6 @@ class VectorTorch(Vector):
             return None
     
     def setDevice(self, devID):
-        """Set the computation device (CPU, GPU) of the vector"""
         if isinstance(devID, int):
             self.arr = self.arr.to(get_device(devID))
         elif isinstance(devID, torch.device):
@@ -74,7 +72,7 @@ class VectorTorch(Vector):
         else:
             ValueError("Device type not understood")
     
-    def deviceName(self) -> str:
+    def deviceName(self):
         return get_device_name(self.device.index)
         
     def getNdArray(self):
@@ -189,7 +187,7 @@ class VectorTorch(Vector):
         self.getNdArray()[:] = torch.real(self.getNdArray())
         return self
     
-    def imag(self, ):
+    def imag(self):
         self.getNdArray()[:] = torch.imag(self.getNdArray())
         return self
     
@@ -249,7 +247,7 @@ class VectorTorch(Vector):
         isDiff = not torch.equal(self.getNdArray(), other.getNdArray())
         return isDiff
     
-    def clip(self, low, high):
+    def clipVector(self, low, high):
         if not isinstance(low, VectorTorch):
             raise TypeError("Provided input low vector not a %s!" % self.whoami)
         if not isinstance(high, VectorTorch):

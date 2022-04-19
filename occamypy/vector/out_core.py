@@ -1,15 +1,14 @@
-import os
-from copy import deepcopy
-from re import compile
-from shutil import copyfile
-from time import time
-
 import numpy as np
+import os
+from time import time
+from copy import deepcopy
+from shutil import copyfile
 
-from occamypy.utils import sep, RunShellCmd, hashfile
-from occamypy.utils.os import BUF_SIZE
-from occamypy.vector.base import Vector
+from .base import Vector
+from occamypy.utils import sep
+from occamypy.utils.os import RunShellCmd, hashfile, BUF_SIZE
 
+from re import compile
 re_dpr = compile("DOT RESULT(.*)")
 
 
@@ -19,7 +18,7 @@ class VectorOC(Vector):
     def __init__(self, in_content):
         """
         VectorOC constructor
-        
+
         Args:
             in_content: numpy array, header file, Vector instance
         """
@@ -92,7 +91,7 @@ class VectorOC(Vector):
                     get_stat=False, get_output=False)
         return
     
-    def rand(self, snr: float = 1.):
+    def rand(self, snr=1.0):
         # Computing RMS amplitude of the vector
         rms = RunShellCmd("Attr < %s want=rms param=1 maxsize=5000" % (self.vecfile), get_stat=False)[0]
         rms = float(rms.split("=")[1])  # Standard deviation of the signal
@@ -173,7 +172,7 @@ class VectorOC(Vector):
                     n_vec = axes[self.ndim][0]
                     append_dim = self.ndim + 1
                 with open(filename, mode) as fid:
-                    fid.write("\n%s=%s o%s=0.0 d%s=1.0 \n" % (append_dim, n_vec + 1, append_dim, append_dim))
+                    fid.write("n%s=%s o%s=0.0 d%s=1.0 \n" % (append_dim, n_vec + 1, append_dim, append_dim))
                 fid.close()
         # Writing or Copying binary file
         if not (os.path.isfile(binfile) and mode in 'a'):

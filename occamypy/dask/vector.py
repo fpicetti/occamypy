@@ -1,17 +1,17 @@
-import os
-
-import dask.distributed as daskD
 import numpy as np
+import os
+import dask.distributed as daskD
 
-from occamypy.numpy.vector import VectorNumpy
-from occamypy.utils import sep
 from occamypy.utils.os import BUF_SIZE
-from occamypy.vector.base import Vector
-from occamypy.dask.utils import DaskClient
+from occamypy.utils import sep
+from occamypy import Vector, VectorNumpy
+from .utils import DaskClient
 
 # Verify if SepVector modules are presents
 try:
     import SepVector
+    
+    
     def call_constr_hyper(axes_in):
         """Function to remotely construct an SepVector using the axis object"""
         return SepVector.getSepVector(axes=axes_in)
@@ -131,6 +131,8 @@ def _call_rand(vecObj):
     res = vecObj.rand()
     return res
 
+# todo add _call_randn()
+
 
 def _call_clone(vecObj):
     """Function to call clone method"""
@@ -236,7 +238,7 @@ def _call_isDifferent(vecObj, vec2):
 
 def _call_clipVector(vecObj, low, high):
     """Function to call multiply method"""
-    res = vecObj.clip(low, high)
+    res = vecObj.clipVector(low, high)
     return res
 
 
@@ -255,7 +257,7 @@ def checkVector(vec1, vec2):
 
 
 class DaskVector(Vector):
-    """Definition of a vector object whose computations are performed through a Dask Client"""
+    """Vector object whose computations are performed through a Dask Client"""
     
     def __init__(self, dask_client, **kwargs):
         """
@@ -367,11 +369,7 @@ class DaskVector(Vector):
         daskD.wait(self.vecDask)
         return
     
-    # Class vector operations
     def getNdArray(self):
-        """
-        Function to return a list of all the arrays of the vector
-        """
         # Retriving arrays by chunks (useful for large arrays)
         buffer = 27000000
         shapes = self.shape
@@ -400,20 +398,17 @@ class DaskVector(Vector):
     
     @property
     def size(self):
-        """Attribute of total number of elements in the vector"""
         futures = self.client.map(_call_size, self.vecDask, pure=False)
         sizes = self.client.gather(futures)
         return np.sum(sizes)
     
     @property
     def ndim(self):
-        """Attribute of number of dimensions"""
         futures = self.client.map(_call_ndim, self.vecDask, pure=False)
         ndims = self.client.gather(futures)
         return ndims
     
     def norm(self, N=2):
-        """Function to compute vector N-norm"""
         norms = self.client.map(_call_norm, self.vecDask, N=N, pure=False)
         norm = 0.0
         for future, result in daskD.as_completed(norms, with_results=True):
@@ -421,12 +416,10 @@ class DaskVector(Vector):
         return np.power(norm, 1. / N)
     
     def zero(self):
-        """Function to zero out a vector"""
         daskD.wait(self.client.map(_call_zero, self.vecDask, pure=False))
         return self
     
     def max(self):
-        """Function to obtain maximum value within a vector"""
         maxs = self.client.map(_call_max, self.vecDask, pure=False)
         max_val = - np.inf
         for future, result in daskD.as_completed(maxs, with_results=True):
@@ -435,7 +428,6 @@ class DaskVector(Vector):
         return max_val
     
     def min(self):
-        """Function to obtain minimum value within a vector"""
         mins = self.client.map(_call_min, self.vecDask, pure=False)
         min_val = np.inf
         for future, result in daskD.as_completed(mins, with_results=True):
@@ -444,53 +436,38 @@ class DaskVector(Vector):
         return min_val
     
     def set(self, val):
-        """Function to set all values in the vector"""
         daskD.wait(self.client.map(_call_set, self.vecDask, val=val, pure=False))
         return self
     
     def scale(self, sc):
-        """Function to scale a vector"""
         daskD.wait(self.client.map(_call_scale, self.vecDask, sc=sc, pure=False))
         return self
     
     def addbias(self, bias):
-        """Function to add bias to a vector"""
         daskD.wait(self.client.map(_call_addbias, self.vecDask, bias=bias, pure=False))
         return self
     
     def rand(self):
-        """Function to randomize a vector"""
         daskD.wait(self.client.map(_call_rand, self.vecDask, pure=False))
         return self
     
     def clone(self):
-        """Function to clone (deep copy) a vector from a vector or a Space"""
         vectors = self.client.map(_call_clone, self.vecDask, pure=False)
         daskD.wait(vectors)
         return DaskVector(self.dask_client, dask_vectors=vectors)
     
     def cloneSpace(self):
-        """Function to clone vector space"""
         vectors = self.client.map(_call_cloneSpace, self.vecDask, pure=False)
         daskD.wait(vectors)
         return DaskVector(self.dask_client, dask_vectors=vectors)
     
     def checkSame(self, other):
-        """Function to check to make sure the vectors exist in the same space"""
         checkVector(self, other)
         futures = self.client.map(_call_checkSame, self.vecDask, other.vecDask, pure=False)
         results = self.client.gather(futures)
         return all(results)
     
     def writeVec(self, filename, mode='w', multi_file=False):
-        """
-        Function to write vector to file:
-
-        :param filename     : string - Filename to write the vector to
-        :param mode         : string - Writing mode 'w'=overwrite file or 'a'=append to file ['w']
-        :param multi_file   : boolean - If True multiple files will be written with suffix _chunk1,2,3,...;
-                              otherwise, a single will be written [False]
-        """
         # Check writing mode
         if not mode in 'wa':
             raise ValueError("Mode must be appending 'a' or writing 'w' ")
@@ -566,56 +543,44 @@ class DaskVector(Vector):
         return
     
     def abs(self):
-        """Return a vector containing the absolute values"""
         daskD.wait(self.client.map(_call_abs, self.vecDask, pure=False))
         return self
     
     def sign(self):
-        """Return a vector containing the signs"""
         daskD.wait(self.client.map(_call_sign, self.vecDask, pure=False))
         return self
     
     def reciprocal(self):
-        """Return a vector containing the reciprocals of self"""
         daskD.wait(self.client.map(_call_reciprocal, self.vecDask, pure=False))
         return self
     
     def conj(self):
-        """Compute conjugate transpose of the vector"""
         daskD.wait(self.client.map(_call_conj, self.vecDask, pure=False))
         return self
     
     def real(self):
-        """Return the real part of the vector"""
         daskD.wait(self.client.map(_call_real, self.vecDask, pure=False))
         return self
     
     def imag(self):
-        """Return the imaginary part of the vector"""
         daskD.wait(self.client.map(_call_imag, self.vecDask, pure=False))
         return self
     
     def pow(self, power):
-        """Compute element-wise power of the vector"""
         daskD.wait(self.client.map(_call_pow, self.vecDask, power=power, pure=False))
         return self
     
-    # Methods combinaning different vectors
-    
     def maximum(self, vec2):
-        """Return a new vector of element-wise maximum of self and vec2"""
         checkVector(self, vec2)
         daskD.wait(self.client.map(_call_maximum, self.vecDask, vec2.vecDask, pure=False))
         return self
     
     def copy(self, other):
-        """Function to copy vector"""
         checkVector(self, other)
         daskD.wait(self.client.map(_call_copy, self.vecDask, other.vecDask, pure=False))
         return self
     
     def scaleAdd(self, other, sc1=1.0, sc2=1.0):
-        """Function to scale two vectors and add them to the first one"""
         checkVector(self, other)
         sc1 = [sc1] * len(self.vecDask)
         sc2 = [sc2] * len(self.vecDask)
@@ -625,7 +590,6 @@ class DaskVector(Vector):
         return self
     
     def dot(self, other):
-        """Function to compute dot product between two vectors"""
         checkVector(self, other)
         dots = self.client.map(_call_dot, self.vecDask, other.vecDask, pure=False)
         # Adding all the results together
@@ -635,22 +599,19 @@ class DaskVector(Vector):
         return dot
     
     def multiply(self, other):
-        """Function to multiply element-wise two vectors"""
         checkVector(self, other)
         futures = self.client.map(_call_multiply, self.vecDask, other.vecDask, pure=False)
         daskD.wait(futures)
         return self
     
     def isDifferent(self, vec2):
-        """Function to check if two vectors are identical"""
         checkVector(self, vec2)
         futures = self.client.map(_call_isDifferent, self.vecDask, vec2.vecDask,
                                   pure=False)
         results = self.client.gather(futures)
         return any(results)
     
-    def clip(self, low, high):
-        """Function to bound vector values based on input vectors min and max"""
+    def clipVector(self, low, high):
         checkVector(self, low)  # Checking low-bound vector
         checkVector(self, high)  # Checking high-bound vector
         futures = self.client.map(_call_clipVector, self.vecDask, low.vecDask,
@@ -659,25 +620,25 @@ class DaskVector(Vector):
         return self
 
 
-# DASK I/o TO READ LARGE-SCALE VECTORS DIRECTLY WITHIN EACH WORKER
-def _get_binaries(**kwargs):
+# DASK I/O TO READ LARGE-SCALE VECTORS DIRECTLY WITHIN EACH WORKER
+def _get_binaries(filenames, **kwargs):
     """
     Function to obtain associated binary files to each file name
-    :param filenames: list; List/Array containing file names to read
-    :return:
-    binfiles: list; List containing binary files associated to each file
-    Nbytes: list; List containing the number of bytes within binary files
+    
+    Args:
+        filenames: List/Array containing file names to read
+    
+    Returns:
+        binfiles: list; List containing binary files associated to each file
+        Nbytes: list; List containing the number of bytes within binary files
     """
     binfiles = list()
     Nbytes = list()
-    filenames = kwargs.get("filenames")
     for filename in filenames:
         _, ext = os.path.splitext(filename)  # Getting file extension
         if ext == ".H":  # SEPlib file
             binfiles.append(sep.get_binary(filename))
             Nbytes.append(os.path.getsize(binfiles[-1]))
-        elif ext == ".h5":
-            raise NotImplementedError("ERROR! h5 files not supported yet.")
         else:
             raise ValueError("ERROR! Unknown format for file %s" % filename)
     return binfiles, Nbytes

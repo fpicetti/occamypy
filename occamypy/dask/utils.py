@@ -18,10 +18,10 @@ from dask_kubernetes import KubeCluster, make_pod_spec
 def get_tcp_info(filename):
     """
     Obtain the scheduler TCP information
-    
+
     Args:
         filename: file to read
-    
+
     Returns:
         TCP address
     """
@@ -33,14 +33,14 @@ def get_tcp_info(filename):
     return tcp_info
 
 
-def create_hostnames(machine_names: list, Nworkers: list):
+def create_hostnames(machine_names, Nworkers):
     """
     Create hostnames variables (i.e., list of IP addresses) from machine names and number of wokers per machine
-    
+
     Args:
         machine_names: list of host names
         Nworkers: list of client workers
-    
+
     Returns:
         list of host IP addresses
     """
@@ -61,12 +61,12 @@ def create_hostnames(machine_names: list, Nworkers: list):
 def client_startup(cluster, n_jobs: int, total_workers: int):
     """
     Start a dask client
-    
+
     Args:
         cluster: Dask cluster
         n_jobs: number of jobs to submit to the cluster
         total_workers: number of total workers in the cluster
-    
+
     Returns:
         DaskClient instance, list of workers ID
     """
@@ -93,7 +93,7 @@ def client_startup(cluster, n_jobs: int, total_workers: int):
 class DaskClient:
     """
     Dask Client to be used with Dask vectors and operators
-    
+
     Notes:
         The Kubernetes pods are created using the Docker image "ettore88/occamypy:devel".
         To change the image to be use, provide the item image within the kube_params dictionary.
@@ -102,34 +102,34 @@ class DaskClient:
     def __init__(self, **kwargs):
         """
         DaskClient constructor.
-        
+
         Args:
             1) Cluster with shared file system and ssh capability
-            
+
                 hostnames (list) [None]: host names or IP addresses of the machines that the user wants to use in their cluster/client (First hostname will be running the scheduler!)
                 scheduler_file_prefix (str): prefix to used to create dask scheduler-file.
                 logging (bool) [True]: whether to log scheduler and worker stdout to files within dask_logs folder
                     Must be a mounted path on all the machines. Necessary if hostnames are provided [$HOME/scheduler-]
-            
+
             2) Local cluster
                 local_params (dict) [None]: Local Cluster options (see help(LocalCluster) for help)
                 n_wrks (int) [1]: number of workers to start
-            
+
             3) PBS cluster
                 pbs_params (dict) [None]: PBS Cluster options (see help(PBSCluster) for help)
                 n_jobs (int): number of jobs to be submitted to the cluster
                 n_wrks (int) [1]: number of workers per job
-            
+
             4) LSF cluster
                 lfs_params (dict) [None]: LSF Cluster options (see help(LSFCluster) for help)
                 n_jobs (int): number of jobs to be submitted to the cluster
                 n_wrks (int) [1]: number of workers per job
-            
+
             5) SLURM cluster
                 slurm_params (dict) [None]: SLURM Cluster options (see help(SLURMCluster) for help)
                 n_jobs (int): number of jobs to be submitted to the cluster
                 n_wrks (int) [1]: number of workers per job
-            
+
             6) Kubernetes cluster
                 kube_params (dict): KubeCluster options
                  (see help(KubeCluster) and help(make_pod_spec) for help) [None]
@@ -253,19 +253,13 @@ class DaskClient:
         atexit.register(self.client.shutdown)
     
     def getClient(self):
-        """
-        Accessor for obtaining the client object
-        """
+        """Accessor for obtaining the client object"""
         return self.client
     
     def getWorkerIds(self):
-        """
-        Accessor for obtaining the worker IDs
-        """
+        """Accessor for obtaining the worker IDs"""
         return self.WorkerIds
     
     def getNworkers(self):
-        """
-        Accessor for obtaining the number of workers
-        """
+        """Accessor for obtaining the number of workers"""
         return len(self.getWorkerIds())

@@ -1,19 +1,16 @@
-from typing import Union, Tuple
-
 import numpy as np
 
-from occamypy.numpy.vector import VectorNumpy
-from occamypy.operator.base import Operator
+from occamypy import Operator
+from ..vector import VectorNumpy
 
 
 class FFT(Operator):
     """N-dimensional Fast Fourier Transform for complex input"""
-    
-    def __init__(self, domain: VectorNumpy, axes: Union[int, Tuple[int]] = None,
-                 nfft: Union[float, Tuple[float]] = None, sampling: Union[float, Tuple[float]] = None):
+
+    def __init__(self, model, axes=None, nfft=None, sampling=None):
         """
         FFT (numpy) constructor
-        
+
         Args:
             domain: domain vector
             axes: index of axes on which the FFT is computed
@@ -21,34 +18,36 @@ class FFT(Operator):
             sampling: sampling step on each axis
         """
         if axes is None:
-            axes = tuple(range(domain.ndim))
-        elif not isinstance(axes, tuple) and domain.ndim == 1:
+            axes = tuple(range(model.ndim))
+        elif not isinstance(axes, tuple) and model.ndim == 1:
             axes = (axes,)
         if nfft is None:
-            nfft = domain.shape
-        elif not isinstance(nfft, tuple) and domain.ndim == 1:
+            nfft = model.shape
+        elif not isinstance(nfft, tuple) and model.ndim == 1:
             nfft = (nfft,)
         if sampling is None:
-            sampling = tuple([1.] * domain.ndim)
-        elif not isinstance(sampling, tuple) and domain.ndim == 1:
+            sampling = tuple([1.] * model.ndim)
+        elif not isinstance(sampling, tuple) and model.ndim == 1:
             sampling = (sampling,)
         
         if len(axes) != len(nfft) != len(sampling):
             raise ValueError('axes, nffts, and sampling must have same number of elements')
-        
+
         self.axes = axes
         self.nfft = nfft
         self.sampling = sampling
         
         self.fs = [np.fft.fftfreq(n, d=s) for n, s in zip(nfft, sampling)]
         
-        dims_fft = np.asarray(domain.shape)
+        dims_fft = np.asarray(model.shape)
         for a, n in zip(self.axes, self.nfft):
             dims_fft[a] = n
         
-        super(FFT, self).__init__(domain=VectorNumpy(np.zeros(domain.shape, dtype=complex)),
+        super(FFT, self).__init__(domain=VectorNumpy(np.zeros(model.shape, dtype=complex)),
                                   range=VectorNumpy(np.zeros(shape=dims_fft, dtype=complex)))
-        self.name = "FFT"
+    
+    def __str__(self):
+        return 'numpyFFT'
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -65,7 +64,7 @@ class FFT(Operator):
             model.zero()
         modelNd = model.getNdArray()
         dataNd = data.getNdArray()
-        # here we need to separate the computation and use np.take for handling nfft > domain.shape
+        # here we need to separate the computation and use np.take for handling nfft > model.shape
         temp = np.fft.ifftn(dataNd, s=self.nfft, axes=self.axes, norm='ortho')
         for a in self.axes:
             temp = np.take(temp, range(self.domain.shape[a]), axis=a)

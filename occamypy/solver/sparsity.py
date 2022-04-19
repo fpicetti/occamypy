@@ -1,17 +1,16 @@
 from math import isnan
-
 import numpy as np
 
-from occamypy.operator.base import Vstack
-from occamypy.problem.linear import LeastSquares, Lasso, GeneralizedLasso
-from occamypy.solver.base import Solver
-from occamypy.solver.linear import CG, LSQR, SD
-from occamypy.solver.stopper import Stopper, BasicStopper
-from occamypy.utils import ZERO, Logger
-from occamypy.vector.base import Vector, superVector
+from occamypy import operator as O
+from occamypy import vector as V
+from occamypy import problem as P
+from occamypy.solver import Solver, BasicStopper, CG, LSQR, SD
+from occamypy.utils import Logger
+
+from occamypy.utils import ZERO
 
 
-def _soft_thresh(x: Vector, thresh: float) -> Vector:
+def _soft_thresh(x, thresh):
     r"""
     Soft-thresholding function:
     
@@ -28,7 +27,7 @@ def _soft_thresh(x: Vector, thresh: float) -> Vector:
     return x.clone().sign() * x.clone().abs().addbias(-thresh).maximum(0.)
 
 
-def _shrinkage(x: Vector, thresh: float, eps: float = 1e-10) -> Vector:
+def _shrinkage(x, thresh, eps=1e-10):
     r"""
     Shrinkage function
     
@@ -40,7 +39,7 @@ def _shrinkage(x: Vector, thresh: float, eps: float = 1e-10) -> Vector:
     return y * x.clone().abs().addbias([-t for t in thresh]).maximum(0.)
 
 
-def _proximal_L2(x: Vector, thresh: float, eps: float = 1e-10) -> Vector:
+def _proximal_L2(x, thresh, eps=1e-10):
     r"""
     Proximal operator for L2 distance
     
@@ -58,8 +57,8 @@ def _proximal_L2(x: Vector, thresh: float, eps: float = 1e-10) -> Vector:
 
 class ISTA(Solver):
     """Iterative Shrikage-Thresholding Algorithm (ISTA) Solver"""
-    
-    def __init__(self, stopper: Stopper, fast: bool = False, logger: Logger = None):
+
+    def __init__(self, stopper, fast=False, logger=None):
         """
         ISTA constructor
         
@@ -81,15 +80,19 @@ class ISTA(Solver):
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
     
-    def run(self, problem: Lasso, verbose: bool = False, restart: bool = False):
-        """Run ISTA solver"""
+    def __del__(self):
+        """Default destructor"""
+        return
+    
+    def run(self, problem, verbose=False, restart=False):
+        """Running ISTA solver"""
         
         self.create_msg = verbose or self.logger
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if the provided problem is L1-LASSO
-        if not isinstance(problem, Lasso):
-            raise TypeError("Provided inverse problem has to be Lasso!")
+        if not isinstance(problem, P.Lasso):
+            raise TypeError("Provided inverse problem not ProblemL1Lasso!")
         # Checking if the regularization weight was set
         if problem.lambda_value is None:
             raise ValueError("Regularization weight (lambda_value) is not set!")
@@ -108,7 +111,7 @@ class ISTA(Solver):
                 if self.logger:
                     self.logger.addToLog(msg)
             
-            # Setting internal vectors (domain, search direction, and previous gradient vectors)
+            # Setting internal vectors (model, search direction, and previous gradient vectors)
             prblm_mdl = problem.get_model()
             ista_mdl = prblm_mdl.clone()
             # Other parameters in case FISTA is requested
@@ -136,12 +139,12 @@ class ISTA(Solver):
                 t = self.restart.retrieve_parameter("t")
                 # fista_mdl = self.restart.retrieve_vector("fista_mdl")
         
-        ista_mdl0 = ista_mdl.clone()  # Previous domain in case stepping procedure fails
+        ista_mdl0 = ista_mdl.clone()  # Previous model in case stepping procedure fails
         
         # Inversion loop
         while True:
             obj0 = problem.get_obj(ista_mdl)  # Compute objective function value
-            prblm_grad = problem.get_grad(ista_mdl)  # Compute the gradient g = - A' [y - Ax]
+            prblm_grad = problem.get_grad(ista_mdl)  # Compute the gradient g = - op' [y - Ax]
             if iiter == 0:
                 # Saving initial objective function value
                 initial_obj_value = obj0
@@ -166,15 +169,15 @@ class ISTA(Solver):
             
             # Saving results
             self.save_results(iiter, problem, force_save=False)
-            ista_mdl0.copy(ista_mdl)  # Saving domain before updating it
+            ista_mdl0.copy(ista_mdl)  # Saving model before updating it
             
-            # Update domain x = x + scale_precond * A' [y - Ax]
+            # Update model x = x + scale_precond * op' [y - Ax]
             ista_mdl.scaleAdd(prblm_grad, 1.0, -1.0 / problem.op_norm)
             
             # SOFT-THRESHOLDING STEP
             ista_mdl.copy(_soft_thresh(ista_mdl, problem.lambda_value / problem.op_norm))
             
-            # Projecting domain onto the bounds (if any)
+            # Projecting model onto the bounds (if any)
             if "bounds" in dir(problem):
                 problem.bounds.apply(ista_mdl)
             
@@ -199,7 +202,7 @@ class ISTA(Solver):
                 ista_mdl.copy(ista_mdl0)
                 break
             
-            # Saving current domain in case of restart and other parameters
+            # Saving current model in case of restart and other parameters
             self.restart.save_parameter("iter", iiter)
             self.restart.save_vector("ista_mdl", ista_mdl)
             if self.fast:
@@ -225,7 +228,7 @@ class ISTA(Solver):
             if self.stopper.run(problem, iiter, initial_obj_value, verbose):
                 break
         
-        # Writing last inverted domain
+        # Writing last inverted model
         self.save_results(iiter, problem, force_save=True, force_write=True)
         if self.create_msg:
             msg = 90 * "#" + "\n"
@@ -242,8 +245,8 @@ class ISTA(Solver):
 
 class FISTA(ISTA):
     """Fast Iterative Shrikage-Thresholding Algorithm (F-ISTA) Solver"""
-    
-    def __init__(self, stopper: Stopper, logger: Logger = None):
+
+    def __init__(self, stopper, logger=None):
         """
         F-ISTA constructor
 
@@ -257,8 +260,7 @@ class FISTA(ISTA):
 class ISTC(Solver):
     """Iterative Shrikage-Thresholding Algorithm with Cooling (ISTC) Solver"""
     
-    def __init__(self, stopper: Stopper, inner_it: int, cooling_start: float, cooling_end: float,
-                 logger: Logger = None):
+    def __init__(self, stopper, inner_it, cooling_start, cooling_end, logger=None):
         """
         ISTC constructor
         
@@ -286,21 +288,25 @@ class ISTC(Solver):
         # cooling_start and cooling_end are numbers between 0 and 1 such that cooling_start <= cooling_end
         if not 0 <= cooling_start <= 1 or not 0 <= cooling_end <= 1 or cooling_end < cooling_start:
             raise ValueError("Cooling_start and end must be within [0,1] interval and cooling_start <= cooling_end")
-        self.cooling_start = cooling_start  # start of cooling continuation as fraction of size of sorted array |A'y|
-        self.cooling_end = cooling_end  # end of cooling continuation as fraction of size of sorted array |A'y|
+        self.cooling_start = cooling_start  # start of cooling continuation as fraction of size of sorted array |op'y|
+        self.cooling_end = cooling_end  # end of cooling continuation as fraction of size of sorted array |op'y|
     
-    def run(self, problem: Lasso, verbose: bool = False, restart: bool = False):
-        """Run ISTC solver"""
+    def __del__(self):
+        """Default destructor"""
+        return
+    
+    def run(self, problem, verbose=False, restart=False):
+        """Running ISTC solver"""
         
         self.create_msg = verbose or self.logger
         
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if the provided problem is L1-LASSO
-        if not isinstance(problem, Lasso):
-            raise TypeError("Provided inverse problem has to be Lasso!")
+        if not isinstance(problem, P.Lasso):
+            raise TypeError("Provided inverse problem not ProblemL1Lasso!")
         # Computing preconditioning
-        scale_precond = 0.99 * np.sqrt(2) / problem.op_norm  # scaling factor applied to operator A for preconditioning
+        scale_precond = 0.99 * np.sqrt(2) / problem.op_norm  # scaling factor applied to operator op for preconditioning
         if not restart:
             if self.create_msg:
                 msg = 90 * "#" + "\n"
@@ -314,7 +320,7 @@ class ISTC(Solver):
                 if self.logger:
                     self.logger.addToLog(msg)
             
-            # Setting internal vectors (domain, search direction, and previous gradient vectors)
+            # Setting internal vectors (model, search direction, and previous gradient vectors)
             prblm_mdl = problem.get_model()
             istc_mdl = prblm_mdl.clone()
             
@@ -324,13 +330,13 @@ class ISTC(Solver):
             # Other internal variables
             iiter = 0
             # Computing cooling schedule for lambda values
-            # istc_mdl.scale(scale_precond) #Currently unnecessary since starting domain is zero
+            # istc_mdl.scale(scale_precond) #Currently unnecessary since starting model is zero
             prblm_grad = problem.get_grad(istc_mdl)
             grad_arr = np.copy(prblm_grad.getNdArray())
-            grad_arr = np.abs(grad_arr.flatten())  # |A'y| and removing zero elements
+            grad_arr = np.abs(grad_arr.flatten())  # |op'y| and removing zero elements
             grad_arr = grad_arr[np.nonzero(grad_arr)]
             if grad_arr.size == 0:
-                raise ValueError("-- A'y is returning a null vector (i.e., y in the Null space of A')")
+                raise ValueError("-- op'y is returning a null vector (i.e., y in the Null space of op')")
             # Sorting the elements in descending order
             grad_arr.sort()
             grad_arr = np.flip(grad_arr, 0)
@@ -362,7 +368,7 @@ class ISTC(Solver):
         
         # Common variables unrelated to restart
         success = True
-        istc_mdl0 = istc_mdl.clone()  # Previous domain in case stepping procedure fails
+        istc_mdl0 = istc_mdl.clone()  # Previous model in case stepping procedure fails
         istc_mdl_save = istc_mdl0  # used also to save results
         
         # Outer iteration loop
@@ -392,7 +398,7 @@ class ISTC(Solver):
                 self.restart.save_parameter("obj_initial", initial_obj_value)
             while inner_iter < self.inner_it:
                 obj0 = problem.get_obj(istc_mdl)  # Compute objective function value
-                prblm_grad = problem.get_grad(istc_mdl)  # Compute the gradient g = - A' [y - Ax]
+                prblm_grad = problem.get_grad(istc_mdl)  # Compute the gradient g = - op' [y - Ax]
                 if inner_iter == 0:
                     if self.create_msg:
                         msg = self.iter_msg % (str(inner_iter).zfill(self.stopper.zfill),
@@ -412,20 +418,20 @@ class ISTC(Solver):
                     print("Gradient vanishes identically")
                     break
                 
-                # Removing preconditioning scaling factor from inverted domain
+                # Removing preconditioning scaling factor from inverted model
                 istc_mdl_save.copy(istc_mdl)
                 istc_mdl_save.scale(scale_precond)
                 # Saving results
                 self.save_results(iiter, problem, model=istc_mdl_save, force_save=False)
                 
-                # Stepping for internal iteration domain update
-                istc_mdl0.copy(istc_mdl)  # Saving domain before updating it
-                istc_mdl.scaleAdd(prblm_grad, 1.0, -scale_precond)  # Update domain x = x + scale_precond * A' [y - Ax]
+                # Stepping for internal iteration model update
+                istc_mdl0.copy(istc_mdl)  # Saving model before updating it
+                istc_mdl.scaleAdd(prblm_grad, 1.0, -scale_precond)  # Update model x = x + scale_precond * op' [y - Ax]
                 #########################################
                 # SOFT-THRESHOLDING STEP
                 istc_mdl = _soft_thresh(istc_mdl, problem.lambda_value)
                 #########################################
-                # Projecting domain onto the bounds (if any)
+                # Projecting model onto the bounds (if any)
                 if "bounds" in dir(problem):
                     problem.bounds.apply(istc_mdl)
                 
@@ -445,7 +451,7 @@ class ISTC(Solver):
                     istc_mdl.copy(istc_mdl0)
                     break
                 
-                # Saving current domain in case of restart and other parameters
+                # Saving current model in case of restart and other parameters
                 self.restart.save_parameter("iter", iiter)
                 self.restart.save_parameter("inner_iter", inner_iter)
                 self.restart.save_vector("istc_mdl", istc_mdl)
@@ -470,10 +476,10 @@ class ISTC(Solver):
             if self.stopper.run(problem, iiter, initial_obj_value, verbose):
                 break
         
-        # Removing preconditioning scaling factor from inverted domain
+        # Removing preconditioning scaling factor from inverted model
         istc_mdl_save.copy(istc_mdl)
         istc_mdl_save.scale(scale_precond)
-        # Writing last inverted domain
+        # Writing last inverted model
         self.save_results(iiter, problem, model=istc_mdl_save, force_save=True, force_write=True)
         if self.create_msg:
             msg = 90 * "#" + "\n"
@@ -488,12 +494,10 @@ class ISTC(Solver):
 
 
 class SplitBregman(Solver):
-    """Split-Bregman solver for GeneralizedLasso problems"""
+    """Split-Bregman algorithm for Generalized LASSO problems"""
     
-    # Default class methods/functions
-    def __init__(self, stopper: Stopper, logger: Logger = None,
-                 niter_inner: int = 3, niter_solver: int = 5, breg_weight: float = 1.,
-                 linear_solver: str = 'CG', warm_start: bool = False, mod_tol: float = 1e-10):
+    def __init__(self, stopper, logger=None, niter_inner=3, niter_solver=5, breg_weight=1., linear_solver='CG',
+                 warm_start=False, mod_tol=1e-10):
         """
         SplitBregman constructor
         
@@ -535,7 +539,6 @@ class SplitBregman(Solver):
             raise ValueError("ERROR! Bregman update weight has to be <= 1")
         self.breg_weight = float(abs(breg_weight))
         
-        linear_solver = linear_solver.upper()
         if linear_solver == 'CG':
             self.linear_solver = CG(BasicStopper(niter=self.niter_solver), logger=self.logger_lin_solv)
         elif linear_solver == 'SD':
@@ -549,10 +552,10 @@ class SplitBregman(Solver):
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, df_obj = %.2e, reg_obj = %.2e, resnorm = %.2e"
     
-    def run(self, problem: GeneralizedLasso, verbose: bool = False, inner_verbose: bool = False, restart: bool = False):
-        """Run SplitBregman solver"""
-        if type(problem) != GeneralizedLasso:
-            raise TypeError("Input problem object has be a GeneralizedLasso")
+    def run(self, problem, verbose=False, inner_verbose=False, restart=False):
+        """Running SplitBregman solver"""
+        if type(problem) != P.GeneralizedLasso:
+            raise TypeError("Input problem object must be a GeneralizedLasso")
         
         verbose = True if inner_verbose else verbose
         self.create_msg = verbose or self.logger
@@ -573,15 +576,15 @@ class SplitBregman(Solver):
             self.warm_start = True
         sb_mdl_old = problem.model.clone()
         
-        reg_op = np.sqrt(problem.eps) * problem.reg_op  # TODO can we avoid this?
+        reg_op = np.sqrt(problem.eps) * problem.reg_op   # TODO can we avoid this?
         
         # inner problem
-        linear_problem = LeastSquares(model=sb_mdl.clone(),
-                                      data=superVector(problem.data, breg_d.clone()),
-                                      op=Vstack(problem.op, reg_op),
-                                      minBound=problem.minBound,
-                                      maxBound=problem.maxBound,
-                                      boundProj=problem.boundProj)
+        linear_problem = P.LeastSquares(model=sb_mdl.clone(),
+                                        data=V.superVector(problem.data, breg_d.clone()),
+                                        op=O.Vstack(problem.op, reg_op),
+                                        minBound=problem.minBound,
+                                        maxBound=problem.maxBound,
+                                        boundProj=problem.boundProj)
         
         if restart:
             self.restart.read_restart()
@@ -604,7 +607,7 @@ class SplitBregman(Solver):
                 msg += "\tModeling Operator:\t%s\n" % problem.op
                 msg += "\tInner iterations:\t%d\n" % self.niter_inner
                 msg += "\tSolver iterations:\t%d\n" % self.niter_solver
-                msg += "\tL1 Regularizer op:\t%s\n" % problem.reg_op
+                msg += "\tL1 Regularizer op:\t%s\n"  % problem.reg_op
                 msg += "\tL1 Regularizer weight:\t%.2e\n" % problem.eps
                 msg += "\tBregman update weight:\t%.2e\n" % self.breg_weight
                 if self.warm_start:
@@ -623,7 +626,7 @@ class SplitBregman(Solver):
         # Main iteration loop
         while True:
             obj0 = problem.get_obj(sb_mdl)
-            # Saving previous domain vector
+            # Saving previous model vector
             sb_mdl_old.copy(sb_mdl)
             
             if outer_iter == 0:
@@ -687,7 +690,7 @@ class SplitBregman(Solver):
             breg_b.scaleAdd(RL1x, 1.0, self.breg_weight)
             breg_b.scaleAdd(breg_d, 1., -self.breg_weight)
             
-            # Update SB domain
+            # Update SB model
             sb_mdl.copy(linear_problem.model)
             
             # check objective function
@@ -696,7 +699,7 @@ class SplitBregman(Solver):
             chng_norm = sb_mdl_old.scaleAdd(sb_mdl, 1., -1.).norm()
             if chng_norm <= self.mod_tol * sb_mdl_norm:
                 if self.create_msg:
-                    msg = "Relative domain change (%.4e) norm smaller than given tolerance (%.4e)" \
+                    msg = "Relative model change (%.4e) norm smaller than given tolerance (%.4e)"\
                           % (chng_norm, self.mod_tol * sb_mdl_norm)
                     if verbose:
                         print(msg)
@@ -724,7 +727,7 @@ class SplitBregman(Solver):
             if self.stopper.run(problem, outer_iter, initial_obj_value, verbose):
                 break
         
-        # writing last inverted domain
+        # writing last inverted model
         self.save_results(outer_iter, problem, force_save=True, force_write=True)
         
         # ending message and log file

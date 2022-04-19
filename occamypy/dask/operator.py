@@ -1,13 +1,11 @@
-from collections.abc import Iterable
-from typing import Union, List, Tuple
-
-import dask.distributed as daskD
 import numpy as np
+import dask.distributed as daskD
+from collections.abc import Iterable
 
-from occamypy.operator.base import Operator
-from occamypy.vector.base import Vector
-from occamypy.dask.utils import DaskClient
-from occamypy.dask.vector import DaskVector, scatter_large_data
+from occamypy import Vector, Operator
+from .vector import DaskVector
+from .utils import DaskClient
+from .vector import scatter_large_data
 
 
 def call_constructor(constr, args, kwargs=None):
@@ -80,7 +78,7 @@ def _check_dask_error(futures):
 class DaskOperator(Operator):
     """Class to apply multiple operators in parallel through Dask and DaskVectors"""
     
-    def __init__(self, dask_client: DaskClient, op_constructor, op_args: Union[List, Tuple], chunks: Union[List, Tuple], **kwargs):
+    def __init__(self, dask_client, op_constructor, op_args, chunks, **kwargs):
         """
         DaskOperator constructor
         
@@ -100,6 +98,7 @@ class DaskOperator(Operator):
                 set_aux_name: name of the function to set the auxiliary vector. Useful for VpOperator.
                 spread_op_aux: spreading operator to distribute an auxiliary vector to the set_aux functions
         """
+        # Client to submit tasks
         if not isinstance(dask_client, DaskClient):
             raise TypeError("Passed client is not a Dask Client object!")
         if not isinstance(op_args, list):
@@ -219,7 +218,10 @@ class DaskOperator(Operator):
                 if not isinstance(self.SprdAux, DaskSpread):
                     raise TypeError("Provided spread_op_aux not a DaskSpreadOp class!")
                 self.tmp_aux = self.SprdAux.getRange().clone()
-        self.name = "DaskOp" if isinstance(op_constructor, list) else f"Dask({op_constructor.__name__})"
+        return
+
+    def __str__(self):
+        return " DaskOp "
 
     def forward(self, add, model, data):
         if not isinstance(model, DaskVector):
@@ -269,7 +271,7 @@ class DaskOperator(Operator):
     
     def set_background(self, model):
         """Function to call set_background function of each dask operator"""
-        if self.set_background_name is None:
+        if self.set_background_name == None:
             raise NameError("setbackground_func_name was not defined when constructing the operator!")
         if self.Sprd:
             self.Sprd.forward(False, model, self.model_tmp)
@@ -284,7 +286,7 @@ class DaskOperator(Operator):
     
     def set_aux(self, aux_vec):
         """Function to call set_nl or set_lin_jac functions of each dask operator"""
-        if self.set_aux_name is None:
+        if self.set_aux_name == None:
             raise NameError("set_aux_name was not defined when constructing the operator!")
         if self.SprdAux:
             self.SprdAux.forward(False, aux_vec, self.tmp_aux)
@@ -304,14 +306,13 @@ class DaskSpread(Operator):
          | v1 |   | I |
     fwd: | v2 | = | I | v
          | v3 |   | I |
-         
+
     adj: | v | = | I | v1 + | I | v2 + | I | v3
     """
-    
-    def __init__(self, dask_client: DaskClient, domain: Vector, chunks: Union[List, Tuple]):
+    def __init__(self, dask_client, domain, chunks):
         """
         DaskSpread constructor
-        
+
         Args:
             dask_client: client object to use when submitting tasks (see dask_util module)
             domain: vector template to be spread/stack (note this is also the domain of the operator)
@@ -325,8 +326,11 @@ class DaskSpread(Operator):
         self.dask_client = dask_client
         self.client = self.dask_client.getClient()
         self.chunks = chunks
-        super(DaskSpread, self).__init__(domain=domain, range=DaskVector(self.dask_client, vector_template=domain, chunks=chunks))
-        self.name = ""
+        self.setDomainRange(domain, DaskVector(self.dask_client, vector_template=domain, chunks=chunks))
+        return
+    
+    def __str__(self):
+        return "DaskSprd"
     
     def forward(self, add, model, data):
         """Distribute local domain through dask"""
@@ -340,10 +344,10 @@ class DaskSpread(Operator):
             # Getting the future to the first vector in the Dask vector
             modelNd = self.client.submit(getNdfuture, model.vecDask[0], pure=False)
         else:
-            # Getting the numpy array to the local domain vector
+            # Getting the numpy array to the local model vector
             modelNd = model.getNdArray()
         
-        # Spreading domain array to workers
+        # Spreading model array to workers
         if len(self.chunks) == self.dask_client.getNworkers():
             dataVecList = data.vecDask.copy()
             for iwrk, wrkId in enumerate(self.dask_client.getWorkerIds()):
@@ -376,7 +380,7 @@ class DaskSpread(Operator):
             daskD.wait(self.client.submit(_add_from_NdArray, model, sum_array, pure=False))
         else:
             arrD_list = data.getNdArray()
-            # Getting the numpy array to the local domain vector
+            # Getting the numpy array to the local model vector
             modelNd = model.getNdArray()
             for arr_i in arrD_list:
                 modelNd[:] += arr_i
@@ -386,10 +390,10 @@ class DaskSpread(Operator):
 class DaskCollect(Operator):
     """Class to Collect/Scatter a Dask vector into/from a local vector"""
     
-    def __init__(self, domain: DaskVector, range: Vector):
+    def __init__(self, domain, range):
         """
         DaskCollect constructor
-        
+
         Args:
             domain: dask vector to be collected from remote
             range: vector class to be locally stored
@@ -403,7 +407,6 @@ class DaskCollect(Operator):
         if domain.size != range.size:
             raise ValueError("number of elements in domain and range is not equal!")
         super(DaskCollect, self).__init__(domain, range)
-        self.name = ""
     
     def forward(self, add, model, data):
         """Collect dask vector arrays to local one"""

@@ -19,7 +19,7 @@ class VectorAD(VectorTorch):
     def __init__(self, in_content, device: int = None, *args, **kwargs):
         """
         VectorAD constructor
-        
+
         Args:
             in_content: Vector, np.ndarray, torch.Tensor or tuple
             device: computation device (None for CPU, -1 for least used GPU)
@@ -116,7 +116,7 @@ class AutogradFunction:
     def __init__(self, operator):
         """
         AutogradFunction constructor
-        
+
         Args:
             operator: linear operator, can be based on any vector backend
         """
@@ -156,11 +156,12 @@ class AutogradFunction:
     def apply(self, model: torch.Tensor) -> torch.Tensor:
         return self.function(model, self.vec_class,
                              self.fwd, self.adj,
-                             self.op_dev, self.torch_comp,)
+                             self.op_dev, self.torch_comp, )
 
 
 if __name__ == "__main__":
     import occamypy as o
+    
     S = torch.nn.Sigmoid()
     
     # use with VectorTorch (requires_grad=False)
@@ -170,8 +171,8 @@ if __name__ == "__main__":
     sig_y_ = S(T(x))
     y_sig = T(S(x[:]))
     y = T * x
-    del y,y_,sig_y_,y_sig
-
+    del y, y_, sig_y_, y_sig
+    
     # use with VectorAD (requires_grad=True) to wrap learnable tensors
     x = VectorAD(torch.ones(2))
     T = AutogradFunction(o.Scaling(x, 2))
@@ -179,8 +180,8 @@ if __name__ == "__main__":
     sig_y_ = S(T(x))
     y_sig = T(S(x[:]))
     y = T * x
-    del y,y_,sig_y_,y_sig
-
+    del y, y_, sig_y_, y_sig
+    
     # now try a numpy-based operator on a tensor with requires_grad=False
     x = VectorTorch(torch.zeros(21))
     x[10] = 1
@@ -189,8 +190,8 @@ if __name__ == "__main__":
     sig_y_ = S(T(x))
     y_sig = T(S(x[:]))
     y = T * x
-    del y,y_,sig_y_,y_sig
-
+    del y, y_, sig_y_, y_sig
+    
     # now try a numpy-based operator on a tensor with requires_grad=True
     x = VectorAD(x)
     T = AutogradFunction(o.GaussianFilter(o.VectorNumpy((x.size,)), 1))

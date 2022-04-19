@@ -6,7 +6,7 @@ import numpy as np
 class AxInfo(NamedTuple):
     """
     Store information about vectors' axis
-    
+
     Attributes:
         N: number of samples along the axis
         o: axis origin value (i.e., value the first sample)
@@ -14,7 +14,7 @@ class AxInfo(NamedTuple):
         l: label of the axis
         last: value of the last sample
     """
-    n : int = 1
+    n: int = 1
     o: float = 0.
     d: float = 1.
     l: str = "undefined"
@@ -22,9 +22,9 @@ class AxInfo(NamedTuple):
     def to_string(self, ax: int = 1):
         """
         Create a description of the axis
-        
+
         Args:
-            ax: axis number for printing (for SEP-lib compatibility)
+            ax: axis number for printing (for SEPlib compatibility)
 
         Returns: string
 
@@ -40,4 +40,4 @@ class AxInfo(NamedTuple):
     
     @property
     def last(self):
-        return self.o + (self.n-1) * self.d
+        return self.o + (self.n - 1) * self.d

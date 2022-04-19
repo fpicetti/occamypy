@@ -1,18 +1,18 @@
+# Module containing Linear Solver classes
 from math import isnan
-
 import numpy as np
 
-from occamypy.problem.base import Problem
-from occamypy.problem.linear import LeastSquaresSymmetric
-from occamypy.solver.base import Solver
-from occamypy.solver.stopper import Stopper
-from occamypy.utils import ZERO, Logger
+from occamypy.solver import Solver
+from occamypy import problem as P
+
+from occamypy.utils import ZERO
 
 
 class CG(Solver):
     """Linear-Conjugate Gradient and Steepest-Descent Solver"""
-    
-    def __init__(self, stopper: Stopper, steepest: bool = False, logger: Logger = None):
+
+    # Default class methods/functions
+    def __init__(self, stopper, steepest=False, logger=None):
         """
         CG/SD constructor
         
@@ -33,22 +33,25 @@ class CG(Solver):
         self.stopper.logger = self.logger
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
-    
-    def run(self, problem: Problem, verbose: bool = False, restart: bool = False):
-        """Running LCG and steepest-descent solver"""
+
+    def __del__(self):
+        """Default destructor"""
+        return
+
+    def run(self, problem, verbose=False, restart=False):
+        """Running CG/SD solver"""
         self.create_msg = verbose or self.logger
-        
+
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Check for preconditioning
         precond = True if "prec" in dir(problem) and problem.prec is not None else False
-        
+
         if not restart:
             if self.create_msg:
                 msg = 90 * "#" + "\n"
                 msg += "\t\t\t\tPRECONDITIONED " if precond else "\t\t\t\t"
-                msg += "LINEAR %s SOLVER\n" % (
-                    "STEEPEST-DESCENT log file" if self.steepest else "CONJUGATE GRADIENT log file")
+                msg += "LINEAR %s SOLVER\n" % ("STEEPEST-DESCENT log file" if self.steepest else "CONJUGATE GRADIENT log file")
                 msg += "\tRestart folder: %s\n" % self.restart.restart_folder
                 msg += "\tModeling Operator:\t\t%s\n" % problem.op
                 msg += 90 * "#" + "\n"
@@ -56,12 +59,12 @@ class CG(Solver):
                     print(msg.replace(" log file", ""))
                 if self.logger:
                     self.logger.addToLog(msg)
-            
-            # Setting internal vectors (domain and search direction vectors)
+
+            # Setting internal vectors (model and search direction vectors)
             prblm_mdl = problem.get_model()
             cg_mdl = prblm_mdl.clone()
             cg_dmodl = prblm_mdl.clone().zero()
-            
+
             # Other internal variables
             iiter = 0
         else:
@@ -81,19 +84,19 @@ class CG(Solver):
                 cg_dres = self.restart.retrieve_vector("cg_dres")
             else:
                 dot_grad_prec_grad = self.restart.retrieve_vector("dot_grad_prec_grad")
-            # Setting the domain and residuals to avoid residual twice computation
+            # Setting the model and residuals to avoid residual twice computation
             problem.set_model(cg_mdl)
             prblm_mdl = problem.get_model()
             # Setting residual vector to avoid its unnecessary computation
             problem.set_residual(self.restart.retrieve_vector("prblm_res"))
-        
+
         # Common variables unrelated to restart
         success = True
-        # Variables necessary to return inverted domain if inversion stops earlier
+        # Variables necessary to return inverted model if inversion stops earlier
         prev_mdl = prblm_mdl.clone().zero()
         if precond:
             cg_prec_grad = cg_dmodl.clone().zero()
-        
+
         # Iteration loop
         while True:
             # Computing objective function
@@ -124,11 +127,11 @@ class CG(Solver):
             if prblm_grad.norm() == 0.:
                 print("Gradient vanishes identically")
                 break
-            
+
             # Saving results
             self.save_results(iiter, problem, force_save=False)
-            prev_mdl.copy(prblm_mdl)  # Keeping the previous domain
-            
+            prev_mdl.copy(prblm_mdl)  # Keeping the previous model
+
             # Computing alpha and beta coefficients
             if precond:
                 # Applying preconditioning to current gradient
@@ -213,7 +216,7 @@ class CG(Solver):
                         # Writing on log file
                         if self.logger:
                             self.logger.addToLog("Conjugate alpha,beta: " + str(alpha) + ", " + str(beta))
-            
+
             if not success:
                 if self.create_msg:
                     msg = "Stepper couldn't find a proper step size, will terminate solver"
@@ -222,24 +225,24 @@ class CG(Solver):
                     if self.logger:
                         self.logger.addToLog(msg)
                 break
-            
+
             if precond:
                 # modl = modl + alpha * dmodl
-                cg_mdl.scaleAdd(cg_dmodl, 1.0, alpha)  # Update domain
+                cg_mdl.scaleAdd(cg_dmodl, 1.0, alpha)  # Update model
             else:
                 # dmodl = alpha * grad + beta * dmodl
                 cg_dmodl.scaleAdd(prblm_grad, beta, alpha)  # update search direction
                 # modl = modl + dmodl
-                cg_mdl.scaleAdd(cg_dmodl)  # Update domain
-            
+                cg_mdl.scaleAdd(cg_dmodl)  # Update model
+
             # Increasing iteration counter
             iiter += 1
-            # Setting the domain
+            # Setting the model
             problem.set_model(cg_mdl)
-            # Projecting domain onto the bounds (if any)
+            # Projecting model onto the bounds (if any)
             if "bounds" in dir(problem):
                 problem.bounds.apply(cg_mdl)
-            
+
             if prblm_mdl.isDifferent(cg_mdl):
                 # Model went out of the bounds
                 msg = "Model hit provided bounds. Projecting it onto them."
@@ -260,7 +263,7 @@ class CG(Solver):
                     prblm_res = problem.get_res(cg_mdl)  # New residual vector
                     cg_dres.scaleAdd(prblm_res, -1.0, 1.0)
             else:
-                # Setting residual vector to avoid its unnecessary computation (if domain was not clipped)
+                # Setting residual vector to avoid its unnecessary computation (if model was not clipped)
                 if precond:
                     # res = res + alpha * dres
                     prblm_res.scaleAdd(cg_dmodld, 1.0, alpha)  # Update residuals
@@ -270,7 +273,7 @@ class CG(Solver):
                     # res = res + dres
                     prblm_res.scaleAdd(cg_dres)  # Update residuals
                 problem.set_residual(prblm_res)
-            
+
             # Computing new objective function value
             obj1 = problem.get_obj(cg_mdl)
             if obj1 >= obj0:
@@ -284,8 +287,8 @@ class CG(Solver):
                         self.logger.addToLog(msg)
                 problem.set_model(prev_mdl)
                 break
-            
-            # Saving current domain and previous search direction in case of restart
+
+            # Saving current model and previous search direction in case of restart
             self.restart.save_parameter("iter", iiter)
             self.restart.save_vector("cg_mdl", cg_mdl)
             self.restart.save_vector("cg_dmodl", cg_dmodl)
@@ -295,7 +298,7 @@ class CG(Solver):
             else:
                 self.restart.save_parameter("dot_grad_prec_grad", dot_grad_prec_grad)
             self.restart.save_vector("prblm_res", prblm_res)
-            
+
             # iteration info
             if self.create_msg:
                 msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
@@ -313,8 +316,8 @@ class CG(Solver):
                 raise ValueError("Either gradient norm or objective function value NaN!")
             if self.stopper.run(problem, iiter, initial_obj_value, verbose):
                 break
-        
-        # Writing last inverted domain
+
+        # Writing last inverted model
         self.save_results(iiter, problem, force_save=True, force_write=True)
         if self.create_msg:
             msg = 90 * "#" + "\n"
@@ -327,15 +330,15 @@ class CG(Solver):
                 self.logger.addToLog(msg)
         # Clear restart object
         self.restart.clear_restart()
-        
+
         return
 
 
 class SD(CG):
-    def __init__(self, stopper: Stopper, logger: Logger = None):
+    def __init__(self, stopper, logger=None):
         super(SD, self).__init__(stopper, steepest=True, logger=logger)
-
-
+    
+    
 def _sym_ortho(a, b):
     """
     Stable implementation of Givens rotation.
@@ -370,9 +373,9 @@ def _sym_ortho(a, b):
 
 class LSQR(Solver):
     """
-   LSQR Solver parent object following algorithm in Paige and Saunders (1982)
-   
-   Notes:
+    LSQR Solver parent object following algorithm in Paige and Saunders (1982)
+    
+    Notes:
        Find the least-squares solution to a large, sparse, linear system of equations.
        The function solves Ax = b or min ||b - Ax||^2
        If A is symmetric, LSQR should not be used! Use SymLCGsolver
@@ -381,9 +384,8 @@ class LSQR(Solver):
          2. Use LSQR to solve the system  ``A*dx = r0``.
          3. Add the correction dx to obtain a final solution ``x = x0 + dx``.
     """
-    
-    def __init__(self, stopper: Stopper, estimate_cond: bool = False, estimate_var: bool = False,
-                 logger: Logger = None):
+
+    def __init__(self, stopper, estimate_cond=False, estimate_var=False, logger=None):
         """
         LSQR constructor
         
@@ -406,18 +408,22 @@ class LSQR(Solver):
         self.stopper.logger = self.logger
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
-    
-    def run(self, problem: Problem, verbose: bool = False, restart: bool = False):
+
+    def __del__(self):
+        """Default destructor"""
+        return
+
+    def run(self, problem, verbose=False, restart=False):
         """Running LSQR solver"""
         self.create_msg = verbose or self.logger
-        
+
         # Resetting stopper before running the inversion
         self.stopper.reset()
-        
+
         # Setting internal vectors and initial variables
         prblm_mdl = problem.get_model()
         initial_mdl = prblm_mdl.clone()
-        
+
         if not restart:
             if self.create_msg:
                 msg = 90 * "#" + "\n"
@@ -429,10 +435,10 @@ class LSQR(Solver):
                     print(msg.replace("log file", ""))
                 if self.logger:
                     self.logger.addToLog(msg)
-            
-            # If initial domain different than zero the solver will perform the following:
-            # 1. Compute a residual vector ``r0 = b - A*x0``.
-            # 2. Use LSQR to solve the system  ``A*dx = r0``.
+
+            # If initial model different than zero the solver will perform the following:
+            # 1. Compute a residual vector ``r0 = b - op*x0``.
+            # 2. Use LSQR to solve the system  ``op*dx = r0``.
             # 3. Add the correction dx to obtain a final solution ``x = x0 + dx``.
             prblm_res = problem.get_res(initial_mdl)  # Initial data residuals
             obj0 = initial_obj_value = problem.get_obj(initial_mdl)  # For relative objective function value
@@ -447,20 +453,20 @@ class LSQR(Solver):
             # Estimating variance or diagonal elements of the inverse
             if self.var:
                 self.var = x.clone()
-            
+
             # Other internal variables
             iiter = 0
-            
+
             # Initial inversion parameters
             alpha = 0.
             beta = u.norm()
-            
+
             if beta > 0.:
                 u.scale(1. / beta)
-                # A.H * u => gradient with scaled residual vector
+                # op.H * u => gradient with scaled residual vector
                 problem.set_model(x)  # x = 0
                 problem.set_residual(u)  # res = u
-                prblm_grad = problem.get_grad(x)  # g = A.H * u
+                prblm_grad = problem.get_grad(x)  # g = op.H * u
                 v.copy(prblm_grad)  # v = g
                 alpha = v.norm()
             else:
@@ -468,16 +474,16 @@ class LSQR(Solver):
             if alpha > 0.:
                 v.scale(1. / alpha)
                 w.copy(v)
-            
+
             rhobar = alpha
             phibar = beta
             anorm = 0.
-            
+
             # First inversion logging
             self.restart.save_parameter("obj_initial", initial_obj_value)
             # Estimating residual and gradient norms
             prblm_res.scale(phibar)
-            prblm_grad.scale(alpha * beta)
+            prblm_grad.scale(alpha*beta)
             if self.create_msg:
                 msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                        initial_obj_value,
@@ -492,7 +498,7 @@ class LSQR(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(initial_obj_value) or isnan(problem.get_gnorm(x)):
                 raise ValueError("Either gradient norm or objective function value NaN!")
-        
+
         else:
             # Retrieving parameters and vectors to restart the solver
             if self.create_msg:
@@ -502,7 +508,7 @@ class LSQR(Solver):
                 if self.logger:
                     self.logger.addToLog(msg)
             self.restart.read_restart()
-            
+
             # Retrieving iteration number
             iiter = self.restart.retrieve_parameter("iter")
             initial_obj_value = self.restart.retrieve_parameter("obj_initial")
@@ -514,7 +520,7 @@ class LSQR(Solver):
             v = self.restart.retrieve_vector("v")
             problem.set_model(x)
             problem.set_residual(u)
-            
+
             prblm_res = problem.get_res(x)
             if self.est_cond:
                 dk = self.restart.retrieve_vector("dk")
@@ -526,47 +532,47 @@ class LSQR(Solver):
             rhobar = self.restart.retrieve_parameter("rhobar")
             phibar = self.restart.retrieve_parameter("phibar")
             anorm = self.restart.retrieve_parameter("anorm")
-        
+
         # Common variables unrelated to restart
         prblm_mdl = problem.get_model()
-        inv_model = prblm_mdl.clone()  # Inverted domain to be saved during the inversion
-        # Variables necessary to return inverted domain if inversion stops earlier
+        inv_model = prblm_mdl.clone()  # Inverted model to be saved during the inversion
+        # Variables necessary to return inverted model if inversion stops earlier
         prev_x = x.clone().zero()
-        early_stop = False
-        
+        early_stop =False
+
         # Iteration loop
         while True:
             if problem.get_gnorm(prblm_mdl) == 0.:
                 print("Gradient vanishes identically")
                 break
-            
+
             # Saving results
             inv_model.copy(initial_mdl)
-            inv_model.scaleAdd(x)  # x = x0 + dx; Updating inverted domain
+            inv_model.scaleAdd(x)  # x = x0 + dx; Updating inverted model
             self.save_results(iiter, problem, model=inv_model, force_save=False)
             # Necessary to save previous iteration
             prev_x.copy(x)
-            
+
             """
                 %     Perform the next step of the bidiagonalization to obtain the
                 %     next  beta, u, alpha, v.  These satisfy the relations
-                %                beta*u  =  A*v   -  alpha*u,
-                %                alpha*v  =  A'*u  -  beta*v.
+                %                beta*u  =  op*v   -  alpha*u,
+                %                alpha*v  =  op'*u  -  beta*v.
             """
-            
-            # A.matvec(v) (i.e., projection of v onto the data space)
+
+            # op.matvec(v) (i.e., projection of v onto the data space)
             v_prblm = problem.get_dres(x, v)
-            # u = A.matvec(v) - alpha * u
+            # u = op.matvec(v) - alpha * u
             u.scaleAdd(v_prblm, -alpha, 1.0)
             beta = u.norm()
-            
+
             if beta > 0.:
                 u.scale(1. / beta)
                 anorm = np.sqrt(anorm ** 2 + alpha ** 2 + beta ** 2)
                 problem.set_model(x)
                 problem.set_residual(u)  # res = u
-                prblm_grad = problem.get_grad(x)  # g = A.H * u
-                # v = A.rmatvec(u) - beta * v
+                prblm_grad = problem.get_grad(x)  # g = op.H * u
+                # v = op.rmatvec(u) - beta * v
                 v.scaleAdd(prblm_grad, -beta, 1.)
                 alpha = v.norm()
                 if alpha > 0.:
@@ -574,16 +580,16 @@ class LSQR(Solver):
             else:
                 problem.set_model(x)
                 problem.set_residual(u)  # res = u
-            
+
             # Use a plane rotation to eliminate the subdiagonal element (beta)
             # of the lower-bidiagonal matrix, giving an upper-bidiagonal matrix.
             cs, sn, rho = _sym_ortho(rhobar, beta)
-            
+
             theta = sn * alpha
             rhobar = -cs * alpha
             phi = cs * phibar
             phibar *= sn
-            
+
             # Estimating residual and gradient norms
             prblm_res.scale(phibar)
             if prblm_grad.norm() > ZERO:
@@ -592,16 +598,17 @@ class LSQR(Solver):
                 prblm_grad.zero()
             # New objective function value
             obj1 = problem.get_obj(prblm_mdl)
-            
+
+
             # Update x and w.
             # x = x + t1 * w
             x.scaleAdd(w, 1.0, phi / rho)
             # w = v + t2 * w
             w.scaleAdd(v, -theta / rho, 1.0)
-            
+
             # Increasing iteration counter
             iiter += 1
-            
+
             # Checking new objective function value
             if obj1 >= obj0:
                 if self.create_msg:
@@ -614,7 +621,7 @@ class LSQR(Solver):
                         self.logger.addToLog(msg)
                 early_stop = True
                 break
-            
+
             if self.est_cond:
                 dk.copy(w).scale(1. / rho)
                 ddnorm += dk.norm() ** 2
@@ -626,10 +633,10 @@ class LSQR(Solver):
                 # var = var + dk ** 2
                 self.var.scaleAdd(dk.clone().multiply(dk))
                 self.restart.save_vector("var", self.var)
-            
+
             # Saving previous objective function value
             obj0 = obj1
-            
+
             # Saving state variables and vectors for restart
             self.restart.save_parameter("iter", iiter)
             self.restart.save_parameter("obj0", obj0)
@@ -641,7 +648,7 @@ class LSQR(Solver):
             self.restart.save_vector("x", x)
             self.restart.save_vector("w", w)
             self.restart.save_vector("v", v)
-            
+
             # iteration info
             if self.create_msg:
                 msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
@@ -661,14 +668,14 @@ class LSQR(Solver):
                 raise ValueError("Either gradient norm or objective function value NaN!")
             if self.stopper.run(problem, iiter, initial_obj_value, verbose):
                 break
-        
-        # Writing last inverted domain
+
+        # Writing last inverted model
         inv_model.copy(initial_mdl)
         if early_stop:
             x.copy(prev_x)
-        inv_model.scaleAdd(x)  # x = x0 + dx; Updating inverted domain
+        inv_model.scaleAdd(x)  # x = x0 + dx; Updating inverted model
         self.save_results(iiter, problem, model=inv_model, force_save=True, force_write=True)
-        prblm_mdl.copy(inv_model)  # Setting inverted domain to final one
+        prblm_mdl.copy(inv_model) # Setting inverted model to final one
         if self.create_msg:
             msg = 90 * "#" + "\n"
             msg += "\t\t\t\tLSQR SOLVER log file end\n"
@@ -684,11 +691,12 @@ class LSQR(Solver):
 
 class CGsym(Solver):
     """Linear-Conjugate Gradient and Steepest-Descent Solver for symmetric systems"""
-    
-    def __init__(self, stopper: Stopper, steepest=False, logger=None):
+
+    # Default class methods/functions
+    def __init__(self, stopper, steepest=False, logger=None):
         """
         CG/SD for symmetric systems constructor
-        
+
         Args:
             stopper: Stopper to terminate the inversion
             steepest: whether to use the steepest-descent instead of conjugate gradient
@@ -709,15 +717,19 @@ class CGsym(Solver):
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, feval = %d"
         return
-    
-    def run(self, problem: Problem, verbose: bool = False, restart: bool = False):
+
+    def __del__(self):
+        """Default destructor"""
+        return
+
+    def run(self, problem, verbose=False, restart=False):
         """Running LCG solver for symmetric systems"""
         self.create_msg = verbose or self.logger
-        
+
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if we are solving a linear square problem
-        if not isinstance(problem, LeastSquaresSymmetric):
+        if not isinstance(problem, P.LeastSquaresSymmetric):
             raise TypeError("ERROR! Provided problem object not a linear symmetric problem")
         # Check for preconditioning
         precond = False
@@ -736,14 +748,14 @@ class CGsym(Solver):
                     print(msg.replace("log file", ""))
                 if self.logger:
                     self.logger.addToLog(msg)
-            
-            # Setting internal vectors (domain and search direction vectors)
+
+            # Setting internal vectors (model and search direction vectors)
             prblm_mdl = problem.get_model()
             cg_mdl = prblm_mdl.clone()
             cg_dmodl = prblm_mdl.clone().zero()
             if precond:
                 cg_prec_res = cg_dmodl.clone()
-            
+
             # Other internal variables
             iiter = 0
             beta = 0.
@@ -762,17 +774,17 @@ class CGsym(Solver):
             cg_mdl = self.restart.retrieve_vector("cg_mdl")
             cg_dmodl = self.restart.retrieve_vector("cg_dmodl")
             if precond: cg_prec_res = self.restart.retrieve_vector("cg_prec_res")
-            # Setting the domain and residuals to avoid residual double computation
+            # Setting the model and residuals to avoid residual double computation
             problem.set_model(cg_mdl)
             prblm_mdl = problem.get_model()
             # Setting residual vector to avoid its unnecessary computation
             problem.set_residual(self.restart.retrieve_vector("prblm_res"))
-        
+
         # Common variables unrelated to restart
         success = True
         data_norm = problem.data.norm()
         prev_mdl = prblm_mdl.clone().zero()
-        
+
         # Iteration loop
         while True:
             # Computing objective function
@@ -794,19 +806,19 @@ class CGsym(Solver):
                 # Check if either objective function value or gradient norm is NaN
                 if isnan(obj0):
                     raise ValueError("Error! Objective function value NaN!")
-            
+
             # Saving results
             self.save_results(iiter, problem, force_save=False)
-            # Copying current domain in case of early stop
+            # Copying current model in case of early stop
             prev_mdl.copy(cg_mdl)
-            
+
             # Applying preconditioning to gradient (first time)
             if iiter == 0 and precond:
                 problem.prec.forward(False, prblm_res, cg_prec_res)
             # dmodl = beta * dmodl - res
             cg_dmodl.scaleAdd(cg_prec_res if precond else prblm_res, beta, -1.0)  # Update search direction
             prblm_ddmodl = problem.get_dres(cg_mdl, cg_dmodl)  # Project search direction in the data space
-            
+
             dot_dmodl_ddmodl = cg_dmodl.dot(prblm_ddmodl)
             if precond:
                 dot_res = prblm_res.dot(cg_prec_res)  # Dot product of residual and preconditioned one
@@ -827,7 +839,7 @@ class CGsym(Solver):
                 # Writing on log file
                 if self.logger:
                     self.logger.addToLog(msg)
-            
+
             if not success:
                 if self.create_msg:
                     msg = "Stepper couldn't find a proper step size, will terminate solver"
@@ -836,23 +848,23 @@ class CGsym(Solver):
                     if self.logger:
                         self.logger.addToLog(msg)
                 break
-            
+
             alpha = dot_res / dot_dmodl_ddmodl
             if self.logger:
                 self.logger.addToLog("Alpha step length: %.2e" % alpha)
-            
+
             # modl = modl + alpha * dmodl
-            cg_mdl.scaleAdd(cg_dmodl, sc2=alpha)  # Update domain
-            
+            cg_mdl.scaleAdd(cg_dmodl, sc2=alpha)  # Update model
+
             # Increasing iteration counter
             iiter = iiter + 1
-            # Setting the domain and residuals to avoid residual twice computation
+            # Setting the model and residuals to avoid residual twice computation
             problem.set_model(cg_mdl)
-            
-            # Projecting domain onto the bounds (if any)
+
+            # Projecting model onto the bounds (if any)
             if "bounds" in dir(problem):
                 problem.bounds.apply(cg_mdl)
-            
+
             if prblm_mdl.isDifferent(cg_mdl):
                 # Model went out of the bounds
                 msg = "Model hit provided bounds. Projecting it onto them."
@@ -874,13 +886,13 @@ class CGsym(Solver):
                 # dres is scaled by the inverse of the step length
                 prblm_ddmodl.scale(1.0 / alpha)
             else:
-                # Setting residual vector to avoid its unnecessary computation (if domain was not clipped)
-                # res  = res + alpha * dres =  res + alpha * A * dmodl
+                # Setting residual vector to avoid its unnecessary computation (if model was not clipped)
+                # res  = res + alpha * dres =  res + alpha * op * dmodl
                 prblm_res.scaleAdd(prblm_ddmodl, sc2=alpha)  # update residuals
                 problem.set_residual(prblm_res)
                 if iiter == 1:
                     problem.fevals += 1  # To correct objective function evaluation number since residuals are set
-            
+
             # Computing new objective function value
             obj1 = problem.get_obj(cg_mdl)
             if precond:
@@ -909,8 +921,8 @@ class CGsym(Solver):
                     problem.set_model(prev_mdl)
                     break
                 obj_old = obj0  # Saving objective function at iter-1
-            
-            # Saving current domain and previous search direction in case of restart
+
+            # Saving current model and previous search direction in case of restart
             self.restart.save_parameter("iter", iiter)
             self.restart.save_parameter("beta", beta)
             self.restart.save_parameter("obj_old", obj_old)
@@ -920,7 +932,7 @@ class CGsym(Solver):
                 self.restart.save_vector("cg_prec_res", cg_prec_res)
             # Saving data space vectors
             self.restart.save_vector("prblm_res", prblm_res)
-            
+
             # iteration info
             if self.create_msg:
                 msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
@@ -939,8 +951,8 @@ class CGsym(Solver):
                 raise ValueError("Error! Objective function value NaN!")
             if self.stopper.run(problem, iiter, verbose=verbose):
                 break
-        
-        # Writing last inverted domain
+
+        # Writing last inverted model
         self.save_results(iiter, problem, force_save=True, force_write=True)
         if self.create_msg:
             msg = 90 * "#" + "\n"

@@ -9,7 +9,7 @@ class Bounds:
     def __init__(self, minBound=None, maxBound=None):
         """
         Bounds constructor
-        
+
         Args:
             minBound: vector containing minimum values of the domain vector
             maxBound: vector containing maximum values of the domain vector
@@ -25,28 +25,28 @@ class Bounds:
             self.minBound.scale(-1.0)
         return
 
-    def apply(self, in_content):
+    def apply(self, input_vec):
         """
         Apply bounds to the input vector
-        
+
         Args:
             in_content: vector to be processed
         """
         if self.minBound is not None and self.maxBound is None:
-            if not in_content.checkSame(self.minBound):
+            if not input_vec.checkSame(self.minBound):
                 raise ValueError("Input vector not consistent with bound space")
-            in_content.scale(-1.0)
-            in_content.clip(in_content, self.minBound)
-            in_content.scale(-1.0)
+            input_vec.scale(-1.0)
+            input_vec.clipVector(input_vec, self.minBound)
+            input_vec.scale(-1.0)
         elif self.minBound is None and self.maxBound is not None:
-            if not in_content.checkSame(self.maxBound):
+            if not input_vec.checkSame(self.maxBound):
                 raise ValueError("Input vector not consistent with bound space")
-            in_content.clip(in_content, self.maxBound)
+            input_vec.clipVector(input_vec, self.maxBound)
         elif self.minBound is not None and self.maxBound is not None:
-            if (not (in_content.checkSame(self.minBound) and in_content.checkSame(
+            if (not (input_vec.checkSame(self.minBound) and input_vec.checkSame(
                     self.maxBound))):
                 raise ValueError("Input vector not consistent with bound space")
-            in_content.clip(self.minBound, self.maxBound)
+            input_vec.clipVector(self.minBound, self.maxBound)
         return
 
 
@@ -56,7 +56,7 @@ class Problem:
     def __init__(self, minBound=None, maxBound=None, boundProj=None):
         """
         Problem constructor
-        
+
         Args:
             minBound: vector containing minimum values of the domain vector
             maxBound: vector containing maximum values of the domain vector
@@ -79,6 +79,7 @@ class Problem:
         self.linear = False  # By default all problem are non-linear
 
     def __del__(self):
+        """Default destructor"""
         return
 
     def setDefaults(self):
@@ -92,28 +93,30 @@ class Problem:
         self.counter = 0
         return
 
-    def set_model(self, in_content):
-        """Setting internal domain vector
-        
+    def set_model(self, model):
+        """
+        Setting internal domain vector
+
         Args:
             in_content: domain vector to be copied
         """
-        if in_content.isDifferent(self.model):
-            self.model.copy(in_content)
+        if model.isDifferent(self.model):
+            self.model.copy(model)
             self.obj_updated = False
             self.res_updated = False
             self.grad_updated = False
             self.dres_updated = False
 
-    def set_residual(self, in_content):
-        """Setting internal residual vector
-        
+    def set_residual(self, residual):
+        """
+        Setting internal residual vector
+
         Args:
             in_content: residual vector to be copied
         """
         # Useful for linear inversion (to avoid residual computation)
-        if self.res.isDifferent(in_content):
-            self.res.copy(in_content)
+        if self.res.isDifferent(residual):
+            self.res.copy(residual)
             # If residuals have changed, recompute gradient and objective function value
             self.grad_updated = False
             self.obj_updated = False
@@ -121,30 +124,33 @@ class Problem:
         return
 
     def get_model(self):
-        """Get the domain vector"""
+        """Geet the domain vector"""
         return self.model
 
     def get_dmodel(self):
-        """Get the domain vector"""
+        """Get the model perturbation vector"""
         return self.dmodel
 
-    def get_rnorm(self, model) -> float:
-        """Compute the residual vector norm
+    def get_rnorm(self, model):
+        """
+        Compute the residual vector norm
+        
         Args:
             model: domain vector
         """
         self.get_res(model)
         return self.get_res(model).norm()
 
-    def get_gnorm(self, model) -> float:
-        """Compute the gradient vector norm
-        
+    def get_gnorm(self, model):
+        """
+        Compute the gradient vector norm
+
         Args:
             model: domain vector
         """
         return self.get_grad(model).norm()
 
-    def get_obj(self, model) -> float:
+    def get_obj(self, model):
         """Compute the objective function
         
         Args:
@@ -158,8 +164,9 @@ class Problem:
         return self.obj
 
     def get_res(self, model):
-        """Compute the residual vector
-        
+        """
+        Compute the residual vector
+
         Args:
             model: domain vector
         """
@@ -171,8 +178,9 @@ class Problem:
         return self.res
 
     def get_grad(self, model):
-        """Compute the gradient vector
-        
+        """
+        Compute the gradient vector
+
         Args:
             model: domain vector
         """
@@ -187,11 +195,11 @@ class Problem:
         return self.grad
 
     def get_dres(self, model, dmodel):
-        """Compute the dresidual vector (i.e., application of the Jacobian to Dmodel vector)
-        
+        """Compute the perturbation residual vector (i.e., application of the Jacobian to model perturbation vector)
+
         Args:
             model: domain vector
-            dmodel: dmodel vector
+            dmodel: domain perturbation vector
         """
         self.set_model(model)
         if not self.dres_updated or dmodel.isDifferent(self.dmodel):
@@ -210,9 +218,10 @@ class Problem:
         """Get the number of gradient evalutions"""
         return self.gevals
 
-    def objf(self, residual) -> float:
-        """Compute the objective function
-        
+    def objf(self, residual):
+        """
+        Compute the objective function
+
         Args:
             residual: residual vector
         Returns:
@@ -236,7 +245,7 @@ class Problem:
         Compute the residual vector
         Args:
             model: domain vector
-            dmodel: dmodel vector
+            dmodel: domain perturbation vector
 
         Returns: residual vector
         """

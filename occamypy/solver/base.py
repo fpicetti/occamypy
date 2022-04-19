@@ -1,96 +1,17 @@
+# Module containing generic Solver and Restart definitions
 import atexit
-import datetime
 import os
 import pickle
 import re
-from copy import deepcopy
-from shutil import rmtree
-
 import numpy as np
+from shutil import rmtree
+from copy import deepcopy
+import datetime
 
-from occamypy.problem.base import Problem
 from occamypy.utils import mkdir, sep
-from occamypy.vector import Vector, VectorSet, VectorOC
+from occamypy import problem as P
+from occamypy import VectorSet, VectorOC
 
-
-class Restart:
-    """
-    Restart a solver.run
-
-    Attributes:
-        par_dict: dictionary containing the solver parameters
-        vec_dict: dictionary containing all the vectors the solver needs
-        restart_folder: path/to/folder where the  previous run has been saved
-    """
-    
-    def __init__(self):
-        self.par_dict = dict()
-        self.vec_dict = dict()
-        # Restart folder in case it is necessary to write restart
-        now = datetime.datetime.now()
-        restart_folder = sep.datapath + "restart_" + now.isoformat() + "/"
-        restart_folder = restart_folder.replace(":", "-")
-        self.restart_folder = restart_folder
-        # Calling write_restart when python session dies
-        atexit.register(self.write_restart)
-    
-    def save_vector(self, vec_name: str, vector_in: Vector):
-        """Save a vector for restarting"""
-        # Deleting the vector if present in the dictionary
-        element = self.vec_dict.pop(vec_name, None)
-        if element:
-            del element
-        self.vec_dict.update({vec_name: vector_in.clone()})
-    
-    def retrieve_vector(self, vec_name: str):
-        """Method to retrieve a vector from restart object"""
-        return self.vec_dict[vec_name]
-    
-    def save_parameter(self, par_name: str, parameter_in):
-        """Method to save parameters for restarting"""
-        self.par_dict.update({par_name: parameter_in})
-        return
-    
-    def retrieve_parameter(self, par_name: str):
-        """Method to retrieve a parameter from restart object"""
-        return self.par_dict[par_name]
-    
-    def write_restart(self):
-        """Restart destructor: it will write vectors on disk if the solver breaks"""
-        if bool(self.par_dict) or bool(self.vec_dict):
-            # Creating restarting directory
-            mkdir(self.restart_folder)
-            with open(self.restart_folder + 'restart_obj.pkl', 'wb') as out_file:
-                pickle.dump(self, out_file, pickle.HIGHEST_PROTOCOL)
-            # Checking if a vectorOC was in the restart and preventing the removal of the vector file
-            for vec_name, vec in self.vec_dict.items():
-                if isinstance(vec, VectorOC):
-                    vec.remove_file = False
-    
-    def read_restart(self):
-        """Method to read restart object from saved folder"""
-        if os.path.isdir(self.restart_folder):
-            with open(self.restart_folder + 'restart_obj.pkl', 'rb') as in_file:
-                restart = pickle.load(in_file)
-            self.par_dict = restart.par_dict
-            self.vec_dict = restart.vec_dict
-            # Checking if a vectorOC was in the restart and setting the removal of the vector file
-            for vec_name, vec in self.vec_dict.items():
-                if isinstance(vec, VectorOC):
-                    vec.remove_file = True
-            # Removing previous restart and deleting read object
-            restart.clear_restart()
-            del restart
-    
-    def clear_restart(self):
-        """Method to clear the restart"""
-        self.par_dict = dict()
-        self.vec_dict = dict()
-        # Removing restart folder if existing
-        if os.path.isdir(self.restart_folder):
-            # Removing folder
-            rmtree(self.restart_folder)
-            
 
 class Solver:
     """Base solver class"""
@@ -130,6 +51,7 @@ class Solver:
         return
     
     def __del__(self):
+        """Default destructor"""
         return
     
     def setPrefix(self, prefix):
@@ -137,9 +59,8 @@ class Solver:
         self.prefix = prefix
         return
     
-    def setDefaults(self, save_obj: bool = False, save_res: bool = False, save_grad: bool = False,
-                    save_model: bool = False, prefix: str = None,
-                    iter_buffer_size: int = None, iter_sampling: int = 1, flush_memory: bool = False):
+    def setDefaults(self, save_obj=False, save_res=False, save_grad=False, save_model=False, prefix=None,
+                    iter_buffer_size=None, iter_sampling=1, flush_memory=False):
         """
         Function to set parameters for result saving.
 
@@ -161,7 +82,7 @@ class Solver:
         self.save_obj = save_obj  # Flag to save objective function value
         self.save_res = save_res  # Flag to save residual vector
         self.save_grad = save_grad  # Flag to save gradient vector
-        self.save_model = save_model  # Flag to save domain vector
+        self.save_model = save_model  # Flag to save model vector
         self.flush_memory = flush_memory  # Keep results in RAM or flush memory every time results are written on disk
         
         # Prefix of the saved files (if provided the results will be written on disk)
@@ -174,28 +95,28 @@ class Solver:
         # Lists of the results (list and vector Sets)
         self.obj = np.array([])  # Array for objective function values
         self.obj_terms = np.array([])  # Array for objective function values for each terms
-        self.model = list()  # List for domain vectors (to save results in-core)
+        self.model = list()  # List for model vectors (to save results in-core)
         self.res = list()  # List for residual vectors (to save results in-core)
         self.grad = list()  # List for gradient vectors (to save results in-core)
-        self.modelSet = VectorSet()  # Set for domain vectors
+        self.modelSet = VectorSet()  # Set for model vectors
         self.resSet = VectorSet()  # Set for residual vectors
         self.gradSet = VectorSet()  # Set for gradient vectors
-        self.inv_model = None  # Temporary saved inverted domain
+        self.inv_model = None  # Temporary saved inverted model
     
     def flush_results(self):
         """Flushing internal memory of the saved results"""
         # Lists of the results (list and vector Sets)
         self.obj = np.array([])  # Array for objective function values
         self.obj_terms = np.array([])  # Array for objective function values for each terms
-        self.model = list()  # List for domain vectors (to save results in-core)
+        self.model = list()  # List for model vectors (to save results in-core)
         self.res = list()  # List for residual vectors (to save results in-core)
         self.grad = list()  # List for gradient vectors (to save results in-core)
-        self.modelSet = VectorSet()  # Set for domain vectors
+        self.modelSet = VectorSet()  # Set for model vectors
         self.resSet = VectorSet()  # Set for residual vectors
         self.gradSet = VectorSet()  # Set for gradient vectors
-        self.inv_model = None  # Temporary saved inverted domain
+        self.inv_model = None  # Temporary saved inverted model
     
-    def get_restart(self, log_file: str):
+    def get_restart(self, log_file):
         """
         Function to retrieve restart folder from log file. It enables the user to use restart flag on self.run().
         
@@ -219,7 +140,7 @@ class Solver:
             print("WARNING! No restart folder's path was found in %s" % log_file)
         return
     
-    def save_results(self, iiter, problem, force_save: bool = False, force_write: bool = False, **kwargs):
+    def save_results(self, iiter, problem, **kwargs):
         """
         Save results to disk
         
@@ -233,11 +154,12 @@ class Solver:
                 obj: objective function to be saved
                 obj_terms: if problem objective function has more than one term
         """
-        
-        if not isinstance(problem, Problem):
+        if not isinstance(problem, P.Problem):
             raise TypeError("Input variable is not a Problem object")
-        # Getting a domain from arguments if provided (necessary to remove preconditioning)
-        mod_save = kwargs.get("domain", problem.get_model())
+        force_save = kwargs.get("force_save", False)
+        force_write = kwargs.get("force_write", False)
+        # Getting a model from arguments if provided (necessary to remove preconditioning)
+        mod_save = kwargs.get("model", problem.get_model())
         # Obtaining objective function value
         objf_value = kwargs.get("obj", problem.get_obj(problem.get_model()))
         obj_terms = kwargs.get("obj_terms", problem.obj_terms) if "obj_terms" in dir(problem) else None
@@ -257,8 +179,8 @@ class Solver:
         if iiter % self.iter_sampling == 0 or force_save:
             if self.save_model:
                 self.modelSet.append(mod_save)
-                # Storing domain vector into a temporary vector
-                del self.inv_model  # Deallocating previous saved domain
+                # Storing model vector into a temporary vector
+                del self.inv_model  # Deallocating previous saved model
                 self.inv_model = mod_save.clone()
             if self.save_res:
                 res_vec = problem.get_res(problem.get_model())
@@ -270,10 +192,10 @@ class Solver:
         self._write_steps(force_write)
         return
     
-    def _write_steps(self, force_write: bool = False):
+    def _write_steps(self, force_write=False):
         """
         Method to write inversion results on disk if forced to or if buffer is filled
-        
+
         Args:
             force_write: True - write every step; False - write whe buffer_size has been fulfilled
         """
@@ -281,7 +203,7 @@ class Solver:
         save = True if force_write or (self.iter_buffer_size is not None and max(len(self.modelSet.vecSet),
                                                                                  len(self.resSet.vecSet),
                                                                                  len(self.gradSet.vecSet))
-                                       >= self.iter_buffer_size) \
+                                                                             >= self.iter_buffer_size) \
             else False
         
         # Overwriting results if first time to write on disk
@@ -304,12 +226,12 @@ class Solver:
                         # File name in which the objective function is saved
                         obj_file = self.prefix + "_obj_comp%s.H" % (iterm + 1)
                         sep.write_file(obj_file, self.obj_terms[:, iterm])
-            # Writing current inverted domain and domain vectors on disk if requested
+            # Writing current inverted model and model vectors on disk if requested
             if self.save_model and self.prefix is not None:
-                inv_mod_file = self.prefix + "_inv_mod.H"  # File name in which the current inverted domain is saved
-                model_file = self.prefix + "_model.H"  # File name in which the domain vector is saved
+                inv_mod_file = self.prefix + "_inv_mod.H"  # File name in which the current inverted model is saved
+                model_file = self.prefix + "_model.H"  # File name in which the model vector is saved
                 self.modelSet.writeSet(model_file, mode=mode)
-                self.inv_model.writeVec(inv_mod_file, mode="w")  # Writing inverted domain file
+                self.inv_model.writeVec(inv_mod_file, mode="w")  # Writing inverted model file
             # Writing gradient vectors on disk if requested
             if self.save_grad and self.prefix is not None:
                 grad_file = self.prefix + "_gradient.H"  # File name in which the gradient vector is saved
@@ -319,7 +241,7 @@ class Solver:
                 res_file = self.prefix + "_residual.H"  # File name in which the residual vector is saved
                 self.resSet.writeSet(res_file, mode=mode)
     
-    def run(self, problem):
+    def run(self, prblm):
         """
         Solve the given problem
         
@@ -327,3 +249,83 @@ class Solver:
             problem: problem to be solved
         """
         raise NotImplementedError("Implement run Solver in the derived class.")
+
+
+class Restart:
+    """
+    Restart a solver.run
+
+    Attributes:
+        par_dict: dictionary containing the solver parameters
+        vec_dict: dictionary containing all the vectors the solver needs
+        restart_folder: path/to/folder where the  previous run has been saved
+    """
+    
+    def __init__(self):
+        """Restart constructor"""
+        self.par_dict = dict()
+        self.vec_dict = dict()
+        # Restart folder in case it is necessary to write restart
+        now = datetime.datetime.now()
+        restart_folder = sep.datapath + "restart_" + now.isoformat() + "/"
+        restart_folder = restart_folder.replace(":", "-")
+        self.restart_folder = restart_folder
+        # Calling write_restart when python session dies
+        atexit.register(self.write_restart)
+    
+    def save_vector(self, vec_name, vector_in):
+        """Save vector for restarting"""
+        # Deleting the vector if present in the dictionary
+        element = self.vec_dict.pop(vec_name, None)
+        if element:
+            del element
+        self.vec_dict.update({vec_name: vector_in.clone()})
+    
+    def retrieve_vector(self, vec_name):
+        """Method to retrieve a vector from restart object"""
+        return self.vec_dict[vec_name]
+    
+    def save_parameter(self, par_name, parameter_in):
+        """Method to save parameters for restarting"""
+        self.par_dict.update({par_name: parameter_in})
+        return
+    
+    def retrieve_parameter(self, par_name):
+        """Method to retrieve a parameter from restart object"""
+        return self.par_dict[par_name]
+    
+    def write_restart(self):
+        """Restart destructor: it will write vectors on disk if the solver breaks"""
+        if bool(self.par_dict) or bool(self.vec_dict):
+            # Creating restarting directory
+            mkdir(self.restart_folder)
+            with open(self.restart_folder + 'restart_obj.pkl', 'wb') as out_file:
+                pickle.dump(self, out_file, pickle.HIGHEST_PROTOCOL)
+            # Checking if a vectorOC was in the restart and preventing the removal of the vector file
+            for vec_name, vec in self.vec_dict.items():
+                if isinstance(vec, VectorOC):
+                    vec.remove_file = False
+    
+    def read_restart(self):
+        """Method to read restart object from saved folder"""
+        if os.path.isdir(self.restart_folder):
+            with open(self.restart_folder + 'restart_obj.pkl', 'rb') as in_file:
+                restart = pickle.load(in_file)
+            self.par_dict = restart.par_dict
+            self.vec_dict = restart.vec_dict
+            # Checking if a vectorOC was in the restart and setting the removal of the vector file
+            for vec_name, vec in self.vec_dict.items():
+                if isinstance(vec, VectorOC):
+                    vec.remove_file = True
+            # Removing previous restart and deleting read object
+            restart.clear_restart()
+            del restart
+    
+    def clear_restart(self):
+        """Method to clear the restart"""
+        self.par_dict = dict()
+        self.vec_dict = dict()
+        # Removing restart folder if existing
+        if os.path.isdir(self.restart_folder):
+            # Removing folder
+            rmtree(self.restart_folder)

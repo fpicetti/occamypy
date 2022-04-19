@@ -1,20 +1,19 @@
-from occamypy.operator.base import Operator
+from occamypy import Vector
+from .base import Operator
 from occamypy.utils import get_backend, get_vector_type
-from occamypy.vector.base import Vector
 
 
 class Matrix(Operator):
     """
     Linear Operator build upon an explicit matrix
-    
+
     Attributes:
         matrix: Vector array that contains the matrix
     """
-    
-    def __init__(self, matrix: Vector, domain: Vector, range: Vector, outcore: bool = False):
+    def __init__(self, matrix: Vector, domain: Vector, range: Vector, outcore=False):
         """
         Matrix constructor
-        
+
         Args:
             matrix: vector that contains the matrix
             domain: domain vector
@@ -35,11 +34,11 @@ class Matrix(Operator):
         
         self.matrix = matrix
         self.outcore = outcore
-        
-        self.name = "Matrix"
+    
+    def __str__(self):
+        return "MatrixOp"
     
     def forward(self, add, model, data):
-        """Forward multiplication: d = A * m"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -47,7 +46,6 @@ class Matrix(Operator):
         return
     
     def adjoint(self, add, model, data):
-        """Adjoint multiplication: m = A' * d"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()

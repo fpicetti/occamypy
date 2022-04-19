@@ -5,17 +5,16 @@ import cupy as cp
 import numpy as np
 from GPUtil import getGPUs, getFirstAvailable
 
-from occamypy.vector.base import Vector
-from occamypy.numpy.vector import VectorNumpy
+from occamypy import Vector, VectorNumpy
 
 
 class VectorCupy(Vector):
     """Vector class based on cupy.ndarray"""
-    
-    def __init__(self, in_content, device: int = None, *args, **kwargs):
+
+    def __init__(self, in_content, device=None, *args, **kwargs):
         """
         VectorCupy constructor
-        
+
         Args:
             in_content: numpy.ndarray, cupy.ndarray, tuple or VectorNumpy
             device: computation device (None for CPU, -1 for least used GPU)
@@ -23,6 +22,8 @@ class VectorCupy(Vector):
             **kwargs: dict of arguments for Vector construction
         """
         if isinstance(in_content, cp.ndarray) or isinstance(in_content, np.ndarray):
+            if cp.isfortran(in_content):
+                raise TypeError('Input array not a C contiguous array!')
             self.arr = cp.array(in_content, copy=False)
         elif isinstance(in_content, tuple):  # Tuple size passed to constructor
             # self.arr = cp.zeros(tuple(reversed(in_content)))
@@ -114,16 +115,7 @@ class VectorCupy(Vector):
             amp_noise = cp.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
         self.getNdArray()[:] = amp_noise * (2. * cp.random.random(self.getNdArray().shape) - 1.)
         return self
-    
-    def randn(self, snr=1.):
-        rms = cp.sqrt(cp.mean(cp.square(self.getNdArray())))
-        amp_noise = 1.0
-        if rms != 0.:
-            amp_noise = cp.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
-        self.getNdArray()[:] = cp.random.normal(0., 1., self.shape)
-        self.scale(amp_noise)
-        return self
-    
+
     def clone(self):
         vec_clone = deepcopy(self)  # Deep clone of vector
         # Checking if a vector space was provided
@@ -241,6 +233,7 @@ class VectorCupy(Vector):
         return self
 
     def isDifferent(self, other):
+        # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
         if not self._check_same_device(other):
@@ -260,7 +253,7 @@ class VectorCupy(Vector):
             isDiff = (not cp.equal(self.getNdArray(), other.getNdArray()).all())
         return isDiff
 
-    def clip(self, low, high):
+    def clipVector(self, low, high):
         if not isinstance(low, VectorCupy):
             raise TypeError("Provided input low vector not a %s!" % self.whoami)
         if not isinstance(high, VectorCupy):

@@ -3,7 +3,7 @@ from sys import version_info
 
 import numpy as np
 
-from occamypy.vector.base import Vector
+from occamypy import Vector
 
 
 class VectorNumpy(Vector):
@@ -12,7 +12,7 @@ class VectorNumpy(Vector):
     def __init__(self, in_content, *args, **kwargs):
         """
         VectorNumpy constructor
-        
+
         Args:
             in_content: numpy.ndarray, tuple or path_to_file to load a numpy.ndarray
            *args: list of arguments for Vector construction
@@ -36,7 +36,6 @@ class VectorNumpy(Vector):
         self.size = self.arr.size  # Total number of elements
 
     def getNdArray(self):
-        """Function to return Ndarray of the vector"""
         return self.arr
     
     def norm(self, N=2):
@@ -70,15 +69,6 @@ class VectorNumpy(Vector):
         if rms > 0. and rms != np.inf:
             amp_noise = np.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
         self.getNdArray()[:] = amp_noise * (2. * np.random.random(self.getNdArray().shape) - 1.)
-        return self
-    
-    def randn(self, snr=1.):
-        rms = np.sqrt(np.mean(np.square(self.getNdArray())))
-        amp_noise = 1.0
-        if rms != 0.:
-            amp_noise = np.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
-        self.getNdArray()[:] = np.random.normal(0., 1., self.shape)
-        self.scale(amp_noise)
         return self
     
     def clone(self):
@@ -212,10 +202,14 @@ class VectorNumpy(Vector):
             isDiff = (not np.array_equal(self.getNdArray(), other.getNdArray()))
         return isDiff
     
-    def clip(self, low, high):
+    def clipVector(self, low, high):
         if not isinstance(low, VectorNumpy):
             raise TypeError("Provided input low vector not a %s!" % self.whoami)
         if not isinstance(high, VectorNumpy):
             raise TypeError("Provided input high vector not a %s!" % self.whoami)
         self.getNdArray()[:] = np.minimum(np.maximum(low.getNdArray(), self.getNdArray()), high.getNdArray())
         return self
+
+    def plot(self):
+        return self.getNdArray()
+    

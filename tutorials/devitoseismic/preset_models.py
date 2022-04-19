@@ -51,7 +51,7 @@ def demo_model(preset, **kwargs):
     fs = kwargs.pop('fs', False)
 
     if preset.lower() in ['constant-elastic']:
-        # A constant single-layer model in a 2D or 3D domain
+        # op constant single-layer model in a 2D or 3D domain
         # with velocity 1.5 km/s.
         vs = 0.5 * vp
         b = 1.0
@@ -61,7 +61,7 @@ def demo_model(preset, **kwargs):
                             nbl=nbl, **kwargs)
 
     if preset.lower() in ['constant-viscoelastic']:
-        # A constant single-layer model in a 2D or 3D domain
+        # op constant single-layer model in a 2D or 3D domain
         # with velocity 2.2 km/s.
         qp = kwargs.pop('qp', 100.)
         vs = kwargs.pop('vs', 1.2)
@@ -74,14 +74,14 @@ def demo_model(preset, **kwargs):
                             **kwargs)
 
     if preset.lower() in ['constant-isotropic']:
-        # A constant single-layer model in a 2D or 3D domain
+        # op constant single-layer model in a 2D or 3D domain
         # with velocity 1.5 km/s.
 
         return SeismicModel(space_order=space_order, vp=vp, origin=origin, shape=shape,
                             dtype=dtype, spacing=spacing, nbl=nbl, fs=fs, **kwargs)
 
     if preset.lower() in ['constant-viscoacoustic']:
-        # A constant single-layer model in a 2D or 3D domain
+        # op constant single-layer model in a 2D or 3D domain
         # with velocity 1.5 km/s.
         qp = kwargs.pop('qp', 100.)
         b = 1/2.
@@ -91,7 +91,7 @@ def demo_model(preset, **kwargs):
                             spacing=spacing, **kwargs)
 
     elif preset.lower() in ['constant-tti']:
-        # A constant single-layer model in a 2D or 3D domain
+        # op constant single-layer model in a 2D or 3D domain
         # with velocity 1.5 km/s.
         v = np.empty(shape, dtype=dtype)
         v[:] = 1.5
@@ -107,7 +107,7 @@ def demo_model(preset, **kwargs):
                             delta=delta, theta=theta, phi=phi, bcs="damp", **kwargs)
 
     elif preset.lower() in ['layers-isotropic']:
-        # A n-layers model in a 2D or 3D domain with two different
+        # op n-layers model in a 2D or 3D domain with two different
         # velocities split across the height dimension:
         # By default, the top part of the domain has 1.5 km/s,
         # and the bottom part of the domain has 2.5 km/s.
@@ -126,7 +126,7 @@ def demo_model(preset, **kwargs):
                             fs=fs, **kwargs)
 
     elif preset.lower() in ['layers-elastic']:
-        # A n-layers model in a 2D or 3D domain with two different
+        # op n-layers model in a 2D or 3D domain with two different
         # velocities split across the height dimension:
         # By default, the top part of the domain has 1.5 km/s,
         # and the bottom part of the domain has 2.5 km/s.
@@ -151,7 +151,7 @@ def demo_model(preset, **kwargs):
 
     elif preset.lower() in ['layers-viscoelastic', 'twolayer-viscoelastic',
                             '2layer-viscoelastic']:
-        # A two-layer model in a 2D or 3D domain with two different
+        # op two-layer model in a 2D or 3D domain with two different
         # velocities split across the height dimension:
         # By default, the top part of the domain has 1.6 km/s,
         # and the bottom part of the domain has 2.2 km/s.
@@ -195,7 +195,7 @@ def demo_model(preset, **kwargs):
                             nbl=nbl, **kwargs)
 
     elif preset.lower() in ['layers-tti', 'layers-tti-noazimuth']:
-        # A n-layers model in a 2D or 3D domain with two different
+        # op n-layers model in a 2D or 3D domain with two different
         # velocities split across the height dimension:
         # By default, the top part of the domain has 1.5 km/s,
         # and the bottom part of the domain has 2.5 km/s.\
@@ -229,7 +229,7 @@ def demo_model(preset, **kwargs):
         return model
 
     elif preset.lower() in ['circle-isotropic']:
-        # A simple circle in a 2D domain with a background velocity.
+        # op simple circle in a 2D domain with a background velocity.
         # By default, the circle velocity is 2.5 km/s,
         # and the background veloity is 3.0 km/s.
         vp = kwargs.pop('vp_circle', 3.0)
@@ -326,7 +326,7 @@ def demo_model(preset, **kwargs):
                             delta=delta, theta=theta, phi=phi, bcs="damp", **kwargs)
 
     elif preset.lower() in ['layers-viscoacoustic']:
-        # A n-layers model in a 2D or 3D domain with two different
+        # op n-layers model in a 2D or 3D domain with two different
         # velocities split across the height dimension:
         # By default, the top part of the domain has 1.5 km/s,
         # and the bottom part of the domain has 3.5 km/s.

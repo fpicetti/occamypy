@@ -1,64 +1,47 @@
 import time
 from timeit import default_timer as timer
-
 import numpy as np
 
-from occamypy.problem.base import Problem
-from occamypy.utils.logger import Logger
-
-
-def _get_zfill(integer: int) -> int:
-    """
-    Args:
-        integer: query iteration number
-
-    Returns:
-        number of digits for printing N
-    """
-    digits = int(np.floor(np.log10(integer))) + 1
-    return digits
+from occamypy import problem as P
 
 
 class Stopper:
     """
     Base stopper class.
     Used to implement stopping criteria for the solver.
-    
+
     Methods:
         reset: reset the inner variables
         run(problem): apply its criteria to the problem
     """
-    
+
     def __init__(self):
         """Default class constructor for Stopper"""
-        self.zfill = 3
         return
-    
+
     def __del__(self):
         """Default destructor"""
         return
-        
+
     def reset(self):
         """Function to reset stopper variables"""
         raise NotImplementedError("Implement reset stopper in the derived class.")
-    
-    def run(self, problem, verbose: bool = False, *args, **kwargs) -> bool:
-        """Apply stopping criteria to problem. Should return a boolean to stop the solver."""
+
+    def run(self, problem):
+        """Dummy stopper running method"""
         raise NotImplementedError("Implement run stopper in the derived class.")
 
 
 class BasicStopper(Stopper):
     """
     Basic Stopper with different options
-    
+
     Notes:
         stopper is going to change the gradient/obj/res files
     """
     
-    def __init__(self, niter: int = 0, maxfevals: int = 0, maxhours: float = 0.0, tolr: float = 1e-32,
-                 tolg: float = 1e-32, tolg_proj=None,
-                 tolobj: float = None, tolobjrel: float = None,
-                 toleta: float = None, tolobjchng: float = None, logger: Logger = None):
+    def __init__(self, niter=0, maxfevals=0, maxhours=0.0, tolr=1.0e-32, tolg=1.0e-32, tolg_proj=None, tolobj=None, tolobjrel=None,
+                 toleta=None, tolobjchng=None, logger=None):
         """
         BasicStopper constructor
         
@@ -78,7 +61,7 @@ class BasicStopper(Stopper):
         # Criteria to evaluate whether or not to stop the solver
         super(BasicStopper, self).__init__()
         self.niter = niter
-        self.zfill = _get_zfill(self.niter)  # number of digits for printing the iteration number
+        self.zfill = int(np.floor(np.log10(self.niter)) + 1)  # number of digits for printing the iteration number
         self.maxfevals = maxfevals
         self.maxhours = maxhours
         self.tolr = tolr
@@ -97,14 +80,17 @@ class BasicStopper(Stopper):
         # Starting timer
         self.__start = timer()
         return
-    
+
     def reset(self):
+        """Function to reset stopper variables"""
+        # Restarting timer
         self.__start = timer()
         self.obj_pts = list()
         return
-    
-    def run(self, problem: Problem, niter: int, initial_obj_value: float = None, verbose: bool = False) -> bool:
-        if not isinstance(problem, Problem):
+
+    # Beware stopper is going to change the gradient/obj/res files
+    def run(self, problem, niter, initial_obj_value=None, verbose=False):
+        if not isinstance(problem, P.Problem):
             raise TypeError("Input variable is not a Problem object")
         # Variable to impose stopping to solver
         stop = False
@@ -188,7 +174,7 @@ class BasicStopper(Stopper):
         if self.tolobj is not None:
             if obj < self.tolobj:
                 stop = True
-                msg = "Terminate: objective function value tolerance of %s reached, objective function value %s\n" \
+                msg = "Terminate: objective function value tolerance of %s reached, objective function value %s\n"\
                       % (self.tolobj, obj)
                 if verbose:
                     print(msg)
@@ -209,7 +195,7 @@ class BasicStopper(Stopper):
             data_norm = problem.data.norm()
             if res_norm < self.toleta * data_norm:
                 stop = True
-                msg = "Terminate: eta tolerance (i.e., |Am - b|/|b|) of %s reached, eta value %s" \
+                msg = "Terminate: eta tolerance (i.e., |Am - b|/|b|) of %s reached, eta value %s"\
                       % (self.toleta, res_norm / data_norm)
                 if verbose:
                     print(msg)
@@ -239,18 +225,18 @@ class BasicStopper(Stopper):
 class SamplingStopper(Stopper):
     """
     Stopper that check the  number of tested samples.
-    
+
     Examples:
         used in MCMC solver
-    
+
     Notes:
         stopper is going to change the gradient/obj/res files
     """
     
-    def __init__(self, nsamples: int, maxhours: float = 0., logger: Logger = None):
+    def __init__(self, nsamples, maxhours=0.0, logger=None):
         """
         SamplingStopper constructor
-        
+
         Args:
             nsamples: number of samples to test
             maxhours: maximum total running time in hours (must be greater than 0. to be checked)
@@ -259,20 +245,22 @@ class SamplingStopper(Stopper):
         # Criteria to evaluate whether or not to stop the solver
         super(SamplingStopper, self).__init__()
         self.nsamples = nsamples
-        self.zfill = _get_zfill(self.nsamples)
+        self.zfill = int(np.floor(np.log10(self.nsamples)) + 1)  # number of digits for printing the iteration number
         self.maxhours = maxhours
         # Logger to write to file stopper information
         self.logger = logger
         # Starting timer
         self.__start = timer()
         return
-    
+
     def reset(self):
+        """Function to reset stopper variables"""
+        # Restarting timer
         self.__start = timer()
         return
-    
-    def run(self, problem: Problem, nsamples: int, verbose: bool = False) -> bool:
-        if not isinstance(problem, Problem):
+
+    def run(self, problem, nsamples, verbose=False):
+        if not isinstance(problem, P.Problem):
             raise TypeError("Input variable is not a Problem object")
         # Variable to impose stopping to solver
         stop = False

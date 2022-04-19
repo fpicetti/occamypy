@@ -1,8 +1,8 @@
 from .base import *
-from .derivative import *
 from .linear import *
-from .matrix import *
 from .nonlinear import *
+from .derivative import *
+from .matrix import *
 
 __all__ = [
     "Operator",

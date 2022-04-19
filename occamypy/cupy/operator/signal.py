@@ -1,27 +1,22 @@
 from __future__ import division, print_function, absolute_import
-
-from typing import Union, Tuple
-
-import cupy as cp
 import numpy as np
+import cupy as cp
 from cupyx.scipy.ndimage import gaussian_filter
-
 try:
     from cusignal.convolution import convolve, correlate
 except ModuleNotFoundError:
     raise ModuleNotFoundError("cuSIGNAL is not installed. Please install it")
-from occamypy.operator.base import Operator, Dstack
-from occamypy.vector.base import Vector, superVector
-from occamypy.cupy.vector import VectorCupy
+from occamypy import Operator, Dstack, Vector, superVector
+from occamypy.cupy import VectorCupy
 
 
 class GaussianFilter(Operator):
     """Gaussian smoothing operator using scipy smoothing"""
-    
-    def __init__(self, domain: VectorCupy, sigma: Tuple[float]):
+
+    def __init__(self, model, sigma):
         """
         GaussianFilter (cupy) constructor
-        
+
         Args:
             domain: domain vector
             sigma: standard deviation along the domain directions
@@ -29,8 +24,11 @@ class GaussianFilter(Operator):
         self.sigma = sigma
         self.scaling = np.sqrt(np.prod(np.array(self.sigma) / cp.pi))  # in order to have the max amplitude 1
         
-        super(GaussianFilter, self).__init__(domain, domain)
-        self.name = "GausFilt"
+        super(GaussianFilter, self).__init__(model, model)
+        return
+    
+    def __str__(self):
+        return "GausFilt"
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -49,11 +47,11 @@ class GaussianFilter(Operator):
 
 class ConvND(Operator):
     """ND convolution square operator in the domain space"""
-    
-    def __init__(self, domain: VectorCupy, kernel: Union[VectorCupy, cp.ndarray], method: str = 'auto'):
+
+    def __init__(self, domain, kernel, method='auto'):
         """
         ConvND (cupy) constructor
-        
+
         Args:
             domain: domain vector
             kernel: kernel vector
@@ -85,7 +83,9 @@ class ConvND(Operator):
         self.method = method
         
         super(ConvND, self).__init__(domain, domain)
-        self.name = "Convolve"
+    
+    def __str__(self):
+        return " ConvOp "
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -106,7 +106,7 @@ class ConvND(Operator):
         return
 
 
-def Padding(domain: Union[VectorCupy, superVector], pad: Union[Tuple[int], Tuple[Tuple[int]]], mode: str = "constant"):
+def Padding(model, pad, mode: str = "constant"):
     """
     Padding operator
 
@@ -119,17 +119,16 @@ def Padding(domain: Union[VectorCupy, superVector], pad: Union[Tuple[int], Tuple
         pad: number of samples to be added at each end of the dimension, for each dimension
         mode: padding mode (see https://numpy.org/doc/stable/reference/generated/numpy.pad.html)
     """
-    
-    if isinstance(domain, VectorCupy):
-        return _Padding(domain, pad, mode)
-    elif isinstance(domain, superVector):
+    if isinstance(model, VectorCupy):
+        return _Padding(model, pad, mode)
+    elif isinstance(model, superVector):
         # TODO add the possibility to have different padding for each sub-vector
-        return Dstack([_Padding(v, pad, mode) for v in domain.vecs])
+        return Dstack([_Padding(v, pad, mode) for v in model.vecs])
     else:
         raise ValueError("ERROR! Provided domain has to be either vector or superVector")
 
 
-def ZeroPad(domain: VectorCupy, pad: Union[Tuple[int], Tuple[Tuple[int]]]):
+def ZeroPad(model, pad):
     """
     Zero-Padding operator
 
@@ -141,8 +140,7 @@ def ZeroPad(domain: VectorCupy, pad: Union[Tuple[int], Tuple[Tuple[int]]]):
         domain: domain vector
         pad: number of samples to be added at each end of the dimension, for each dimension
     """
-    
-    return Padding(domain=domain, pad=pad, mode="constant")
+    return Padding(model, pad, mode="constant")
 
 
 def _pad_VectorCupy(vec, pad):
@@ -159,20 +157,23 @@ def _pad_VectorCupy(vec, pad):
 
 
 class _Padding(Operator):
-
+    
     def __init__(self, domain, pad, mode: str = "constant"):
-        
-        self.dims = domain.shape
-        pad = [(pad, pad)] * len(self.dims) if pad is cp.isscalar else list(pad)
-        if (cp.array(pad) < 0).any():
-            raise ValueError('Padding must be positive or zero')
-        self.pad = pad
-        self.mode = mode
-        super(_Padding, self).__init__(domain, _pad_VectorCupy(domain, self.pad))
-        self.name = "Padding"
+
+        if isinstance(domain, VectorCupy):
+            self.dims = domain.shape
+            pad = [(pad, pad)] * len(self.dims) if pad is cp.isscalar else list(pad)
+            if (cp.array(pad) < 0).any():
+                raise ValueError('Padding must be positive or zero')
+            self.pad = pad
+            self.mode = mode
+            super(_Padding, self).__init__(domain, _pad_VectorCupy(domain, self.pad))
+    
+    def __str__(self):
+        return "Padding "
     
     def forward(self, add, model, data):
-        """Padding the domain"""
+        """Pad the domain"""
         self.checkDomainRange(model, data)
         if add:
             temp = data.clone()

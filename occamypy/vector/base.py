@@ -1,9 +1,7 @@
 import os
-
 import numpy as np
-
 from occamypy.utils import sep
-from occamypy.vector.axis_info import AxInfo
+from .axis_info import AxInfo
 
 
 class Vector:
@@ -16,7 +14,7 @@ class Vector:
         ndim: number of dimensions
         dtype: array data type (e.g., float, int) based on the array backend
         ax_info: list of AxInfo objects describing the array axes
-    
+
     Methods:
         getNdArray: to access the array
         norm: compute the vector N-norm
@@ -54,7 +52,7 @@ class Vector:
     def __init__(self, ax_info: list = None):
         """
         Vector constructor
-        
+
         Args:
             ax_info: list of AxInfo objects about the vector axes
         """
@@ -72,7 +70,7 @@ class Vector:
         return self.getNdArray().__repr__()
     
     def __del__(self):
-        return
+        """Default destructor"""
     
     def __add__(self, other):  # self + other
         if type(other) in [int, float]:
@@ -82,7 +80,7 @@ class Vector:
             self.scaleAdd(other)
             return self
         else:
-            raise TypeError('Argument has to be either scalar or vector, got %r instead' % other)
+            raise TypeError("Argument has to be either scalar or vector, got %r instead" % other)
     
     def __sub__(self, other):  # self - other
         self.__add__(-other)
@@ -136,9 +134,7 @@ class Vector:
         self.getNdArray()[key] = value
     
     def init_ax_info(self):
-        """
-        Initialize the AxInfo list for every axis
-        """
+        """Initialize the AxInfo list for every axis"""
         self.ax_info = [AxInfo(n=s) for s in self.shape]
     
     @property
@@ -149,14 +145,13 @@ class Vector:
     def dtype(self):
         return self.getNdArray().dtype
     
-    # Class vector operations
     def getNdArray(self):
         """Get the vector content"""
         raise NotImplementedError("getNdArray must be overwritten")
     
     def norm(self, N=2):
         """Compute vector N-norm
-        
+
         Args:
             N: vector norm type
         """
@@ -177,7 +172,7 @@ class Vector:
     
     def set(self, val):
         """Fill the vector with a value
-        
+
         Args:
             val: value to fill the vector
         """
@@ -193,8 +188,9 @@ class Vector:
         self.getNdArray()[:] += bias
         return self
     
-    def rand(self, snr: float = 1.):
+    def rand(self):
         """Fill vector with random number ~U[1,-1] with a given SNR
+        
         Args:
             snr: SNR value
         """
@@ -202,6 +198,7 @@ class Vector:
     
     def randn(self, snr: float = 1.):
         """Fill vector with random number ~N[0, 1] with a given SNR
+        
         Args:
             snr: SNR value
         """
@@ -222,7 +219,7 @@ class Vector:
     def writeVec(self, filename, mode='w'):
         """
         Write vector to file
-        
+
         Args:
             filename: path/to/file.ext
             mode: 'a' for append, 'w' for overwriting
@@ -352,11 +349,13 @@ class Vector:
     def imag(self):
         """Return the in-place imaginary part of the vector"""
         raise NotImplementedError('imag method must be implemented')
-        
+    
+    # Combination of different vectors
+    
     def copy(self, other):
         """
         Copy input vector
-        
+
         Args:
             other: vector to be copied
         """
@@ -373,7 +372,7 @@ class Vector:
     def scaleAdd(self, other, sc1=1.0, sc2=1.0):
         """
         Scale two vectors and add them to the first one
-        
+
         Args:
             other: vector to be added
             sc1: scaling factor of self
@@ -391,7 +390,7 @@ class Vector:
     
     def dot(self, other):
         """Compute dot product
-        
+
         Args:
             other: second vector
         """
@@ -399,7 +398,7 @@ class Vector:
     
     def multiply(self, other):
         """Element-wise multiplication
-        
+
         Args:
             other: second vector
         """
@@ -407,16 +406,16 @@ class Vector:
     
     def isDifferent(self, other):
         """Check if two vectors are identical
-        
+
         Args:
             other: second vector
         """
         raise NotImplementedError("isDifferent must be overwritten")
     
-    def clip(self, low, high):
+    def clipVector(self, low, high):  # TODO rename
         """
         Bound vector values between two values
-        
+
         Args:
             low: lower bound value
             high: upper bound value
@@ -425,21 +424,20 @@ class Vector:
     
     def plot(self):
         """Get a plottable array"""
-        return self.getNdArray()
+        raise NotImplementedError("plot must be overwritten")
 
 
-# Set of vectors (useful to store results and same-Space vectors together)
 class VectorSet:
     """Class to store different vectors that live in the same Space"""
     
     def __init__(self):
-        """Class to store different vectors that live in the same Space"""
-        self.vecSet = []  # List of vectors of the set
+        """VectorSet constructor"""
+        self.vecSet = []
     
     def __del__(self):
         """Default destructor"""
     
-    def append(self, other: Vector, copy: bool = True):
+    def append(self, other, copy=True):
         """Method to add vector to the set
         Args:
             other: vector to be added
@@ -452,17 +450,14 @@ class VectorSet:
         
         self.vecSet.append(other.clone()) if copy else self.vecSet.append(other)
     
-    def writeSet(self, filename, mode: str = "a"):
+    def writeSet(self, filename, mode="a"):
         """
         Write the set to file, all the vectors in set will be appended
+        
         Args:
             filename: path/to/file.ext
             mode: 'a' for append, 'w' for overwriting
-
-        Returns:
-
         """
-        """Method to write to SEPlib file (by default it appends vectors to file)"""
         if mode not in "aw":
             raise ValueError("ERROR! mode must be either a (append) or w (write)")
         for idx_vec, vec_i in enumerate(self.vecSet):
@@ -476,11 +471,11 @@ class VectorSet:
 
 class superVector(Vector):
     """Class to handle a list of vectors as one"""
-    
+
     def __init__(self, *args):
         """
         superVector constructor
-        
+
         Args:
             *args: vectors or superVectors or vectors list objects
         """
@@ -627,9 +622,9 @@ class superVector(Vector):
             raise TypeError("Input variable is not a superVector")
         return any([self.vecs[idx].isDifferent(vecs_in.vecs[idx]) for idx in range(self.n)])
     
-    def clip(self, lows, highs):
+    def clipVector(self, lows, highs):
         for idx in range(self.n):
-            self.vecs[idx].clip(lows[idx], highs[idx])
+            self.vecs[idx].clipVector(lows[idx], highs[idx])
         return self
     
     def abs(self):

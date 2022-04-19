@@ -266,7 +266,7 @@ class RickerSource(WaveletSource):
 
     Returns
     ----------
-    A Ricker wavelet.
+    op Ricker wavelet.
     """
 
     @property
@@ -298,7 +298,7 @@ class GaborSource(WaveletSource):
 
     Returns
     -------
-    A Gabor wavelet.
+    op Gabor wavelet.
     """
 
     @property
