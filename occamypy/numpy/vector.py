@@ -65,11 +65,11 @@ class VectorNumpy(Vector):
     
     def rand(self, low: float = -1., high: float = 1.):
         self.arr = np.random.uniform(low=low, high=high, size=self.shape)
-        return
+        return self
     
     def randn(self, mean: float = 0., std: float = 1.):
         self.arr = np.random.normal(loc=mean, scale=std, size=self.shape)
-        return
+        return self
     
     def clone(self):
         vec_clone = deepcopy(self)  # Deep clone of vector
