@@ -37,7 +37,7 @@ class VectorTorch(Vector):
         elif isinstance(in_content, torch.Tensor):  # Tensor passed to constructor
             self.arr = in_content.contiguous()
         elif isinstance(in_content, tuple):  # Tuple size passed to constructor
-            self.arr = torch.empty(in_content)
+            self.arr = torch.zeros(in_content)
         else:  # Not supported type
             raise ValueError("ERROR! Input variable not currently supported!")
 

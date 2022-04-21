@@ -28,7 +28,7 @@ class VectorCupy(Vector):
             self.arr = cp.array(in_content, copy=False)
         elif isinstance(in_content, tuple):  # Tuple size passed to constructor
             # self.arr = cp.zeros(tuple(reversed(in_content)))
-            self.arr = cp.empty(in_content)
+            self.arr = cp.zeros(in_content)
         elif isinstance(in_content, VectorNumpy):
             self.arr = in_content.getNdArray().copy()
             self.ax_info = in_content.ax_info

@@ -25,7 +25,7 @@ class VectorNumpy(Vector):
             #     raise TypeError('Input array not a C contiguous array!')
             self.arr = np.array(in_content, copy=False)
         elif isinstance(in_content, tuple):  # Tuple size passed to constructor
-            self.arr = np.empty(in_content)
+            self.arr = np.zeros(in_content)
         else:  # Not supported type
             raise ValueError("ERROR! Input variable not currently supported!")
 
