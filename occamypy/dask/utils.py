@@ -142,6 +142,7 @@ class DaskClient:
         slurm_params = kwargs.get("slurm_params", None)
         kube_params = kwargs.get("kube_params", None)
         logging = kwargs.get("logging", True)
+        
         ClusterInit = None
         cluster_params = None
         if local_params:
@@ -249,17 +250,9 @@ class DaskClient:
         else:
             raise ValueError("Either hostnames or local_params or pbs/lsf/slurm_params or kube_params must be "
                              "provided!")
+
+        self.num_workers = len(self.WorkerIds)
+        self.dashboard_link = self.cluster.dashboard_link
+        
         # Closing dask processes
         atexit.register(self.client.shutdown)
-    
-    def getClient(self):
-        """Accessor for obtaining the client object"""
-        return self.client
-    
-    def getWorkerIds(self):
-        """Accessor for obtaining the worker IDs"""
-        return self.WorkerIds
-    
-    def getNworkers(self):
-        """Accessor for obtaining the number of workers"""
-        return len(self.getWorkerIds())

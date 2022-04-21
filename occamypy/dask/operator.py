@@ -105,10 +105,10 @@ class DaskOperator(Operator):
         if not isinstance(op_args, list):
             raise TypeError("Passed operator arguments not a list!")
         self.dask_client = dask_client
-        self.client = self.dask_client.getClient()
-        wrkIds = self.dask_client.getWorkerIds()
-        N_wrk = self.dask_client.getNworkers()
-        # Check if number of provided chunks is the same as workers
+        self.client = self.dask_client.client
+        wrkIds = self.dask_client.WorkerIds
+        N_wrk = self.dask_client.num_workers
+        
         if len(chunks) != N_wrk:
             raise ValueError(
                 "Number of provide chunks (%s) different than the number of workers (%s)" % (len(chunks), N_wrk))
@@ -324,7 +324,7 @@ class DaskSpread(Operator):
         if not isinstance(domain, Vector):
             raise TypeError("domain is not a vector-derived object!")
         self.dask_client = dask_client
-        self.client = self.dask_client.getClient()
+        self.client = self.dask_client.client
         self.chunks = chunks
         self.setDomainRange(domain, DaskVector(self.dask_client, vector_template=domain, chunks=chunks))
     
@@ -347,9 +347,9 @@ class DaskSpread(Operator):
             modelNd = model.getNdArray()
         
         # Spreading model array to workers
-        if len(self.chunks) == self.dask_client.getNworkers():
+        if len(self.chunks) == self.dask_client.num_workers:
             dataVecList = data.vecDask.copy()
-            for iwrk, wrkId in enumerate(self.dask_client.getWorkerIds()):
+            for iwrk, wrkId in enumerate(self.dask_client.WorkerIds):
                 arrD = scatter_large_data(modelNd, wrkId, self.client)
                 for ii in range(self.chunks[iwrk]):
                     daskD.wait(

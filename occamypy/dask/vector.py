@@ -1,12 +1,13 @@
 import os
+from typing import List
 
 import dask.distributed as daskD
 import numpy as np
 
-from occamypy.vector.base import Vector
-from occamypy. numpy.vector import VectorNumpy
 from occamypy.utils import sep
 from occamypy.utils.os import BUF_SIZE
+from occamypy.vector.base import Vector
+from occamypy.numpy.vector import VectorNumpy
 from occamypy.dask.utils import DaskClient
 
 # Verify if SepVector modules are presents
@@ -248,7 +249,6 @@ def _call_clip(vecObj, low, high):
     return res
 
 
-# Check consistency between vectors
 def checkVector(vec1, vec2):
     """Function to check type and chunks of Dask-vector objects"""
     if type(vec1) is not DaskVector:
@@ -285,19 +285,17 @@ class DaskVector(Vector):
         # Client to submit tasks
         super(DaskVector).__init__()
         if not isinstance(dask_client, DaskClient):
-            raise TypeError("Passed client is not a Dask Client object!")
+            raise TypeError("Passed client is not a DaskClient object!")
         self.dask_client = dask_client
-        self.client = self.dask_client.getClient()
+        self.client = self.dask_client.client
+        
         # List containing futures to vectors
         self.vecDask = []
-        # Getting worker IDs
-        wrkIds = self.dask_client.getWorkerIds()
-        N_wrk = self.dask_client.getNworkers()
         if "vector_template" in kwargs and "chunks" in kwargs:
             vec_tmplt = kwargs.get("vector_template")
             self.chunks = kwargs.get("chunks")
             # Spreading chunks across available workers
-            self.chunks = [np.sum(ix) for ix in np.array_split(self.chunks, N_wrk)]
+            self.chunks = [np.sum(ix) for ix in np.array_split(self.chunks, self.dask_client.num_workers)]
             # Checking if an SepVector was passed (by getting Hypercube)
             hyper = False
             if SepVector:
@@ -308,10 +306,10 @@ class DaskVector(Vector):
                 vec_space = vec_tmplt.getHyper().axes  # Passing axes since Hypercube cannot be serialized
             else:
                 vec_space = vec_tmplt.cloneSpace()
-            vec_spaceD = self.client.scatter(vec_space, workers=wrkIds)
+            vec_spaceD = self.client.scatter(vec_space, workers=self.dask_client.WorkerIds)
             daskD.wait(vec_spaceD)
             # Spreading vectors
-            for iwrk, wrkId in enumerate(wrkIds):
+            for iwrk, wrkId in enumerate(self.dask_client.WorkerIds):
                 for ivec in range(self.chunks[iwrk]):
                     if hyper:
                         # Instantiating Sep vectors on remote machines
@@ -328,16 +326,16 @@ class DaskVector(Vector):
             self.chunks = kwargs.get("chunks", None)
             if self.chunks is None:
                 # Spread vectors evenly
-                vec_chunks = np.array_split(vec_list, N_wrk)
+                vec_chunks = np.array_split(vec_list, self.dask_client.num_workers)
             else:
                 # Spread according to chunk size
                 if len(vec_list) != np.sum(self.chunks):
                     raise ValueError("Total number of vectors in chunks not consistent with number of vectors!")
                 # Spreading chunks across available workers
-                self.chunks = [np.sum(ix) for ix in np.array_split(self.chunks, N_wrk)]
+                self.chunks = [np.sum(ix) for ix in np.array_split(self.chunks, self.dask_client.num_workers)]
                 vec_chunks = np.split(vec_list, np.cumsum(self.chunks))[:-1]
             # Spreading vectors
-            for iwrk, wrkId in enumerate(wrkIds):
+            for iwrk, wrkId in enumerate(self.dask_client.WorkerIds):
                 for vec in vec_chunks[iwrk]:
                     # Checking if an SepVector was passed
                     IsSepVec = False
@@ -367,7 +365,7 @@ class DaskVector(Vector):
                 if not issubclass(dask_vec.type, Vector):
                     raise TypeError("One instance in dask_vectors is not a vector-derived object!")
             self.dask_client = dask_client
-            self.client = self.dask_client.getClient()
+            self.client = self.dask_client.client
             self.vecDask = dask_vectors
         else:
             raise ValueError("Wrong arguments passed to constructor! Please, read object help!")
@@ -478,7 +476,7 @@ class DaskVector(Vector):
     
     def writeVec(self, filename, mode='w', multi_file=False):
         # Check writing mode
-        if not mode in 'wa':
+        if mode not in 'wa':
             raise ValueError("Mode must be appending 'a' or writing 'w' ")
         # Multi-node writing mode
         Nvecs = len(self.vecDask)
@@ -628,7 +626,7 @@ class DaskVector(Vector):
 
 
 # DASK I/O TO READ LARGE-SCALE VECTORS DIRECTLY WITHIN EACH WORKER
-def _get_binaries(filenames, **kwargs):
+def _get_binaries(filenames: List[str]):
     """
     Function to obtain associated binary files to each file name
     
@@ -651,27 +649,28 @@ def _get_binaries(filenames, **kwargs):
     return binfiles, Nbytes
 
 
-def _set_binfiles(binfiles, Nbytes, **kwargs):
+def _set_binfiles(binfiles: List[str], Nbytes: List[int], shapes, format=">f", **kwargs):
     """
     Function to associate binary file/s for each vector
-    :param shapes: list/array; List/Array containing the shape of each chunk to be read
-    :param binfiles: list; List containing the number of bytes within binary files
-    :param Nbytes: list; List containing the number of bytes within binary files
-    :param format: string; Kind of binary format to read ['>f']
-    :return:
-    bin_chunks: list of lists; binary files associated to each vector
-    counts: list of lists; number of bytes to read per binary file
-    offsets: list of lists; offset to apply when reading given binary file
+    
+    Args:
+        binfiles: list of files to be processed
+        Nbytes:  list of number of bytes within binary files
+        shapes: List/Array containing the shape of each chunk to be read
+        format: binary format to read
+    
+    Returns:
+        bin_chunks: list of lists; binary files associated to each vector
+        counts: list of lists; number of bytes to read per binary file
+        offsets: list of lists; offset to apply when reading given binary file
     """
-    shapes = kwargs.get("shapes")
-    fmt = kwargs.get("format", ">f")  # Default floating point number
-    esize = np.dtype(fmt).itemsize  # Byte size per vector element
+    esize = np.dtype(format).itemsize  # Byte size per vector element
     # Setting bin_chunks, counts, and offsets
     bin_chunks = list()
     counts = list()
     offsets = list()
     # Checking total bytes and number of elements
-    totalBytes = np.int(np.sum(Nbytes))
+    totalBytes = int(sum(Nbytes))
     rqstBytes = 0
     for shp in shapes:
         rqstBytes += np.prod(shp) * esize
@@ -714,15 +713,18 @@ def _set_binfiles(binfiles, Nbytes, **kwargs):
     return bin_chunks, counts, offsets
 
 
-def _read_vector_dask(shape, binaries, counts, offsets, **kwargs):
+def _read_vector_dask(shape, binaries: List[str], counts: List[int], offsets: List[int], **kwargs):
     """
     Function to read a vector using a Dask worker
-    :param shape : - list/array; Shape of the vector to be instantiated
-    :param binaries : - list; Binary files to read to instantiate a vector
-    :param counts : - list; Number of elements to read per binary file
-    :param offsets : -list; Bytes to be skipped when reading given file
-    :return:
-    vector - vector class; vector instance creates using
+    
+    Args:
+        shape: Shape of the vector to be instantiated
+        binaries: Binary files to read to instantiate a vector
+        counts: Number of elements to read per binary file
+        offsets: Bytes to be skipped when reading given file
+    
+    Returns:
+        vector: vector instance
     """
     vector = None
     vtype = kwargs.get("vtype")
@@ -761,7 +763,7 @@ def _read_vector_dask(shape, binaries, counts, offsets, **kwargs):
     return vector
 
 
-def readDaskVector(dask_client, **kwargs):
+def readDaskVector(dask_client, filenames, **kwargs):
     """
     Function to read files in parallel and store within Dask vector
     :param dask_client : - DaskClient; client object to use when submitting tasks (see dask_util module)
@@ -774,9 +776,9 @@ def readDaskVector(dask_client, **kwargs):
     daskVec - Dask Vector object
     """
     # Getting dask client components
-    Nwrks = dask_client.getNworkers()
-    client = dask_client.getClient()
-    wrkIds = dask_client.getWorkerIds()
+    Nwrks = dask_client.num_workers
+    client = dask_client.client
+    wrkIds = dask_client.WorkerIds
     # Args
     shapes = kwargs.get("shapes")
     chunks = kwargs.get("chunks")
@@ -798,9 +800,8 @@ def readDaskVector(dask_client, **kwargs):
     # Pre-processing: for each chunk associate necessary files, bytes to read (count), offset (if file goes onto two
     # or more chunks).
     # Get binary files (Necessary to use header-based formats)
-    binfiles, Nbytes = _get_binaries(**kwargs)
-    # Associate binary files with each vector using shapes and
-    # set count and offset for each of them
+    binfiles, Nbytes = _get_binaries(filenames=filenames)
+    # Associate binary files with each vector using shapes and set count and offset for each of them
     bin_shps, counts, offsets = _set_binfiles(binfiles, Nbytes, **kwargs)
     # Split lists/arrays into chunks for parallel processing
     shps2read = list()
