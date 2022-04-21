@@ -14,7 +14,7 @@ __all__ = [
 class MCMC(Solver):
     """Markov chain Monte Carlo sampling algorithm"""
     
-    def __init__(self, stopper, prop_distr: str = "u", temperature: float = None,  **kwargs):
+    def __init__(self, stopper, prop_distr: str = "u", temperature: float = None, **kwargs):
         """
         MCMC Solver/Sampler constructor
 
@@ -29,7 +29,7 @@ class MCMC(Solver):
         """
         
         super(MCMC, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
-    
+        
         # Proposal distribution parameters
         self.prop_dist = prop_distr.lower()
         # backward compatibility
@@ -56,6 +56,33 @@ class MCMC(Solver):
         
         # Reject sample outside of bounds or project it onto them
         self.reject_bound = True
+    
+    def setDefaults(self, save_obj=True, save_res=False, save_grad=False, save_model=True, prefix=None,
+                    iter_buffer_size=None, iter_sampling=1, flush_memory=False):
+        """
+        Function to set parameters for result saving.
+
+        Args:
+            save_obj: save objective function values into the list self.obj (True for MCMC)
+            save_res: save residual vectors into the list self.res
+            save_grad: save gradient vectors into the list self.grad
+            save_model: save domain vectors into the list self.domain. (True for MCMC)
+                It will also say the last inverted domain vector into self.inv_model
+            prefix: prefix of the files in which requested results will be saved;
+                If prefix is None, then nothing is going to be saved on disk
+            iter_buffer_size: number of steps to save before flushing results to disk
+                (by default the solver waits until all iterations are done)
+            iter_sampling: sampling of the iteration axis
+            flush_memory: keep results into the object lists or clean those once inversion is completed or results have been written on disk
+        """
+        if not save_obj:
+            print("WARNING! MCMC is useful for estimating the PDF. Are you sure you don't want to save obj?")
+        if not save_model:
+            print("WARNING! MCMC samples different models and compute an obj. Are you sure you don't want to save model?")
+
+        super(MCMC, self).setDefaults(save_obj=save_obj, save_res=save_res, save_grad=save_grad, save_model=save_model,
+                                      prefix=prefix, iter_buffer_size=iter_buffer_size,
+                                      iter_sampling=iter_sampling, flush_memory=flush_memory)
     
     def run(self, problem, verbose=False, restart=False):
         """
@@ -98,7 +125,9 @@ class MCMC(Solver):
                 print(msg)
             if self.logger:
                 self.logger.addToLog(msg)
+            
             self.restart.read_restart()
+            
             mcmc_mdl_cur = self.restart.retrieve_vector("mcmc_mdl_cur")
             accepted = self.restart.retrieve_parameter("accepted")
             iiter = self.restart.retrieve_parameter("iiter")
@@ -118,17 +147,18 @@ class MCMC(Solver):
         obj_terms = problem.obj_terms if "obj_terms" in dir(problem) else None
         
         if not restart:
-            msg = self.iter_msg % (str(iiter).zfill(self.ndigits),
-                                   np.log(obj_current),
-                                   res_norm,
-                                   str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
-                                   100. * float(accepted) / iiter,
-                                   1.0)
-            if verbose:
-                print(msg)
-            if self.logger:
-                self.logger.addToLog("\n" + msg)
-
+            if create_msg:
+                msg = self.iter_msg % (str(iiter).zfill(self.ndigits),
+                                       np.log(obj_current),
+                                       res_norm,
+                                       str(problem.get_fevals()).zfill(self.stopper.zfill + 1),
+                                       100. * float(accepted) / iiter,
+                                       1.0)
+                if verbose:
+                    print(msg)
+                if self.logger:
+                    self.logger.addToLog("\n" + msg)
+            
             if isnan(obj_current):
                 raise ValueError("objective function value NaN!")
             self.save_results(iiter, problem, force_save=False)
@@ -140,6 +170,7 @@ class MCMC(Solver):
                 mcmc_dmodl.rand(low=self.min_step, high=self.max_step)
             elif self.prop_dist == "n":
                 mcmc_dmodl.randn(std=self.sigma)
+            
             # Compute a(x_cur, x_prop)
             mcmc_mdl_prop.copy(mcmc_mdl_cur)
             mcmc_mdl_prop.scaleAdd(mcmc_dmodl)
@@ -148,10 +179,11 @@ class MCMC(Solver):
             # Projecting model onto the bounds (if any)
             if "bounds" in dir(problem):
                 problem.bounds.apply(mcmc_mdl_check)
+            
             if mcmc_mdl_prop.isDifferent(mcmc_mdl_check):
-                msg = "\tModel hit provided bounds. Projecting onto them."
+                msg = 4 * " " + "Model hit provided bounds. Projecting onto them."
                 if self.reject_bound:
-                    msg = "\tModel hit provided bounds. Resampling proposed point."
+                    msg = 4 * " " + "Model hit provided bounds. Resampling proposed point."
                 # Model hit bounds
                 if self.logger:
                     self.logger.addToLog(msg)
@@ -160,10 +192,11 @@ class MCMC(Solver):
                 else:
                     mcmc_mdl_prop.copy(mcmc_mdl_check)
             
-            obj_prop = problem.get_obj(mcmc_mdl_prop)
-            # Check if objective function value is NaN
+            obj_prop = problem.get_obj(mcmc_mdl_prop) + ZERO
+            
             if isnan(obj_prop):
                 raise ValueError("objective function of proposed model is NaN!")
+            
             if self.T:
                 # Using Metropolis method assuming an objective function was passed
                 alpha = 1.0
@@ -190,7 +223,7 @@ class MCMC(Solver):
                 obj_current = deepcopy(obj_prop)
                 obj_terms = deepcopy(problem.obj_terms) if "obj_terms" in dir(problem) else None
                 res_norm = problem.get_rnorm(mcmc_mdl_cur)
-                accepted += 1  # Increase counter of accepted samples
+                accepted += 1
             
             # iteration info
             msg = self.iter_msg % (str(iiter).zfill(self.ndigits),
