@@ -7,7 +7,7 @@ from occamypy.numpy.vector import VectorNumpy
 class FFT(Operator):
     """N-dimensional Fast Fourier Transform for complex input"""
 
-    def __init__(self, model, axes=None, nfft=None, sampling=None):
+    def __init__(self, domain, axes=None, nfft=None, sampling=None):
         """
         FFT (numpy) constructor
 
@@ -18,16 +18,16 @@ class FFT(Operator):
             sampling: sampling step on each axis
         """
         if axes is None:
-            axes = tuple(range(model.ndim))
-        elif not isinstance(axes, tuple) and model.ndim == 1:
+            axes = tuple(range(domain.ndim))
+        elif not isinstance(axes, tuple) and domain.ndim == 1:
             axes = (axes,)
         if nfft is None:
-            nfft = model.shape
-        elif not isinstance(nfft, tuple) and model.ndim == 1:
+            nfft = domain.shape
+        elif not isinstance(nfft, tuple) and domain.ndim == 1:
             nfft = (nfft,)
         if sampling is None:
-            sampling = tuple([1.] * model.ndim)
-        elif not isinstance(sampling, tuple) and model.ndim == 1:
+            sampling = tuple([1.] * domain.ndim)
+        elif not isinstance(sampling, tuple) and domain.ndim == 1:
             sampling = (sampling,)
         
         if len(axes) != len(nfft) != len(sampling):
@@ -39,11 +39,11 @@ class FFT(Operator):
         
         self.fs = [np.fft.fftfreq(n, d=s) for n, s in zip(nfft, sampling)]
         
-        dims_fft = np.asarray(model.shape)
+        dims_fft = np.asarray(domain.shape)
         for a, n in zip(self.axes, self.nfft):
             dims_fft[a] = n
         
-        super(FFT, self).__init__(domain=VectorNumpy(np.zeros(model.shape, dtype=complex)),
+        super(FFT, self).__init__(domain=VectorNumpy(np.zeros(domain.shape, dtype=complex)),
                                   range=VectorNumpy(np.zeros(shape=dims_fft, dtype=complex)))
     
     def __str__(self):

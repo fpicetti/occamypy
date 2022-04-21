@@ -1,11 +1,8 @@
 from .vector import VectorNumpy
 from .operator import *
+from .operator import pylops_interface
 
 __all__ = [
     "VectorNumpy",
-    "ConvND",
-    "GaussianFilter",
-    "Padding",
-    "ZeroPad",
-    "FFT",
+    "pylops_interface",
 ]

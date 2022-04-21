@@ -15,7 +15,7 @@ from occamypy.cupy.vector import VectorCupy
 class GaussianFilter(Operator):
     """Gaussian smoothing operator using scipy smoothing"""
 
-    def __init__(self, model, sigma):
+    def __init__(self, domain, sigma):
         """
         GaussianFilter (cupy) constructor
 
@@ -26,7 +26,7 @@ class GaussianFilter(Operator):
         self.sigma = sigma
         self.scaling = np.sqrt(np.prod(np.array(self.sigma) / cp.pi))  # in order to have the max amplitude 1
         
-        super(GaussianFilter, self).__init__(model, model)
+        super(GaussianFilter, self).__init__(domain, domain)
     
     def __str__(self):
         return "GausFilt"
@@ -107,7 +107,7 @@ class ConvND(Operator):
         return
 
 
-def Padding(model, pad, mode: str = "constant"):
+def Padding(domain, pad, mode: str = "constant"):
     """
     Padding operator
 
@@ -120,16 +120,16 @@ def Padding(model, pad, mode: str = "constant"):
         pad: number of samples to be added at each end of the dimension, for each dimension
         mode: padding mode (see https://numpy.org/doc/stable/reference/generated/numpy.pad.html)
     """
-    if isinstance(model, VectorCupy):
-        return _Padding(model, pad, mode)
-    elif isinstance(model, superVector):
+    if isinstance(domain, VectorCupy):
+        return _Padding(domain, pad, mode)
+    elif isinstance(domain, superVector):
         # TODO add the possibility to have different padding for each sub-vector
-        return Dstack([_Padding(v, pad, mode) for v in model.vecs])
+        return Dstack([_Padding(v, pad, mode) for v in domain.vecs])
     else:
         raise ValueError("ERROR! Provided domain has to be either vector or superVector")
 
 
-def ZeroPad(model, pad):
+def ZeroPad(domain, pad):
     """
     Zero-Padding operator
 
@@ -141,7 +141,7 @@ def ZeroPad(model, pad):
         domain: domain vector
         pad: number of samples to be added at each end of the dimension, for each dimension
     """
-    return Padding(model, pad, mode="constant")
+    return Padding(domain, pad, mode="constant")
 
 
 def _pad_VectorCupy(vec, pad):
@@ -163,7 +163,7 @@ class _Padding(Operator):
 
         if isinstance(domain, VectorCupy):
             self.dims = domain.shape
-            pad = [(pad, pad)] * len(self.dims) if pad is cp.isscalar else list(pad)
+            pad = [(pad, pad)] * len(self.dims) if isinstance(pad, int) else list(pad)
             if (cp.array(pad) < 0).any():
                 raise ValueError('Padding must be positive or zero')
             self.pad = pad

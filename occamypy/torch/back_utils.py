@@ -4,7 +4,6 @@ from GPUtil import getFirstAvailable
 
 __all__ = [
     "set_backends",
-    "set_seed_everywhere",
     "get_device",
     "get_device_name",
 ]
@@ -15,14 +14,7 @@ def set_backends():
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
-
-
-def set_seed_everywhere(seed=0):
-    """Set random seed for numpy and torch"""
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-
+    
 
 def get_device(devID: int = None) -> torch.device:
     """

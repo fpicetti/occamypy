@@ -1,3 +1,5 @@
+import os
+
 import numpy
 import torch
 
@@ -7,10 +9,19 @@ except ModuleNotFoundError:
     pass
 
 __all__ = [
+    "set_seed_everywhere",
     "get_backend",
     "get_vector_type",
 ]
 
+
+def set_seed_everywhere(seed=0):
+    """Set random seed on every computation engine"""
+    numpy.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    os.environ["CUPY_SEED"] = str(seed)
+    
 
 def get_backend(vector):
     """

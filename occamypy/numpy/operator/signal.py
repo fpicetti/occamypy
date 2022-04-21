@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from scipy.signal import convolve, correlate
@@ -10,17 +12,17 @@ from occamypy.vector.base import superVector
 class GaussianFilter(Operator):
     """Gaussian smoothing operator using scipy smoothing"""
 
-    def __init__(self, model, sigma):
+    def __init__(self, domain, sigma):
         """
         GaussianFilter (numpy) constructor
 
         Args:
-            model: domain vector
+            domain: domain vector
             sigma: standard deviation along the domain directions
         """
         self.sigma = sigma
         self.scaling = np.sqrt(np.prod(np.array(self.sigma) / np.pi))  # in order to have the max amplitude 1
-        super(GaussianFilter, self).__init__(model, model)
+        super(GaussianFilter, self).__init__(domain, domain)
     
     def __str__(self):
         return "GausFilt"
@@ -43,7 +45,7 @@ class GaussianFilter(Operator):
 class ConvND(Operator):
     """ND convolution square operator in the domain space"""
 
-    def __init__(self, model, kernel, method='auto'):
+    def __init__(self, domain: VectorNumpy, kernel: Union[VectorNumpy, np.ndarray], method='auto'):
         """
         ConvND (numpy) constructor
 
@@ -70,14 +72,14 @@ class ConvND(Operator):
             pad_width.append(padding)
         self.kernel = np.pad(self.kernel, pad_width, mode='constant')
         
-        if len(model.shape) != len(self.kernel.shape):
+        if len(domain.shape) != len(self.kernel.shape):
             raise ValueError("Domain and kernel number of dimensions mismatch")
         
         if method not in ["auto", "direct", "fft"]:
             raise ValueError("method has to be auto, direct or fft")
         self.method = method
         
-        super(ConvND, self).__init__(model, model)
+        super(ConvND, self).__init__(domain, domain)
     
     def __str__(self):
         return "ConvScipy"
@@ -101,7 +103,7 @@ class ConvND(Operator):
         return
 
 
-def Padding(model, pad, mode: str = "constant"):
+def Padding(domain, pad, mode: str = "constant"):
     """
     Padding operator
 
@@ -114,16 +116,15 @@ def Padding(model, pad, mode: str = "constant"):
         pad: number of samples to be added at each end of the dimension, for each dimension
         mode: padding mode (see https://numpy.org/doc/stable/reference/generated/numpy.pad.html)
     """
-    if isinstance(model, VectorNumpy):
-        return _Padding(model, pad, mode)
-    elif isinstance(model, superVector):
-        # TODO add the possibility to have different padding for each sub-vector
-        return Dstack([_Padding(v, pad, mode) for v in model.vecs])
+    if isinstance(domain, VectorNumpy):
+        return _Padding(domain, pad, mode)
+    elif isinstance(domain, superVector):
+        return Dstack([_Padding(v, pad, mode) for v in domain.vecs])
     else:
         raise ValueError("ERROR! Provided domain has to be either vector or superVector")
 
 
-def ZeroPad(model, pad):
+def ZeroPad(domain, pad):
     """
     Zero-Padding operator
 
@@ -135,7 +136,7 @@ def ZeroPad(model, pad):
         domain: domain vector
         pad: number of samples to be added at each end of the dimension, for each dimension
     """
-    return Padding(model, pad, mode="constant")
+    return Padding(domain, pad, mode="constant")
 
 
 def _pad_VectorNumpy(vec, pad):
@@ -150,25 +151,15 @@ def _pad_VectorNumpy(vec, pad):
 
 class _Padding(Operator):
     
-    def __init__(self, model: VectorNumpy, pad, mode: str = "constant"):
-        """ Zero Pad operator.
+    def __init__(self, domain: VectorNumpy, pad, mode: str = "constant"):
 
-        To pad 2 values to each side of the first dim, and 3 values to each side of the second dim, use:
-            pad=((2,2), (3,3))
-        :param model: vectorIC class
-        :param pad: scalar or sequence of scalars
-            Number of samples to pad in each dimension.
-            If a single scalar is provided, it is assigned to every dimension.
-        :param mode: str
-            Padding mode (see https://numpy.org/doc/stable/reference/generated/numpy.pad.html)
-        """
-        self.dims = model.shape
-        pad = [(pad, pad)] * len(self.dims) if pad is np.isscalar else list(pad)
+        self.dims = domain.shape
+        pad = [(pad, pad)] * len(self.dims) if isinstance(pad, int) else list(pad)
         if (np.array(pad) < 0).any():
             raise ValueError('Padding must be positive or zero')
         self.pad = pad
         self.mode = mode
-        super(_Padding, self).__init__(model, _pad_VectorNumpy(model, self.pad))
+        super(_Padding, self).__init__(domain, _pad_VectorNumpy(domain, self.pad))
     
     def __str__(self):
         return "Padding "
