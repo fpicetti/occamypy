@@ -30,7 +30,7 @@ class Bounds:
         if self.minBound is not None and self.maxBound is None:
             self.minBound.scale(-1.0)
 
-    def apply(self, input_vec):
+    def apply(self, in_content):
         """
         Apply bounds to the input vector
 
@@ -38,57 +38,72 @@ class Bounds:
             in_content: vector to be processed
         """
         if self.minBound is not None and self.maxBound is None:
-            if not input_vec.checkSame(self.minBound):
+            if not in_content.checkSame(self.minBound):
                 raise ValueError("Input vector not consistent with bound space")
-            input_vec.scale(-1.0)
-            input_vec.clip(input_vec, self.minBound)
-            input_vec.scale(-1.0)
+            in_content.scale(-1.0)
+            in_content.clip(in_content, self.minBound)
+            in_content.scale(-1.0)
         elif self.minBound is None and self.maxBound is not None:
-            if not input_vec.checkSame(self.maxBound):
+            if not in_content.checkSame(self.maxBound):
                 raise ValueError("Input vector not consistent with bound space")
-            input_vec.clip(input_vec, self.maxBound)
+            in_content.clip(in_content, self.maxBound)
         elif self.minBound is not None and self.maxBound is not None:
-            if (not (input_vec.checkSame(self.minBound) and input_vec.checkSame(
+            if (not (in_content.checkSame(self.minBound) and in_content.checkSame(
                     self.maxBound))):
                 raise ValueError("Input vector not consistent with bound space")
-            input_vec.clip(self.minBound, self.maxBound)
+            in_content.clip(self.minBound, self.maxBound)
         return
 
 
 class Problem:
     """Base problem class"""
 
-    def __init__(self, minBound=None, maxBound=None, boundProj=None):
+    def __init__(self, model, data, minBound=None, maxBound=None, boundProj=None):
         """
         Problem constructor
 
         Args:
+            model: model vector to be optimized
+            data: data vector
             minBound: vector containing minimum values of the domain vector
             maxBound: vector containing maximum values of the domain vector
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
+        self.minBound = minBound
+        self.maxBound = maxBound
+        self.boundProj = boundProj
+        
         if minBound is not None or maxBound is not None:
             # Simple box bounds
             self.bounds = Bounds(minBound, maxBound)  # Setting the bounds of the problem (if necessary)
         elif boundProj is not None:
             # Projection operator onto the bounds
             self.bounds = boundProj
+        
+        # use model and data as pointers, not clone
+        self.model = model
+        self.data = data
+        
         # Setting common variables
+        self.pert_model = model.clone().zero()
+        self.res = data.clone().zero()
+        self.pert_res = self.res.clone()
+        
         self.obj_updated = False
         self.res_updated = False
         self.grad_updated = False
-        self.dres_updated = False
+        self.pert_res_updated = False
         self.fevals = 0
         self.gevals = 0
         self.counter = 0
-        self.linear = False  # By default all problem are non-linear
+        self.linear = False
 
     def setDefaults(self):
         """Default common variables for any inverse problem"""
         self.obj_updated = False
         self.res_updated = False
         self.grad_updated = False
-        self.dres_updated = False
+        self.pert_res_updated = False
         self.fevals = 0
         self.gevals = 0
         self.counter = 0
@@ -99,21 +114,21 @@ class Problem:
         Setting internal domain vector
 
         Args:
-            in_content: domain vector to be copied
+            model: domain vector to be copied
         """
         if model.isDifferent(self.model):
             self.model.copy(model)
             self.obj_updated = False
             self.res_updated = False
             self.grad_updated = False
-            self.dres_updated = False
+            self.pert_res_updated = False
 
     def set_residual(self, residual):
         """
         Setting internal residual vector
 
         Args:
-            in_content: residual vector to be copied
+            residual: residual vector to be copied
         """
         # Useful for linear inversion (to avoid residual computation)
         if self.res.isDifferent(residual):
@@ -128,9 +143,9 @@ class Problem:
         """Geet the domain vector"""
         return self.model
 
-    def get_dmodel(self):
+    def get_pert_model(self):
         """Get the model perturbation vector"""
-        return self.dmodel
+        return self.pert_model
 
     def get_rnorm(self, model):
         """
@@ -160,7 +175,7 @@ class Problem:
         self.set_model(model)
         if not self.obj_updated:
             self.res = self.get_res(self.model)
-            self.obj = self.objf(self.res)
+            self.obj = self.obj_func(self.res)
             self.obj_updated = True
         return self.obj
 
@@ -174,7 +189,7 @@ class Problem:
         self.set_model(model)
         if not self.res_updated:
             self.fevals += 1
-            self.res = self.resf(self.model)
+            self.res = self.res_func(self.model)
             self.res_updated = True
         return self.res
 
@@ -188,28 +203,28 @@ class Problem:
         self.set_model(model)
         if not self.grad_updated:
             self.res = self.get_res(self.model)
-            self.grad = self.gradf(self.model, self.res)
+            self.grad = self.grad_func(self.model, self.res)
             self.gevals += 1
             if self.linear:
                 self.fevals += 1
             self.grad_updated = True
         return self.grad
 
-    def get_dres(self, model, dmodel):
+    def get_pert_res(self, model, pert_model):
         """Compute the perturbation residual vector (i.e., application of the Jacobian to model perturbation vector)
 
         Args:
             model: domain vector
-            dmodel: domain perturbation vector
+            pert_model: domain perturbation vector
         """
         self.set_model(model)
-        if not self.dres_updated or dmodel.isDifferent(self.dmodel):
-            self.dmodel.copy(dmodel)
-            self.dres = self.dresf(self.model, self.dmodel)
+        if not self.pert_res_updated or pert_model.isDifferent(self.pert_model):
+            self.pert_model.copy(pert_model)
+            self.pert_res = self.pert_res_func(self.model, self.pert_model)
             if self.linear:
                 self.fevals += 1
-            self.dres_updated = True
-        return self.dres
+            self.pert_res_updated = True
+        return self.pert_res
 
     def get_fevals(self):
         """Get the number of objective function evalutions"""
@@ -219,7 +234,7 @@ class Problem:
         """Get the number of gradient evalutions"""
         return self.gevals
 
-    def objf(self, residual):
+    def obj_func(self, residual):
         """
         Compute the objective function
 
@@ -230,7 +245,7 @@ class Problem:
         """
         raise NotImplementedError("Implement objf for problem in the derived class!")
 
-    def resf(self, model):
+    def res_func(self, model):
         """
         Compute the residual vector
         
@@ -241,18 +256,18 @@ class Problem:
         """
         raise NotImplementedError("Implement resf for problem in the derived class!")
 
-    def dresf(self, model, dmodel):
+    def pert_res_func(self, model, pert_model):
         """
         Compute the residual vector
         Args:
             model: domain vector
-            dmodel: domain perturbation vector
+            pert_model: domain perturbation vector
 
         Returns: residual vector
         """
-        raise NotImplementedError("Implement dresf for problem in the derived class!")
+        raise NotImplementedError("Implement pert_res_func for problem in the derived class!")
 
-    def gradf(self, model, residual):
+    def grad_func(self, model, residual):
         """
         Compute the gradient vector from the residual (i.e., g = A' r = A'(Am - d))
         Args:

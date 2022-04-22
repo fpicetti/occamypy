@@ -30,22 +30,14 @@ class LeastSquares(Problem):
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(LeastSquares, self).__init__(minBound, maxBound, boundProj)
-        # Setting internal vector
-        self.model = model
-        self.dmodel = model.clone()
-        self.dmodel.zero()
+        super(LeastSquares, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+
         # Gradient vector
-        self.grad = self.dmodel.clone()
-        # Copying the pointer to data vector
-        self.data = data
-        # Residual vector
-        self.res = data.clone()
-        self.res.zero()
-        # Dresidual vector
-        self.dres = self.res.clone()
+        self.grad = self.pert_model.clone()
+
         # Setting linear operator
         self.op = op
+        
         # Checking if a gradient mask was provided
         self.grad_mask = grad_mask
         if self.grad_mask is not None:
@@ -58,7 +50,7 @@ class LeastSquares(Problem):
         self.setDefaults()
         self.linear = True
 
-    def resf(self, model):
+    def res_func(self, model):
         r"""
         Method to return residual vector
 
@@ -74,7 +66,7 @@ class LeastSquares(Problem):
         self.res.scaleAdd(self.data, 1., -1.)
         return self.res
 
-    def gradf(self, model, res):
+    def grad_func(self, model, residual):
         r"""
         Method to return gradient vector
 
@@ -82,24 +74,24 @@ class LeastSquares(Problem):
             \mathbf{g} = \mathbf{A}'\mathbf{r} = \mathbf{A}'(\mathbf{A} \mathbf{m} - \mathbf{d})
         """
         # Computing A'r = g
-        self.op.adjoint(False, self.grad, res)
+        self.op.adjoint(False, self.grad, residual)
         # Applying the gradient mask if present
         if self.grad_mask is not None:
             self.grad.multiply(self.grad_mask)
         return self.grad
 
-    def dresf(self, model, dmodel):
+    def pert_res_func(self, model, pert_model):
         r"""
         Method to return residual vector
 
         .. math::
             \mathbf{r}_d = \mathbf{A} \mathbf{r}_m
         """
-        # Computing A dm = dres
-        self.op.forward(False, dmodel, self.dres)
-        return self.dres
+        # Computing A dm = pert_res
+        self.op.forward(False, pert_model, self.pert_res)
+        return self.pert_res
 
-    def objf(self, residual):
+    def obj_func(self, residual):
         r"""
         Method to return objective function value
 
@@ -135,24 +127,14 @@ class LeastSquaresSymmetric(Problem):
             maxBound: upper bound vector
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
-        # Setting the bounds (if any)
-        super(LeastSquaresSymmetric, self).__init__(minBound, maxBound, boundProj)
         # Checking range and domain are the same
         if not model.checkSame(data) and not op.domain.checkSame(op.range):
             raise ValueError("Data and model vector live in different spaces!")
-        # Setting internal vector
-        self.model = model
-        self.dmodel = model.clone()
-        self.dmodel.zero()
-        # Copying the pointer to data vector
-        self.data = data
-        # Residual vector
-        self.res = data.clone()
-        self.res.zero()
+
+        super(LeastSquaresSymmetric, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+       
         # Gradient vector is equal to the residual vector
         self.grad = self.res
-        # Dresidual vector
-        self.dres = self.res.clone()
         # Setting linear operator
         self.op = op
         # Preconditioning matrix
@@ -161,7 +143,7 @@ class LeastSquaresSymmetric(Problem):
         self.setDefaults()
         self.linear = True
 
-    def resf(self, model):
+    def res_func(self, model):
         r"""
         Method to return residual vector
         
@@ -177,7 +159,7 @@ class LeastSquaresSymmetric(Problem):
         self.res.scaleAdd(self.data, 1., -1.)
         return self.res
 
-    def gradf(self, model, res):
+    def grad_func(self, model, residual):
         r"""Method to return gradient vector
     
         .. math::
@@ -187,18 +169,18 @@ class LeastSquaresSymmetric(Problem):
         self.grad = self.res
         return self.grad
 
-    def dresf(self, model, dmodel):
+    def pert_res_func(self, model, pert_model):
         r"""
         Method to return residual vector
     
         .. math::
             \mathbf{r}_d = \mathbf{A} \mathbf{r}_m
         """
-        # Computing Ldm = dres
-        self.op.forward(False, dmodel, self.dres)
-        return self.dres
+        # Computing Ldm = pert_res
+        self.op.forward(False, pert_model, self.pert_res)
+        return self.pert_res
 
-    def objf(self, residual):
+    def obj_func(self, residual):
         r"""
         Method to return objective function value
 
@@ -235,20 +217,15 @@ class LeastSquaresRegularized(Problem):
             maxBound: upper bound vector
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
-        # Setting the bounds (if any)
-        super(LeastSquaresRegularized, self).__init__(minBound, maxBound, boundProj)
-        # Setting internal vector
-        self.model = model
-        self.dmodel = model.clone()
-        self.dmodel.zero()
+        super(LeastSquaresRegularized, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        
         # Gradient vector
-        self.grad = self.dmodel.clone()
-        # Copying the pointer to data vector
-        self.data = data
+        self.grad = self.pert_model.clone()
+        
         # Setting a prior model (if any)
         self.prior_model = prior_model
+        
         # Setting linear operators
-        # Assuming identity operator if regularization operator was not provided
         if reg_op is None:
             reg_op = Identity(self.model)
         # Checking if space of the prior model is consistent with range of
@@ -264,11 +241,12 @@ class LeastSquaresRegularized(Problem):
             if not grad_mask.checkSame(model):
                 raise ValueError("Mask size not consistent with model vector!")
             self.grad_mask = grad_mask.clone()
+        
         # Residual vector (data and model residual vectors)
         self.res = self.op.range.clone()
         self.res.zero()
         # Dresidual vector
-        self.dres = self.res.clone()
+        self.pert_res = self.res.clone()
         # Setting default variables
         self.setDefaults()
         self.linear = True
@@ -333,7 +311,7 @@ class LeastSquaresRegularized(Problem):
             logger.addToLog(msg + "\nREGULARIZED PROBLEM end log file")
         return epsilon_balance
 
-    def resf(self, model):
+    def res_func(self, model):
         r"""
         Method to return residual vector
 
@@ -360,7 +338,7 @@ class LeastSquaresRegularized(Problem):
         self.res.vecs[1].scale(self.epsilon)
         return self.res
 
-    def gradf(self, model, res):
+    def grad_func(self, model, residual):
         r"""
         Method to return gradient vector
 
@@ -369,16 +347,16 @@ class LeastSquaresRegularized(Problem):
         """
         # Scaling by epsilon the model residual vector (saving temporarily residual regularization)
         # g = epsilon*op'r_m
-        self.op.ops[1].adjoint(False, self.grad, res.vecs[1])
+        self.op.ops[1].adjoint(False, self.grad, residual.vecs[1])
         self.grad.scale(self.epsilon)
         # g = L'r_d + epsilon*op'r_m
-        self.op.ops[0].adjoint(True, self.grad, res.vecs[0])
+        self.op.ops[0].adjoint(True, self.grad, residual.vecs[0])
         # Applying the gradient mask if present
         if self.grad_mask is not None:
             self.grad.multiply(self.grad_mask)
         return self.grad
 
-    def dresf(self, model, dmodel):
+    def pert_res_func(self, model, pert_model):
         r"""
         Method to return residual vector
 
@@ -386,12 +364,12 @@ class LeastSquaresRegularized(Problem):
              \mathbf{d}_r = [\mathbf{A} + \varepsilon \mathbf{R}] \mathbf{d}_m
         """
         # Computing Ldm = dres_d
-        self.op.forward(False, dmodel, self.dres)
+        self.op.forward(False, pert_model, self.pert_res)
         # Scaling by epsilon
-        self.dres.vecs[1].scale(self.epsilon)
-        return self.dres
+        self.pert_res.vecs[1].scale(self.epsilon)
+        return self.pert_res
 
-    def objf(self, residual):
+    def obj_func(self, residual):
         r"""
         Method to return objective function value
 
@@ -428,22 +406,20 @@ class Lasso(Problem):
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(Lasso, self).__init__(minBound, maxBound, boundProj)
-        # Setting internal vector
-        self.model = model
-        self.dmodel = model.clone()
-        self.dmodel.zero()
+        super(Lasso, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        
         # Gradient vector
-        self.grad = self.dmodel.clone()
-        # Copying the pointer to data vector
-        self.data = data
+        self.grad = self.pert_model.clone()
+        
         # Setting linear operator
         self.op = op  # Modeling operator
+        
         # Residual vector (data and model residual vectors)
-        self.res = superVector(op.range.clone(), op.domain.clone())
-        self.res.zero()
+        self.res = superVector(op.range.clone(), op.domain.clone()).zero()
+
         # Dresidual vector
-        self.dres = None  # Not necessary for the inversion
+        self.pert_res = None  # Not necessary for the inversion
+        
         # Setting default variables
         self.setDefaults()
         self.linear = True
@@ -461,7 +437,7 @@ class Lasso(Problem):
         self.lambda_value = lambda_in
         return
 
-    def objf(self, residual):
+    def obj_func(self, residual):
         r"""
         Method to return objective function value
 
@@ -475,7 +451,7 @@ class Lasso(Problem):
         self.obj_terms[1] = self.lambda_value * residual.vecs[1].norm(1)
         return sum(self.obj_terms)
 
-    def resf(self, model):
+    def res_func(self, model):
         r"""
         Compute the residuals from the model
     
@@ -499,18 +475,18 @@ class Lasso(Problem):
         self.res.vecs[1].copy(model)
         return self.res
 
-    def dresf(self, model, dmodel):
+    def pert_res_func(self, model, pert_model):
         """Linear projection of the model perturbation onto the data space. Method not implemented"""
-        raise NotImplementedError("dresf is not necessary for ISTC; DO NOT CALL THIS METHOD")
+        raise NotImplementedError("pert_res_func is not necessary for ISTC; DO NOT CALL THIS METHOD")
 
-    def gradf(self, model, res):
+    def grad_func(self, model, residual):
         r"""Compute the gradient (the soft-thresholding is applied by the solver!)
         
         .. math::
             \mathbf{g} = - \mathbf{A}'\mathbf{r}
         """
         # Apply an adjoint modeling
-        self.op.adjoint(False, self.grad, res.vecs[0])
+        self.op.adjoint(False, self.grad, residual.vecs[0])
         # Applying negative scaling
         self.grad.scale(-1.0)
         return self.grad
@@ -539,16 +515,10 @@ class GeneralizedLasso(Problem):
             maxBound: upper bound vector
             boundProj: class with a method `apply(input_vec)` to project input_vec onto some convex set
         """
-        super(GeneralizedLasso, self).__init__(minBound, maxBound, boundProj)
-        self.model = model
-        self.dmodel = model.clone().zero()
-        self.grad = self.dmodel.clone()
-        self.data = data
+        super(GeneralizedLasso, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        
+        self.grad = self.pert_model.clone()
         self.op = op
-
-        self.minBound = minBound
-        self.maxBound = maxBound
-        self.boundProj = boundProj
 
         # L1 Regularization
         self.reg_op = reg if reg is not None else Identity(model)
@@ -563,7 +533,7 @@ class GeneralizedLasso(Problem):
         # this last superVector is instantiated with pointers to res_data and res_reg!
         self.res = superVector(self.res_data, self.res_reg)
 
-    def objf(self, residual, eps=None):
+    def obj_func(self, residual, eps=None):
         r"""
         Compute objective function based on the residual (super)vector
 
@@ -582,7 +552,7 @@ class GeneralizedLasso(Problem):
 
         return sum(self.obj_terms)
 
-    def resf(self, model):
+    def res_func(self, model):
         r"""
         Compute residuals from model
 

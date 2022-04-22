@@ -30,20 +30,11 @@ class NonlinearLeastSquares(Problem):
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(NonlinearLeastSquares, self).__init__(minBound, maxBound, boundProj)
-        # Setting internal vector
-        self.model = model
-        self.dmodel = model.clone()
-        self.dmodel.zero()
+        super(NonlinearLeastSquares, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        
         # Gradient vector
-        self.grad = self.dmodel.clone()
-        # Copying the pointer to data vector
-        self.data = data
-        # Residual vector
-        self.res = data.clone()
-        self.res.zero()
-        # Dresidual vector
-        self.dres = self.res.clone()
+        self.grad = self.pert_model.clone()
+        
         # Setting non-linear and linearized operators
         if isinstance(op, NonlinearOperator):
             self.op = op
@@ -59,7 +50,7 @@ class NonlinearLeastSquares(Problem):
         self.setDefaults()
         self.linear = False
     
-    def resf(self, model):
+    def res_func(self, model):
         r"""
         Method to return residual vector
 
@@ -71,7 +62,7 @@ class NonlinearLeastSquares(Problem):
         self.res.scaleAdd(self.data, 1., -1.)
         return self.res
     
-    def gradf(self, model, res):
+    def grad_func(self, model, residual):
         r"""
         Method to return gradient vector
 
@@ -81,13 +72,13 @@ class NonlinearLeastSquares(Problem):
         # Setting model point on which the F is evaluated
         self.op.set_background(model)
         # Computing F'r = g
-        self.op.lin_op.adjoint(False, self.grad, res)
+        self.op.lin_op.adjoint(False, self.grad, residual)
         # Applying the gradient mask if present
         if self.grad_mask is not None:
             self.grad.multiply(self.grad_mask)
         return self.grad
     
-    def dresf(self, model, dmodel):
+    def pert_res_func(self, model, pert_model):
         r"""
         Method to return residual vector
 
@@ -96,11 +87,11 @@ class NonlinearLeastSquares(Problem):
         """
         # Setting model point on which the F is evaluated
         self.op.set_background(model)
-        # Computing Fdm = dres
-        self.op.lin_op.forward(False, dmodel, self.dres)
-        return self.dres
+        # Computing Fdm = pert_res
+        self.op.lin_op.forward(False, pert_model, self.pert_res)
+        return self.pert_res
     
-    def objf(self, residual):
+    def obj_func(self, residual):
         r"""
         Method to return objective function value
 
@@ -145,15 +136,11 @@ class NonlinearLeastSquaresRegularized(Problem):
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(NonlinearLeastSquaresRegularized, self).__init__(minBound, maxBound, boundProj)
-        # Setting internal vector
-        self.model = model
-        self.dmodel = model.clone()
-        self.dmodel.zero()
+        super(NonlinearLeastSquaresRegularized, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        
         # Gradient vector
-        self.grad = self.dmodel.clone()
-        # Copying the pointer to data vector
-        self.data = data
+        self.grad = self.pert_model.clone()
+       
         # Setting a prior model (if any)
         self.prior_model = prior_model
         # Setting linear operators
@@ -175,7 +162,7 @@ class NonlinearLeastSquaresRegularized(Problem):
         self.res = self.op.nl_op.range.clone()
         self.res.zero()
         # Dresidual vector
-        self.dres = self.res.clone()
+        self.pert_res = self.res.clone()
         # Checking if a gradient mask was provided
         self.grad_mask = grad_mask
         if self.grad_mask is not None:
@@ -223,7 +210,7 @@ class NonlinearLeastSquaresRegularized(Problem):
                 print(msg)
             prblm_grad = self.get_grad(prblm_mdl)  # Compute first gradient
             # Gradient in the data space
-            prblm_dgrad = self.get_dres(prblm_mdl, prblm_grad)
+            prblm_dgrad = self.get_pert_res(prblm_mdl, prblm_grad)
             # Computing linear step length
             dgrad0_res = prblm_res.vecs[0].dot(prblm_dgrad.vecs[0])
             dgrad0_dgrad0 = prblm_dgrad.vecs[0].dot(prblm_dgrad.vecs[0])
@@ -239,7 +226,7 @@ class NonlinearLeastSquaresRegularized(Problem):
                 raise ValueError(msg)
             # model=model+alpha*grad
             prblm_mdl.scaleAdd(prblm_grad, 1.0, alpha)
-            prblm_res = self.resf(prblm_mdl)
+            prblm_res = self.res_func(prblm_mdl)
             # Recompute the new objective function terms
             res_data_norm = prblm_res.vecs[0].norm()
             res_model_norm = prblm_res.vecs[1].norm()
@@ -262,7 +249,7 @@ class NonlinearLeastSquaresRegularized(Problem):
             logger.addToLog(msg + "\nREGULARIZED PROBLEM end log file")
         return epsilon_balance
     
-    def resf(self, model):
+    def res_func(self, model):
         r"""
         Method to return residual vector
         
@@ -286,7 +273,7 @@ class NonlinearLeastSquaresRegularized(Problem):
         self.res.vecs[1].scale(self.epsilon)
         return self.res
     
-    def gradf(self, model, res):
+    def grad_func(self, model, residual):
         r"""
         Method to return gradient vector
         
@@ -296,16 +283,16 @@ class NonlinearLeastSquaresRegularized(Problem):
         # Setting model point on which the F is evaluated
         self.op.set_background(model)
         # g = epsilon*op'r_m
-        self.op.lin_op.ops[1].adjoint(False, self.grad, res.vecs[1])
+        self.op.lin_op.ops[1].adjoint(False, self.grad, residual.vecs[1])
         self.grad.scale(self.epsilon)
         # g = F'r_d + op'(epsilon*r_m)
-        self.op.lin_op.ops[0].adjoint(True, self.grad, res.vecs[0])
+        self.op.lin_op.ops[0].adjoint(True, self.grad, residual.vecs[0])
         # Applying the gradient mask if present
         if self.grad_mask is not None:
             self.grad.multiply(self.grad_mask)
         return self.grad
     
-    def dresf(self, model, dmodel):
+    def pert_res_func(self, model, pert_model):
         r"""
         Method to return residual vector
         
@@ -315,12 +302,12 @@ class NonlinearLeastSquaresRegularized(Problem):
         # Setting model point on which the F is evaluated
         self.op.set_background(model)
         # Computing Ldm = dres_d
-        self.op.lin_op.forward(False, dmodel, self.dres)
+        self.op.lin_op.forward(False, pert_model, self.pert_res)
         # Scaling by epsilon
-        self.dres.vecs[1].scale(self.epsilon)
-        return self.dres
+        self.pert_res.vecs[1].scale(self.epsilon)
+        return self.pert_res
     
-    def objf(self, residual):
+    def obj_func(self, residual):
         r"""
         Method to return objective function value
         
@@ -380,16 +367,12 @@ class VarProRegularized(Problem):
         if not isinstance(h_op, VarProOperator):
             raise TypeError("ERROR! Not provided an operator class for the variable projection problem")
         # Setting the bounds (if any)
-        super(VarProRegularized, self).__init__(minBound, maxBound, boundProj)
-        # Setting internal vector
-        self.model = model_nl
-        self.dmodel = model_nl.clone()
-        self.dmodel.zero()
+        super(VarProRegularized, self).__init__(model=model_nl, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        
         # Linear component of the inverted model
         self.lin_model = lin_model
         self.lin_model.zero()
-        # Copying the pointer to data vector
-        self.data = data
+        
         # Setting non-linear/linear operator
         if not isinstance(h_op, VarProOperator):
             raise TypeError("ERROR! Provide a VpOperator operator class for h_op")
@@ -433,12 +416,14 @@ class VarProRegularized(Problem):
                                                           prec=prec)
         else:
             self.vp_linear_prob = LeastSquares(self.lin_model, self.data, self.h_op.h_lin, prec=prec)
+        
         # Zeroing out the residual vector
         self.res.zero()
+        
         # Dresidual vector
-        self.dres = self.res.clone()
+        self.pert_res = self.res.clone()
         # Gradient vector
-        self.grad = self.dmodel.clone()
+        self.grad = self.pert_model.clone()
         # Setting default variables
         self.setDefaults()
         self.linear = False
@@ -500,7 +485,7 @@ class VarProRegularized(Problem):
             # component)
         return self.vp_linear_prob.estimate_epsilon(verbose, logger)
     
-    def resf(self, model):
+    def res_func(self, model):
         """Method to return residual vector"""
         # Zero-out residual vector
         self.res.zero()
@@ -573,7 +558,7 @@ class VarProRegularized(Problem):
             self.res.copy(self.vp_linear_prob.get_res(self.lin_model))
         return self.res
     
-    def gradf(self, model, res):
+    def grad_func(self, model, residual):
         r"""
         Method to return gradient vector
     
@@ -597,18 +582,18 @@ class VarProRegularized(Problem):
         if self.epsilon is not None:
             # G'(m_nl)' r_m
             if self.g_op_reg is not None:
-                self.g_op_reg.lin_op.adjoint(False, self.grad, res.vecs[1])
+                self.g_op_reg.lin_op.adjoint(False, self.grad, residual.vecs[1])
             # H'(m_nl,m_lin_opt)' r_m
             if self.h_op_reg is not None:
-                self.h_op_reg.h_nl.lin_op.adjoint(True, self.grad, res.vecs[1])
+                self.h_op_reg.h_nl.lin_op.adjoint(True, self.grad, residual.vecs[1])
             # epsilon * [G'(m_nl)' + H'(m_nl,m_lin_opt)'] r_m
             self.grad.scale(self.epsilon)
-        res = self.res if self.epsilon is None else self.res.vecs[0]
+        residual = self.res if self.epsilon is None else self.res.vecs[0]
         # G(m_nl)' r_d
         if self.g_op is not None:
-            self.g_op.lin_op.adjoint(True, self.grad, res)
+            self.g_op.lin_op.adjoint(True, self.grad, residual)
         # H(m_nl,m_lin_opt)' r_d
-        self.h_op.h_nl.lin_op.adjoint(True, self.grad, res)
+        self.h_op.h_nl.lin_op.adjoint(True, self.grad, residual)
         if self.lin_solver.logger is not None:
             self.lin_solver.logger.addToLog(
                 "NON_LINEAR INVERSION INFO:\n	Gradient has been evaluated, current objective function value: %s;\n 	"
@@ -616,11 +601,11 @@ class VarProRegularized(Problem):
                     self.get_obj(model)))
         return self.grad
     
-    def dresf(self, model, dmodel):
+    def pert_res_func(self, model, pert_model):
         raise NotImplementedError(
-            "ERROR! dresf is not currently supported! Provide an initial step-length value different than zero.")
+            "ERROR! pert_res_func is not currently supported! Provide an initial step-length value different than zero.")
     
-    def objf(self, residual):
+    def obj_func(self, residual):
         r"""
         Method to return objective function value
         
