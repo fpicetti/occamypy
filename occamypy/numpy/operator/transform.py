@@ -53,20 +53,16 @@ class FFT(Operator):
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
-        modelNd = model.getNdArray()
-        dataNd = data.getNdArray()
-        dataNd += np.fft.fftn(modelNd, s=self.nfft, axes=self.axes, norm='ortho')
+        data[:] += np.fft.fftn(model[:], s=self.nfft, axes=self.axes, norm='ortho')
         return
     
     def adjoint(self, add, model, data):
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
-        modelNd = model.getNdArray()
-        dataNd = data.getNdArray()
         # here we need to separate the computation and use np.take for handling nfft > model.shape
-        temp = np.fft.ifftn(dataNd, s=self.nfft, axes=self.axes, norm='ortho')
+        temp = np.fft.ifftn(data[:], s=self.nfft, axes=self.axes, norm='ortho')
         for a in self.axes:
             temp = np.take(temp, range(self.domain.shape[a]), axis=a)
-        modelNd += temp
+        model[:] += temp
         return

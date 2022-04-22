@@ -55,7 +55,7 @@ class FromPylops(Operator):
             model.zero()
         y = data.getNdArray().ravel()
         x = self.op.rmatvec(y)
-        model.getNdArray()[:] += x.reshape(model.shape)
+        model[:] += x.reshape(model.shape)
         return
 
 
