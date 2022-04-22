@@ -20,7 +20,7 @@ class Stepper:
         """Function to estimate initial step length value"""
         try:
             # Projecting search direction in the data space
-            dres = problem.get_dres(modl, dmodl)
+            pert_res = problem.get_pert_res(modl, dmodl)
         except NotImplementedError:
             if logger:
                 logger.addToLog(
@@ -29,8 +29,8 @@ class Stepper:
             alpha_guess = 1.0 / dmodl.norm()
             return alpha_guess
         res = problem.get_res(modl)
-        dres_res = res.dot(dres)
-        dres_dres = dres.dot(dres)
+        dres_res = res.dot(pert_res)
+        dres_dres = pert_res.dot(pert_res)
         if dres_dres == 0.:
             if logger:
                 logger.addToLog(
@@ -1012,7 +1012,7 @@ class StrongWolfe(Stepper):
         self.alpha_scale = alpha_scale
         self.keepAlpha = keepAlpha
 
-    def alpha_zoom(self, problem, mdl0, mdl, obj0, dphi0, dmodl, alpha_lo, alpha_hi, logger=None):
+    def alpha_zoom(self, problem, mdl0, model, obj0, dphi0, dmodl, alpha_lo, alpha_hi, logger=None):
         """Algorithm 3.6, Page 61. "Numerical Optimization". Nocedal & Wright."""
         itry = 0
         alpha = 0.0
@@ -1022,10 +1022,10 @@ class StrongWolfe(Stepper):
             alpha_i = 0.5 * (alpha_lo + alpha_hi)
             alpha = alpha_i
             # x = x0 + alpha_i * p
-            mdl.copy(mdl0)
-            mdl.scaleAdd(dmodl, sc2=alpha_i)
+            model.copy(mdl0)
+            model.scaleAdd(dmodl, sc2=alpha_i)
             # Evaluating objective and gradient function
-            obj_i = problem.get_obj(mdl)
+            obj_i = problem.get_obj(model)
             if logger:
                 logger.addToLog("\t\tObjective function value of %.5e at m_i with alpha=%.5e [alpha_zoom]" %(obj_i, alpha_i))
             if isnan(obj_i):
@@ -1033,11 +1033,11 @@ class StrongWolfe(Stepper):
                     logger.addToLog("\t\t!!!Problem with step length and objective function; Setting alpha = 0.0 [alpha_zoom]!!!")
                 alpha = 0.0
                 break
-            grad_i = problem.get_grad(mdl)
+            grad_i = problem.get_grad(model)
             # x_lo = x0 + alpha_lo * p;
-            mdl.copy(mdl0)
-            mdl.scaleAdd(dmodl, sc2=alpha_lo)  # x = x0 + alpha_i * p;
-            obj_lo = problem.get_obj(mdl)
+            model.copy(mdl0)
+            model.scaleAdd(dmodl, sc2=alpha_lo)  # x = x0 + alpha_i * p;
+            obj_lo = problem.get_obj(model)
             if logger:
                 logger.addToLog("\t\tObjective function value of %.5e at m_lo with alpha_lo=%.5e [alpha_zoom]" %(obj_lo, alpha_lo))
             if isnan(obj_lo):

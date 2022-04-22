@@ -10,7 +10,6 @@ from occamypy.utils import ZERO
 class CG(Solver):
     """Linear-Conjugate Gradient and Steepest-Descent Solver"""
 
-    # Default class methods/functions
     def __init__(self, stopper, steepest=False, **kwargs):
         """
         CG/SD constructor
@@ -141,7 +140,7 @@ class CG(Solver):
                     beta = dot_grad_prec_grad / dot_grad_prec_grad_old
                 # Update search direction
                 cg_dmodl.scaleAdd(cg_prec_grad, beta, 1.0)
-                cg_dmodld = problem.get_dres(cg_mdl, cg_dmodl)  # Project search direction into the data space
+                cg_dmodld = problem.get_pert_res(cg_mdl, cg_dmodl)  # Project search direction into the data space
                 dot_cg_dmodld = cg_dmodld.dot(cg_dmodld)
                 if dot_cg_dmodld == 0.0:
                     success = False
@@ -157,7 +156,7 @@ class CG(Solver):
                     if self.logger:
                         self.logger.addToLog(msg)
             else:
-                prblm_gradd = problem.get_dres(cg_mdl, prblm_grad)  # Project gradient into the data space
+                prblm_gradd = problem.get_pert_res(cg_mdl, prblm_grad)  # Project gradient into the data space
                 # Computing alpha and beta coefficients
                 if iiter == 0 or self.steepest:
                     # Steepest descent
@@ -242,20 +241,20 @@ class CG(Solver):
                 if precond:
                     cg_dmodl.scale(1.0 / alpha)  # Unscaling the search direction
                 else:
-                    # copying previous residuals dres = res_old
+                    # copying previous residuals pert_res = res_old
                     cg_dres.copy(prblm_res)
-                    # Computing actual change in the residual vector dres = res_new - res_old
+                    # Computing actual change in the residual vector pert_res = res_new - res_old
                     prblm_res = problem.get_res(cg_mdl)  # New residual vector
                     cg_dres.scaleAdd(prblm_res, -1.0, 1.0)
             else:
                 # Setting residual vector to avoid its unnecessary computation (if model was not clipped)
                 if precond:
-                    # res = res + alpha * dres
+                    # res = res + alpha * pert_res
                     prblm_res.scaleAdd(cg_dmodld, 1.0, alpha)  # Update residuals
                 else:
-                    # dres  = alpha * gradd + beta * dres
+                    # pert_res  = alpha * gradd + beta * pert_res
                     cg_dres.scaleAdd(prblm_gradd, beta, alpha)  # Update residual step
-                    # res = res + dres
+                    # res = res + pert_res
                     prblm_res.scaleAdd(cg_dres)  # Update residuals
                 problem.set_residual(prblm_res)
 
@@ -536,7 +535,7 @@ class LSQR(Solver):
             """
 
             # op.matvec(v) (i.e., projection of v onto the data space)
-            v_prblm = problem.get_dres(x, v)
+            v_prblm = problem.get_pert_res(x, v)
             # u = op.matvec(v) - alpha * u
             u.scaleAdd(v_prblm, -alpha, 1.0)
             beta = u.norm()
@@ -665,7 +664,7 @@ class LSQR(Solver):
 
 class CGsym(Solver):
     """Linear-Conjugate Gradient and Steepest-Descent Solver for symmetric systems"""
-
+    
     def __init__(self, stopper, steepest=False, **kwargs):
         """
         CG/SD for symmetric systems constructor
@@ -779,7 +778,7 @@ class CGsym(Solver):
                 problem.prec.forward(False, prblm_res, cg_prec_res)
             # dmodl = beta * dmodl - res
             cg_dmodl.scaleAdd(cg_prec_res if precond else prblm_res, beta, -1.0)  # Update search direction
-            prblm_ddmodl = problem.get_dres(cg_mdl, cg_dmodl)  # Project search direction in the data space
+            prblm_ddmodl = problem.get_pert_res(cg_mdl, cg_dmodl)  # Project search direction in the data space
 
             dot_dmodl_ddmodl = cg_dmodl.dot(prblm_ddmodl)
             if precond:
@@ -839,17 +838,17 @@ class CGsym(Solver):
                 cg_dmodl.scaleAdd(prblm_mdl, 1.0, -1.0)
                 # dmodl is scaled by the inverse of the step length
                 cg_dmodl.scale(1.0 / alpha)
-                # copying previos residuals dres = res_old
+                # copying previos residuals pert_res = res_old
                 prblm_ddmodl.copy(prblm_res)
                 problem.set_model(cg_mdl)
-                # Computing actual change in the residual vector dres = res_new - res_old
+                # Computing actual change in the residual vector pert_res = res_new - res_old
                 prblm_res = problem.get_res(cg_mdl)  # New residual vector
                 prblm_ddmodl.scaleAdd(prblm_res, -1.0, 1.0)
-                # dres is scaled by the inverse of the step length
+                # pert_res is scaled by the inverse of the step length
                 prblm_ddmodl.scale(1.0 / alpha)
             else:
                 # Setting residual vector to avoid its unnecessary computation (if model was not clipped)
-                # res  = res + alpha * dres =  res + alpha * op * dmodl
+                # res  = res + alpha * pert_res =  res + alpha * op * dmodl
                 prblm_res.scaleAdd(prblm_ddmodl, sc2=alpha)  # update residuals
                 problem.set_residual(prblm_res)
                 if iiter == 1:

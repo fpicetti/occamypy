@@ -141,7 +141,7 @@ class Solver:
             print("WARNING! No restart folder's path was found in %s" % log_file)
         return
     
-    def save_results(self, iiter, problem, **kwargs):
+    def save_results(self, iiter, problem, force_save: bool = False, force_write: bool = False, **kwargs):
         """
         Save results to disk
         
@@ -157,13 +157,13 @@ class Solver:
         """
         if not isinstance(problem, Problem):
             raise TypeError("Input variable is not a Problem object")
-        force_save = kwargs.get("force_save", False)
-        force_write = kwargs.get("force_write", False)
+
         # Getting a model from arguments if provided (necessary to remove preconditioning)
         mod_save = kwargs.get("model", problem.get_model())
         # Obtaining objective function value
         objf_value = kwargs.get("obj", problem.get_obj(problem.get_model()))
         obj_terms = kwargs.get("obj_terms", problem.obj_terms) if "obj_terms" in dir(problem) else None
+        
         # Save if it is forced to or if the solver hits a sampled iteration number
         # The objective function is saved every iteration if requested
         if self.save_obj:
@@ -172,10 +172,10 @@ class Solver:
             if obj_terms is not None:
                 if len(self.obj_terms) == 0:
                     # First time obj_terms are saved
-                    self.obj_terms = np.expand_dims(np.append(self.obj_terms, deepcopy(obj_terms)), axis=0)
+                    self.obj_terms = np.expand_dims(np.append(self.obj_terms, [float(_) for _ in obj_terms]), axis=0)
                 else:
                     self.obj_terms = np.append(self.obj_terms,
-                                               np.expand_dims(np.array(deepcopy(obj_terms)), axis=0),
+                                               np.expand_dims(np.array([float(_) for _ in obj_terms]), axis=0),
                                                axis=0)
         if iiter % self.iter_sampling == 0 or force_save:
             if self.save_model:
@@ -242,12 +242,14 @@ class Solver:
                 res_file = self.prefix + "_residual.H"  # File name in which the residual vector is saved
                 self.resSet.writeSet(res_file, mode=mode)
     
-    def run(self, prblm):
+    def run(self, problem, verbose: bool = False, restart: bool = False):
         """
         Solve the given problem
         
         Args:
             problem: problem to be solved
+            verbose: verbosity flag
+            restart: restart previous inversion from restart folder
         """
         raise NotImplementedError("Implement run Solver in the derived class.")
 
