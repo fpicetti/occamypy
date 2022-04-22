@@ -19,6 +19,8 @@ pip install occamypy
 In order to have Cupy-based vectors and operators, you should install also [Cupy](https://docs.cupy.dev/en/stable/install.html#install-cupy) and [cuSIGNAL](https://github.com/rapidsai/cusignal#installation).
 They are not included in this installation as they are dependent on the target CUDA device and compiler.
 
+As this library strongly relies on Numpy, we suggest installing OccamyPy in a conda environment like [this](./envs/env.yml).
+
 ### History
 This library was initially developed at
 [Stanford Exploration Project](http://zapad.stanford.edu/ettore88/python-solver)
@@ -82,6 +84,8 @@ See the [`dask`](./occamypy/dask) subpackage for details and implementations.
 We provide some [tutorials](./tutorials) that demonstrate the flexibility of occamypy.
 Please refer to them as a good starting point for developing your own code.
 If you have a good application example, contact us! We will be happy to see OccamyPy in action.
+
+Check out the [tutorial](https://curvenote.com/@swung/transform-2022-occamypy-an-oo-optimizaton-library/overview) we gave at SWUNG's Transform 2022!
 
 ### Contributing
 Follow the following instructions and read carefully the [CONTRIBUTING](CONTRIBUTING.md) file before getting started.
