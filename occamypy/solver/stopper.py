@@ -2,54 +2,99 @@ import time
 from timeit import default_timer as timer
 import numpy as np
 
-from occamypy import problem as P
+from occamypy.problem.base import Problem
+
+
+__all__ = [
+    "Stopper",
+    "BasicStopper",
+    "SamplingStopper",
+]
+
+
+def seconds_to_hms(seconds: float):
+    hours = seconds // 3600
+    mins = (seconds % 3600) // 60
+    secs = seconds % 60
+    return hours, mins, secs
+
+
+def hms_to_seconds(h: int, m: int, s: float) -> float:
+    return h * 3600 + m * 60 + s
 
 
 class Stopper:
-    """Stopper parent object"""
+    """
+    Base stopper class.
+    Used to implement stopping criteria for the solver.
 
-    # Default class methods/functions
-    def __init__(self):
-        """Default class constructor for Stopper"""
-        return
+    Methods:
+        reset: reset the inner variables
+        run(problem): apply its criteria to the problem
+        
+    Attributes:
+        niter: number of iterations to run (must be greater than 0 to be checked)
+        maxhours: maximum total running time in hours (must be greater than 0. to be checked)
+        logger: logger object (if any)
+        zfill: number of zeros to print in a decimal notation the iteration
+        start_time: start time
+    """
 
-    def __del__(self):
-        """Default destructor"""
-        return
-
+    def __init__(self, niter: int = 0, maxhours: float = 0., logger=None):
+        """
+        Stopper constructor
+        Args:
+            niter: number of iterations to run (must be greater than 0 to be checked)
+            maxhours: maximum total running time in hours (must be greater than 0. to be checked)
+            logger: Logger object
+        """
+        self.niter = niter
+        self.logger = logger
+        self.maxhours = maxhours
+        # number of digits for printing the iteration number
+        self.zfill = int(np.floor(np.log10(self.niter)) + 1)
+        # timer
+        self.start_time = timer()
+    
     def reset(self):
         """Function to reset stopper variables"""
-        raise NotImplementedError("Implement reset stopper in the derived class.")
+        self.start_time = timer()
 
-    def run(self, problem):
-        """Dummy stopper running method"""
+    def run(self, problem: Problem, iiter: int, verbose: bool = False, **kwargs):
+        """
+        Apply the stopping criteria to the problem
+        
+        Args:
+            problem: problem that is being solved
+            iiter: current iteration number
+            verbose: verbosity flag
+
+        Notes:
+            Beware stopper is going to change the gradient/obj/res files
+        """
         raise NotImplementedError("Implement run stopper in the derived class.")
 
 
 class BasicStopper(Stopper):
-    """Basic Stopper with different options"""
-
-    def __init__(self, niter=0, maxfevals=0, maxhours=0.0, tolr=1.0e-32, tolg=1.0e-32, tolg_proj=None, tolobj=None, tolobjrel=None,
-                 toleta=None, tolobjchng=None, logger=None):
+    """Basic Stopper with different criteria on tolerances and function evaluations"""
+    
+    def __init__(self, niter=0, maxfevals=0, tolr=1.0e-32, tolg=1.0e-32, tolg_proj=None, tolobj=None, tolobjrel=None,
+                 toleta=None, tolobjchng=None, **kwargs):
         """
-        Constructor for Basic Stopper:
-        niter    	 = [0] - integer; Number of iterations to run (must be greater than 0 to be checked)
-        maxfevals    = [0] - integer; Maximum number of function evaluations (must be greater than 0 to be checked)
-        maxhours     = [0.0] - float; Maximum total running time in hours (must be greater than 0.0 to be checked)
-        tolr     	 = [1.0e-32] - float; Tolerance on residual norm
-        tolg     	 = [1.0e-32] - float; Tolerance on gradient norm (Note: ignored for symmetric system)
-        tolg_proj    = [None] - float; Tolerance on the projected-gradient infinity norm
-        tolobj     	 = [None] - float; Tolerance on objective function value (Not relative value compared to initial one)
-        tolobjrel    = [None] - float; Tolerance on relative objective function value (Should range between 0 and 1)
-        toleta       = [None] - float; Tolerance on |Am - b|/|b| (Not supported for regularized problems)
-        tolobjchng   = [None] - float; Tolerance on the change of the relative objective function value (phi(m_i) - phi(m_i-1)/ phi(m_0)) (Note that, the stopper averages 3 points by default, modify the internal variable 'ave_pts' to change the number of points)
+        BasicStopper constructor
+        
+        Args:
+            maxfevals: maximum number of function evaluations (must be greater than 0 to be checked)
+            tolr: tolerance on residual norm
+            tolg: tolerance on gradient norm (ignored if symmetric system)
+            tolg_proj: tolerance on the projected-gradient infinity norm
+            tolobj: absolute tolerance on objective function value (compared to initial one)
+            tolobjrel: relative tolerance on objective function value (should range between 0 and 1)
+            toleta: tolerance on |Am - d|/|d| (not supported for regularized problems)
+            tolobjchng: step-relative tolerance on objective function value (phi(m_i) - phi(m_i-1))/ phi(m_0).
+               note: modify the internal variable 'ave_pts' to change the number of points on which to compute the criterion)
         """
-        # Criteria to evaluate whether or not to stop the solver
-        super(BasicStopper, self).__init__()
-        self.niter = niter
-        self.zfill = int(np.floor(np.log10(self.niter)) + 1)  # number of digits for printing the iteration number
         self.maxfevals = maxfevals
-        self.maxhours = maxhours
         self.tolr = tolr
         self.tolg = tolg
         self.tolg_proj = tolg_proj
@@ -61,45 +106,36 @@ class BasicStopper(Stopper):
         # number of points to average plus the oldest one to compute objetive the change
         self.ave_pts = 3
         self.obj_pts = list()
-        # Logger to write to file stopper information
-        self.logger = logger
-        # Starting timer
-        self.__start = timer()
-        return
-
+        
+        super(BasicStopper, self).__init__(niter=niter,
+                                           maxhours=kwargs.get("maxhours", 0.),
+                                           logger=kwargs.get("logger", None))
+    
     def reset(self):
-        """Function to reset stopper variables"""
-        # Restarting timer
-        self.__start = timer()
         self.obj_pts = list()
-        return
+        super(BasicStopper, self).reset()
 
-    # Beware stopper is going to change the gradient/obj/res files
-    def run(self, problem, niter, initial_obj_value=None, verbose=False):
-        if not isinstance(problem, P.Problem):
-            raise TypeError("Input variable is not a Problem object")
-        # Variable to impose stopping to solver
+    def run(self, problem: Problem, iiter: int, verbose: bool = False, **kwargs):
+
         stop = False
-        # Taking time run so far (hours)
-        elapsed_time = (timer() - self.__start) / 3600.0
-        secs = elapsed_time * 3600.0
-        # Printing elapsed time in hours, minutes, seconds
-        hours = secs // 3600
-        mins = (secs % 3600) // 60
-        secs = (secs % 60)
+        
+        # Taking time run so far (seconds)
+        elapsed_time = timer() - self.start_time
+       
         # Printing time stamp to log file if provided
-        msg = "Elapsed time: %d hours, %d minutes, %d seconds\n" % (hours, mins, secs) + \
-              "Current date & time: %s" % time.strftime("%c")
+        if self.logger:
+            self.logger.addToLog("Elapsed time: %d hours, %d minutes, %d seconds\n" % seconds_to_hms(elapsed_time) +
+                                 "Current date & time: %s" % time.strftime("%c"))
+        
         res_norm = problem.get_rnorm(problem.model)
         try:
             grad_norm = problem.get_gnorm(problem.model)
         except NotImplementedError:
             grad_norm = None
         obj = problem.get_obj(problem.model)
-        if self.logger:
-            self.logger.addToLog(msg)
-        # Stop by number of iterations
-        if 0 < self.niter <= niter:
+
+        # stop by number of iterations
+        if 0 < self.niter <= iiter:
             stop = True
             msg = "Terminate: maximum number of iterations reached\n"
             if verbose:
@@ -107,6 +143,8 @@ class BasicStopper(Stopper):
             if self.logger:
                 self.logger.addToLog(msg)
             return stop
+        
+        # stop by number of function evaluations
         if 0 < self.maxfevals <= problem.get_fevals():
             stop = True
             msg = "Terminate: maximum number of evaluations\n"
@@ -115,14 +153,18 @@ class BasicStopper(Stopper):
             if self.logger:
                 self.logger.addToLog(msg)
             return stop
-        if 0. < self.maxhours <= elapsed_time:
+        
+        # stop by computation time
+        if 0. < self.maxhours <= elapsed_time / 3600:
             stop = True
-            msg = "Terminate: maximum number hours reached %s\n" % elapsed_time
+            msg = "Terminate: maximum number hours reached %s\n" % (elapsed_time / 3600)
             if verbose:
                 print(msg)
             if self.logger:
                 self.logger.addToLog(msg)
             return stop
+        
+        # residual norm tolerance
         if res_norm < self.tolr:
             stop = True
             msg = "Terminate: minimum residual tolerance reached %s\n" % res_norm
@@ -131,6 +173,8 @@ class BasicStopper(Stopper):
             if self.logger:
                 self.logger.addToLog(msg)
             return stop
+        
+        # gradient norm tolerance
         if grad_norm is not None and grad_norm < self.tolg:
             stop = True
             msg = "Terminate: minimum gradient tolerance reached %s\n" % grad_norm
@@ -139,6 +183,8 @@ class BasicStopper(Stopper):
             if self.logger:
                 self.logger.addToLog(msg)
             return stop
+        
+        # projected gradient tolerance
         if grad_norm is not None and self.tolg_proj is not None:
             # Get the inf-norm of the projected gradient
             # Equation (6.1), Page 17. (L-BFGS-B)
@@ -157,49 +203,56 @@ class BasicStopper(Stopper):
                 if self.logger:
                     self.logger.addToLog(msg)
                 return stop
-        if self.tolobj is not None:
-            if obj < self.tolobj:
-                stop = True
-                msg = "Terminate: objective function value tolerance of %s reached, objective function value %s\n"\
-                      % (self.tolobj, obj)
-                if verbose:
-                    print(msg)
-                if self.logger:
-                    self.logger.addToLog(msg)
-                return stop
-        if self.tolobjrel is not None and initial_obj_value is not None and initial_obj_value != 0.:
-            if obj / initial_obj_value < self.tolobjrel:
-                stop = True
-                msg = "Terminate: relative objective function value tolerance of %s reached, relative objective " \
-                      "function value %s\n" % (self.tolobjrel, obj / initial_obj_value)
-                if verbose:
-                    print(msg)
-                if self.logger:
-                    self.logger.addToLog(msg)
-                return stop
+        
+        # objective function tolerance
+        if self.tolobj is not None and obj < self.tolobj:
+            stop = True
+            msg = "Terminate: objective function tolerance reached: %s < %s\n"\
+                  % (obj, self.tolobj)
+            if verbose:
+                print(msg)
+            if self.logger:
+                self.logger.addToLog(msg)
+            return stop
+        
+        # residual vs data tolerance
         if self.toleta is not None:
             data_norm = problem.data.norm()
             if res_norm < self.toleta * data_norm:
                 stop = True
-                msg = "Terminate: eta tolerance (i.e., |Am - b|/|b|) of %s reached, eta value %s"\
-                      % (self.toleta, res_norm / data_norm)
+                msg = "Terminate: eta tolerance (i.e., |Am - b|/|b|) reached: %s < %s"\
+                      % (res_norm / data_norm, self.toleta)
                 if verbose:
                     print(msg)
                 if self.logger:
                     self.logger.addToLog(msg)
                 return stop
-        if self.tolobjchng is not None and initial_obj_value is not None and initial_obj_value != 0.0:
+
+        # objective function relative tolerance
+        initial_obj_value = kwargs.get("initial_obj_value", None)
+        if self.tolobjrel is not None and initial_obj_value is not None and initial_obj_value != 0.:
+            if obj / initial_obj_value < self.tolobjrel:
+                stop = True
+                msg = "Terminate: objective function relative tolerance reached: %s < %s\n"\
+                      % (obj / initial_obj_value, self.tolobjrel)
+                if verbose:
+                    print(msg)
+                if self.logger:
+                    self.logger.addToLog(msg)
+                return stop
+                
+        # objective function update tolerance
+        if self.tolobjchng is not None and initial_obj_value is not None and initial_obj_value != 0.:
             # Saving current scaled objective function value
             self.obj_pts.append(obj / initial_obj_value)
-            if niter >= self.ave_pts:
+            if iiter >= self.ave_pts:
                 # Appending initial objective function value
                 objtmp = [1.0] + self.obj_pts
                 objchng = np.abs(np.sum(np.diff(objtmp[-self.ave_pts - 1:])) / self.ave_pts)
                 if objchng < self.tolobjchng:
                     stop = True
-                    msg = "Terminate: tolerance on the change of the relative objective function value (i.e., " \
-                          "phi(m_i) - phi(m_i-1)/ phi(m_0)) of %s reached (computed using %s points), change value " \
-                          "%s" % (self.tolobjchng, self.ave_pts, objchng)
+                    msg = "Terminate: objective function update tolerance reached: %s < %s (computed using %s points)\n" \
+                          % (objchng, self.tolobjchng, self.ave_pts)
                     if verbose:
                         print(msg)
                     if self.logger:
@@ -209,51 +262,37 @@ class BasicStopper(Stopper):
 
 
 class SamplingStopper(Stopper):
-    """Sampling Stopper with different options"""
+    """
+    Stopper that check the  number of tested samples.
 
-    def __init__(self, nsamples, maxhours=0.0, logger=None):
-        """
-        Constructor for Sampling Stopper:
-        nsamples - integer; Number of samples to tests
-        maxhours - float; Maximum total running time in hours (must be greater than 0.0 to be checked) [0.0]
-        """
-        # Criteria to evaluate whether or not to stop the solver
-        super(SamplingStopper, self).__init__()
-        self.nsamples = nsamples
-        self.zfill = int(np.floor(np.log10(self.nsamples)) + 1)  # number of digits for printing the iteration number
-        self.maxhours = maxhours
-        # Logger to write to file stopper information
-        self.logger = logger
-        # Starting timer
-        self.__start = timer()
-        return
+    Examples:
+        used in MCMC solver
+    """
+    
+    def __init__(self, niter: int = 0, **kwargs):
+        """SamplingStopper constructor"""
+        nsamples = kwargs.get("nsamples", None)
+        if nsamples is not None and niter == 0:
+            niter = nsamples
+        super(SamplingStopper, self).__init__(niter=niter,
+                                              maxhours=kwargs.get("maxhours", 0.),
+                                              logger=kwargs.get("logger", None))
 
     def reset(self):
-        """Function to reset stopper variables"""
-        # Restarting timer
-        self.__start = timer()
-        return
+        super(SamplingStopper, self).reset()
 
-    # Beware stopper is going to change the gradient/obj/res files
-    def run(self, problem, nsamples, verbose=False):
-        if not isinstance(problem, P.Problem):
-            raise TypeError("Input variable is not a Problem object")
-        # Variable to impose stopping to solver
+    def run(self, problem: Problem, iiter: int, verbose: bool = False, **kwargs):
         stop = False
-        # Taking time run so far (hours)
-        elapsed_time = (timer() - self.__start) / 3600.0
-        secs = elapsed_time * 3600.0
-        # Printing elapsed time in hours, minutes, seconds
-        hours = secs // 3600
-        mins = (secs % 3600) // 60
-        secs = (secs % 60)
-        # Printing time stamp to log file if provided
-        msg = "Elapsed time: %d hours, %d minutes, %d seconds\n" % (hours, mins, secs) + \
-              "Current date & time: %s" % time.strftime("%c")
+        
+        # Taking time run so far (seconds)
+        elapsed_time = timer() - self.start_time
+        
         if self.logger:
-            self.logger.addToLog(msg)
+            self.logger.addToLog("Elapsed time: %d hours, %d minutes, %d seconds\n" % seconds_to_hms(elapsed_time) +
+                                 "Current date & time: %s" % time.strftime("%c"))
+        
         # Stop by number of iterations
-        if 0 < self.nsamples <= nsamples:
+        if 0 < self.niter <= iiter:
             stop = True
             msg = "Terminate: maximum number of requested samples reached\n"
             if verbose:
@@ -261,12 +300,15 @@ class SamplingStopper(Stopper):
             if self.logger:
                 self.logger.addToLog(msg)
             return stop
-        if 0. < self.maxhours <= elapsed_time:
+        
+        # stop by computation time
+        if 0. < self.maxhours <= elapsed_time / 3600:
             stop = True
-            msg = "Terminate: maximum number hours reached %s\n" % elapsed_time
+            msg = "Terminate: maximum number hours reached %s\n" % (elapsed_time / 3600)
             if verbose:
                 print(msg)
             if self.logger:
                 self.logger.addToLog(msg)
             return stop
+        
         return stop

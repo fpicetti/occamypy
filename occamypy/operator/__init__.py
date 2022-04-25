@@ -3,6 +3,7 @@ from .linear import *
 from .nonlinear import *
 from .derivative import *
 from .matrix import *
+from .signal import *
 
 __all__ = [
     "Operator",
@@ -24,4 +25,9 @@ __all__ = [
     "SecondDerivative",
     "Gradient",
     "Laplacian",
+    "FFT",
+    "ConvND",
+    "GaussianFilter",
+    "Padding",
+    "ZeroPad",
 ]

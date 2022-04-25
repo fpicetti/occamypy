@@ -7,5 +7,7 @@
 .ipynb_checkpoints/
 dask-worker-space
 /devel
-experiments
 publishing.md
+tutorials/devito
+pykonal-0.2.3b3
+**__pycache__

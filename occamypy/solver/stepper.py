@@ -1,19 +1,16 @@
-import numpy as np
-from math import isnan
 from copy import deepcopy
+from math import isnan
+
+import numpy as np
+
+from occamypy.utils.os import ZERO
 
 
 class Stepper:
-    """Stepper parent object"""
+    """Base stepper class"""
 
-    # Default class methods/functions
     def __init__(self):
-        """Default class constructor for Stepper"""
-        return
-
-    def __del__(self):
-        """Default destructor"""
-        return
+        pass
 
     def run(self, model, search_dir):
         """Dummy stepper running method"""
@@ -23,7 +20,7 @@ class Stepper:
         """Function to estimate initial step length value"""
         try:
             # Projecting search direction in the data space
-            dres = problem.get_dres(modl, dmodl)
+            pert_res = problem.get_pert_res(modl, dmodl)
         except NotImplementedError:
             if logger:
                 logger.addToLog(
@@ -32,8 +29,8 @@ class Stepper:
             alpha_guess = 1.0 / dmodl.norm()
             return alpha_guess
         res = problem.get_res(modl)
-        dres_res = res.dot(dres)
-        dres_dres = dres.dot(dres)
+        dres_res = res.dot(pert_res)
+        dres_dres = pert_res.dot(pert_res)
         if dres_dres == 0.:
             if logger:
                 logger.addToLog(
@@ -47,27 +44,21 @@ class Stepper:
 
 
 class CvSrchStep(Stepper):
-    """
+    r"""
     Originally published by More and Thuente (1994) "Line Search Algorithms with Guaranteed Sufficient Decrease"
-    CvSrch stepper (from Dianne O'Leary's code):
+    CvSrch stepper (from Dianne o'Leary's code):
 
-    THE PURPOSE OF CVSRCH IS TO FIND A STEP WHICH SATISFIES
-    A SUFFICIENT DECREASE CONDITION AND A CURVATURE CONDITION.
+    THE PURPOSE OF CVSRCH IS TO FIND A STEP WHICH SATISFIES A SUFFICIENT DECREASE CONDITION AND A CURVATURE CONDITION.
 
-    AT EACH STAGE THE SUBROUTINE UPDATES AN INTERVAL OF
-    UNCERTAINTY WITH ENDPOINTS STX AND STY. THE INTERVAL OF
-    UNCERTAINTY IS INITIALLY CHOSEN SO THAT IT CONTAINS A
-    MINIMIZER OF THE MODIFIED FUNCTION
-
+    AT EACH STAGE THE SUBROUTINE UPDATES AN INTERVAL OF UNCERTAINTY WITH ENDPOINTS STX AND STY. THE INTERVAL OF
+    UNCERTAINTY IS INITIALLY CHOSEN SO THAT IT CONTAINS A MINIMIZER OF THE MODIFIED FUNCTION
+    
         F(X+STP*S) - F(X) - FTOL*STP*(GRADF(X)'S).
 
-    IF A STEP IS OBTAINED FOR WHICH THE MODIFIED FUNCTION
-    HAS A NONPOSITIVE FUNCTION VALUE AND NONNEGATIVE DERIVATIVE,
-    THEN THE INTERVAL OF UNCERTAINTY IS CHOSEN SO THAT IT
-    CONTAINS A MINIMIZER OF F(X+STP*S).
+    IF A STEP IS OBTAINED FOR WHICH THE MODIFIED FUNCTION HAS A NONPOSITIVE FUNCTION VALUE AND NONNEGATIVE DERIVATIVE,
+    THEN THE INTERVAL OF UNCERTAINTY IS CHOSEN SO THAT IT CONTAINS A MINIMIZER OF F(X+STP*S).
 
-    THE ALGORITHM IS DESIGNED TO FIND A STEP WHICH SATISFIES
-    THE SUFFICIENT DECREASE CONDITION
+    THE ALGORITHM IS DESIGNED TO FIND A STEP WHICH SATISFIES THE SUFFICIENT DECREASE CONDITION
 
          F(X+STP*S) .LE. F(X) + FTOL*STP*(GRADF(X)'S),
 
@@ -75,27 +66,27 @@ class CvSrchStep(Stepper):
 
          ABS(GRADF(X+STP*S)'S)) .LE. GTOL*ABS(GRADF(X)'S).
 
-    IF FTOL IS LESS THAN GTOL AND IF, FOR EXAMPLE, THE FUNCTION
-    IS BOUNDED BELOW, THEN THERE IS ALWAYS A STEP WHICH SATISFIES
-    BOTH CONDITIONS. IF NO STEP CAN BE FOUND WHICH SATISFIES BOTH
-    CONDITIONS, THEN THE ALGORITHM USUALLY STOPS WHEN ROUNDING
-    ERRORS PREVENT FURTHER PROGRESS. IN THIS CASE STP ONLY
-    SATISFIES THE SUFFICIENT DECREASE CONDITION.
+    IF FTOL IS LESS THAN GTOL AND IF, FOR EXAMPLE, THE FUNCTION IS BOUNDED BELOW, THEN THERE IS ALWAYS A STEP WHICH SATISFIES
+    BOTH CONDITIONS. IF NO STEP CAN BE FOUND WHICH SATISFIES BOTH CONDITIONS, THEN THE ALGORITHM USUALLY STOPS WHEN ROUNDING
+    ERRORS PREVENT FURTHER PROGRESS. IN THIS CASE STP ONLY SATISFIES THE SUFFICIENT DECREASE CONDITION.
     """
 
     def __init__(self, alpha=0.0, xtol=1.0e-16, ftol=1.0e-4, gtol=0.95, alpha_min=1.0e-20, alpha_max=1.e20, maxfev=20,
                  xtrapf=4., delta=0.66):
         """
-           CvSrch constructor:
-           alpha 		 = [0.] - float; Initial step-length guess
-           xtol  	 	 = [1e-16] - float; Relative width tolerance: convergence is reached if width falls below xtol * maximum step size.
-           ftol  	 	 = [1e-16] - float; c1 value to tests first Wolfe condition (should be between 0 and 1)
-           gtol  	 	 = [0.95] - float; c2 value to tests second Wolfe condition (should be between c1 or ftol and 1). For Quasi-Newton (e.g., L-BFGS) choose default. Otherwise, for other methods (e.g., NLCG) choose 0.1
-           alpha_min  	 = [1e-20] - float; Minimum step length value of the step length interval
-           alpha_max  	 = [1e20] - float; Maximum step length value of the step length interval
-           maxfev  	     = [20] - int; Maximum number of function evaluation to step length
-           xtrapf  	     = [4.0] - float; Scaling factor to find right limit of uncertainty interval
-           delta  	     = [0.66] - float; Value to force sufficient decrease of interval size on successive iterations. Should be a positive value less than 1.
+        CvSrch stepper constructor
+        
+        Args:
+            alpha: step-length initial guess
+            xtol: relative width tolerance; convergence is reached if width falls below xtol * maximum step size
+            ftol: c1 value to test first Wolfe condition; it should be in [0,1]
+            gtol: c2 value to test second Wolfe condition; it should be in [c1,1] or [ftol,1].
+                For Quasi-Newton (e.g., L-BFGS) choose default. Otherwise, choose 0.1
+            alpha_min: minimum step length
+            alpha_max: maximum step length
+            maxfev: maximum number of function evaluation to step length
+            xtrapf: scaling factor to find right limit of uncertainty interval
+            delta: value to force sufficient decrease of interval size on successive iterations; it should be in [0,1]
         """
         self.alpha = alpha  # Initial step length guess
         self.xtol = xtol
@@ -106,8 +97,6 @@ class CvSrchStep(Stepper):
         self.maxfev = maxfev
         self.xtrapf = xtrapf
         self.delta = delta
-        self.zero = 10 ** (np.floor(
-            np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
         # Checking stepper parameters
         if xtol < 0.:
             raise ValueError("ERROR! xtol must be greater than 0.0, current value %.2e" % xtol)
@@ -130,51 +119,51 @@ class CvSrchStep(Stepper):
 
     def cstep(self, stx, fx, dx, sty, fy, dy, stp, fp, dp, brackt, stpmin, stpmax, logger):
         """
-            Modified Cstep function (from the code by Dianne O'Leary July 1991):
-            The purpose of cstep is to compute a safeguarded step for
-            a linesearch and to update an interval of uncertainty for
-            a minimizer of the function.
+        Modified Cstep function (from the code by Dianne o'Leary July 1991):
+        The purpose of cstep is to compute a safeguarded step for
+        a linesearch and to update an interval of uncertainty for
+        a minimizer of the function.
 
-            The parameter stx contains the step with the least function
-            value. The parameter stp contains the current step. It is
-            assumed that the derivative at stx is negative in the
-            direction of the step. If brackt is set true then a
-            minimizer has been bracketed in an interval of uncertainty
-            with endpoints stx and sty.
-            The subroutine statement is
+        The parameter stx contains the step with the least function
+        value. The parameter stp contains the current step. It is
+        assumed that the derivative at stx is negative in the
+        direction of the step. If brackt is set true then a
+        minimizer has been bracketed in an interval of uncertainty
+        with endpoints stx and sty.
+        The subroutine statement is
 
-            subroutine cstep(stx,fx,dx,sty,fy,dy,stp,fp,dp,brackt,stpmin,stpmax,info)
+        subroutine cstep(stx,fx,dx,sty,fy,dy,stp,fp,dp,brackt,stpmin,stpmax,info)
 
-            where
+        where
 
-            stx, fx, and dx are variables which specify the step,
-            the function, and the derivative at the best step obtained
-            so far. The derivative must be negative in the direction
-            of the step, that is, dx and stp-stx must have opposite
-            signs. On output these parameters are updated appropriately.
+        stx, fx, and dx are variables which specify the step,
+        the function, and the derivative at the best step obtained
+        so far. The derivative must be negative in the direction
+        of the step, that is, dx and stp-stx must have opposite
+        signs. On output these parameters are updated appropriately.
 
-            sty, fy, and dy are variables which specify the step,
-            the function, and the derivative at the other endpoint of
-            the interval of uncertainty. On output these parameters are
-            updated appropriately.
+        sty, fy, and dy are variables which specify the step,
+        the function, and the derivative at the other endpoint of
+        the interval of uncertainty. On output these parameters are
+        updated appropriately.
 
-            stp, fp, and dp are variables which specify the step,
-            the function, and the derivative at the current step.
-            If brackt is set true then on input stp must be
-            between stx and sty. On output stp is set to the new step.
+        stp, fp, and dp are variables which specify the step,
+        the function, and the derivative at the current step.
+        If brackt is set true then on input stp must be
+        between stx and sty. On output stp is set to the new step.
 
-            brackt is a logical variable which specifies if a minimizer
-            has been bracketed. If the minimizer has not been bracketed
-            then on input brackt must be set false. If the minimizer
-            is bracketed then on output brackt is set true.
+        brackt is a logical variable which specifies if a minimizer
+        has been bracketed. If the minimizer has not been bracketed
+        then on input brackt must be set false. If the minimizer
+        is bracketed then on output brackt is set true.
 
-            stpmin and stpmax are input variables which specify lower
-            and upper bounds for the step.
+        stpmin and stpmax are input variables which specify lower
+        and upper bounds for the step.
 
-            info is an integer output variable set as follows:
-            If info = True, then the step has been computed
-            according to one of the five cases below. Otherwise
-            info = False, and this indicates improper input parameters.
+        info is an integer output variable set as follows:
+        If info = True, then the step has been computed
+        according to one of the five cases below. Otherwise
+        info = False, and this indicates improper input parameters.
         """
 
         success = False  # which is info
@@ -191,7 +180,7 @@ class CvSrchStep(Stepper):
         # Determine if the derivatives have opposite sign.
         sgnd = dp * (dx / np.abs(dx))
 
-        # First case. A higher function value.
+        # First case. op higher function value.
         # The minimum is bracketed. If the cubic step is closer
         # to stx than the quadratic step, the cubic step is taken,
         # else the average of the cubic and quadratic steps is taken.
@@ -215,7 +204,7 @@ class CvSrchStep(Stepper):
                 stpf = stpc + (stpq - stpc) / 2.0
             brackt = True
 
-        # Second case. A lower function value and derivatives of
+        # Second case. op lower function value and derivatives of
         # opposite sign. The minimum is bracketed. If the cubic
         # step is closer to stx than the quadratic (secant) step,
         # the cubic step is taken, else the quadratic step is taken.
@@ -239,7 +228,7 @@ class CvSrchStep(Stepper):
                 stpf = stpq
             brackt = True
 
-        # Third case. A lower function value, derivatives of the
+        # Third case. op lower function value, derivatives of the
         # same sign, and the magnitude of the derivative decreases.
         # The cubic step is only used if the cubic tends to infinity
         # in the direction of the step or if the minimum of the cubic
@@ -282,7 +271,7 @@ class CvSrchStep(Stepper):
                 else:
                     stpf = stpq
 
-        # Fourth case. A lower function value, derivatives of the
+        # Fourth case. op lower function value, derivatives of the
         # same sign, and the magnitude of the derivative does
         # not decrease. If the minimum is not bracketed, the step
         # is either stpmin or stpmax, else the cubic step is taken.
@@ -335,13 +324,11 @@ class CvSrchStep(Stepper):
         return stx, fx, dx, sty, fy, dy, stp, fp, dp, brackt, success
 
     def run(self, problem, modl, dmodl, logger=None):
-        """Method to apply CvSrch stepper"""
-        # Writing to log file if any
+        """Run CvSrch stepper"""
         if logger:
             logger.addToLog("CVSRCH STEPPER BY STEP-LENGTH BRACKETING")
             logger.addToLog("xtol=%.2e ftol=%.2e gtol=%.2e alpha_min=%.2e alpha_max=%.2e maxfev=%d xtrapf=%.2e"
-                            % (
-                            self.xtol, self.ftol, self.gtol, self.alpha_min, self.alpha_max, self.maxfev, self.xtrapf))
+                            % (self.xtol, self.ftol, self.gtol, self.alpha_min, self.alpha_max, self.maxfev, self.xtrapf))
         success = False
         # Obtain objective function for provided model
         phi_init = problem.get_obj(modl)
@@ -359,7 +346,7 @@ class CvSrchStep(Stepper):
         # Initial step length value
         alpha = deepcopy(self.alpha)
         # Estimating initial step length value
-        if alpha < self.zero:
+        if alpha < ZERO:
             alpha = self.estimate_initial_guess(problem, modl, dmodl, logger)
         if logger:
             logger.addToLog("\tinitial-steplength=%.2e" % alpha)
@@ -469,7 +456,7 @@ class CvSrchStep(Stepper):
             if stage1 and (phi_alpha <= phi_test1) and (dphi_alpha >= np.minimum(self.ftol, self.gtol) * dphi_init):
                 stage1 = False
 
-            # A modified function is used to predict the step only if
+            # op modified function is used to predict the step only if
             # we have not obtained a step for which the modified
             # function has a nonpositive function value and nonnegative
             # derivative, and if a lower function value has been
@@ -543,10 +530,7 @@ class ParabolicStep(Stepper):
         self.alpha_scale_min = alpha_scale_min  # Maximum scaling value for the step length
         self.alpha_scale_max = alpha_scale_max  # Minimum scaling value for the step length
         self.shrink = shrink  # Shrinking scaling factor if trial is unsuccessful
-        self.zero = 10 ** (np.floor(
-            np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
         self.eval_parab = eval_parab
-        return
 
     def run(self, problem, modl, dmodl, logger=None):
         """Method to apply parabolic stepper"""
@@ -583,7 +567,7 @@ class ParabolicStep(Stepper):
                 logger.addToLog("\ttrial number: %d" % itry)
                 logger.addToLog("\tinitial-steplength=%.2e" % alpha)
             # Find the first guess as if the problem was linear (Tangent method)
-            if (itry == self.ntry) or (alpha < self.zero):
+            if (itry == self.ntry) or (alpha < ZERO):
                 alpha = self.estimate_initial_guess(problem, modl, dmodl, logger)
                 if logger:
                     logger.addToLog("\tGuessing step length of: %.2e" % alpha)
@@ -814,9 +798,6 @@ class ParabolicStepConst(Stepper):
         self.alpha_scale_min = alpha_scale_min  # Minimum scaling value for the step length
         self.alpha_scale_max = alpha_scale_max  # Maximum scaling value for the step length
         self.shrink = shrink  # Shrinking scaling factor if trial is unsuccessful
-        self.zero = 10 ** (np.floor(
-            np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
-        return
 
     def run(self, problem, modl, dmodl, logger=None):
         """Method to apply parabolic stepper"""
@@ -852,7 +833,7 @@ class ParabolicStepConst(Stepper):
                 logger.addToLog("\ttrial number: %d" % itry)
                 logger.addToLog("\tinitial-steplength=%.2e" % alpha)
             # Find the first guess as if the problem was linear (Tangent method)
-            if (itry == self.ntry) or (alpha < self.zero):
+            if (itry == self.ntry) or (alpha < ZERO):
                 alpha = self.estimate_initial_guess(problem, modl, dmodl, logger)
                 if logger:
                     logger.addToLog("\tGuessing step length of: %.2e" % alpha)
@@ -1029,12 +1010,9 @@ class StrongWolfe(Stepper):
         self.alpha = alpha  # Initial step length guess
         self.alpha_max = alpha_max  # Maximum step-length value
         self.alpha_scale = alpha_scale
-        self.zero = 10 ** (np.floor(
-            np.log10(np.abs(float(np.finfo(np.float64).tiny)))) + 2)  # Check for avoid Overflow or Underflow
         self.keepAlpha = keepAlpha
-        return
 
-    def alpha_zoom(self, problem, mdl0, mdl, obj0, dphi0, dmodl, alpha_lo, alpha_hi, logger=None):
+    def alpha_zoom(self, problem, mdl0, model, obj0, dphi0, dmodl, alpha_lo, alpha_hi, logger=None):
         """Algorithm 3.6, Page 61. "Numerical Optimization". Nocedal & Wright."""
         itry = 0
         alpha = 0.0
@@ -1044,10 +1022,10 @@ class StrongWolfe(Stepper):
             alpha_i = 0.5 * (alpha_lo + alpha_hi)
             alpha = alpha_i
             # x = x0 + alpha_i * p
-            mdl.copy(mdl0)
-            mdl.scaleAdd(dmodl, sc2=alpha_i)
+            model.copy(mdl0)
+            model.scaleAdd(dmodl, sc2=alpha_i)
             # Evaluating objective and gradient function
-            obj_i = problem.get_obj(mdl)
+            obj_i = problem.get_obj(model)
             if logger:
                 logger.addToLog("\t\tObjective function value of %.5e at m_i with alpha=%.5e [alpha_zoom]" %(obj_i, alpha_i))
             if isnan(obj_i):
@@ -1055,11 +1033,11 @@ class StrongWolfe(Stepper):
                     logger.addToLog("\t\t!!!Problem with step length and objective function; Setting alpha = 0.0 [alpha_zoom]!!!")
                 alpha = 0.0
                 break
-            grad_i = problem.get_grad(mdl)
+            grad_i = problem.get_grad(model)
             # x_lo = x0 + alpha_lo * p;
-            mdl.copy(mdl0)
-            mdl.scaleAdd(dmodl, sc2=alpha_lo)  # x = x0 + alpha_i * p;
-            obj_lo = problem.get_obj(mdl)
+            model.copy(mdl0)
+            model.scaleAdd(dmodl, sc2=alpha_lo)  # x = x0 + alpha_i * p;
+            obj_lo = problem.get_obj(model)
             if logger:
                 logger.addToLog("\t\tObjective function value of %.5e at m_lo with alpha_lo=%.5e [alpha_zoom]" %(obj_lo, alpha_lo))
             if isnan(obj_lo):
@@ -1112,7 +1090,7 @@ class StrongWolfe(Stepper):
                 logger.addToLog("\ttrial number: %d" % (itry+1))
                 logger.addToLog("\tinitial-steplength=%.2e" % alpha_i)
             # Find the first guess as if the problem was linear (Tangent method)
-            if alpha_i <= self.zero:
+            if alpha_i <= ZERO:
                 alpha_i = self.estimate_initial_guess(problem, modl, dmodl, logger)
                 self.alpha_max *= alpha_i
                 if logger:
@@ -1145,7 +1123,7 @@ class StrongWolfe(Stepper):
                     logger.addToLog("\tCondition 2 matched; step-length value of: %.2e" % alpha)
                 success = True
                 break
-            if dphi >= self.zero:
+            if dphi >= ZERO:
                 alpha = self.alpha_zoom(problem, modl, model_step, obj0, dphi0, dmodl, alpha_i, alpha_im1, logger)
                 if logger:
                     logger.addToLog("\tCondition 3 matched; step-length value of: %.2e" % alpha)

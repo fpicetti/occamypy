@@ -1,22 +1,28 @@
-import numpy as np
 import os
-from time import time
 from copy import deepcopy
+from re import compile
 from shutil import copyfile
+from time import time
 
-from .base import Vector
+import numpy as np
+
 from occamypy.utils import sep
 from occamypy.utils.os import RunShellCmd, hashfile, BUF_SIZE
+from occamypy.vector.base import Vector
 
-from re import compile
 re_dpr = compile("DOT RESULT(.*)")
 
 
 class VectorOC(Vector):
-    """Out-of-core python vector class"""
+    """Out-of-core SEPlib vector class"""
     
     def __init__(self, in_content):
-        """VectorOC constructor: input= numpy array, header file, vectorIC"""
+        """
+        VectorOC constructor
+
+        Args:
+            in_content: numpy array, header file, Vector instance
+        """
         # Verify that input is a numpy array or header file or vectorOC
         super(VectorOC).__init__()
         if isinstance(in_content, Vector):
@@ -52,22 +58,18 @@ class VectorOC(Vector):
         self.shape = tuple(reversed(axis_elements))
         self.size = np.product(self.shape)
         self.ndim = len(self.shape)
-        return
     
     def __del__(self):
-        """VectorOC destructor"""
         if self.remove_file:
             # Removing both header and binary files (using os.system to make module compatible with python3.5)
             os.system("rm -f %s %s" % (self.vecfile, self.binfile))
         return
     
     def getNdArray(self):
-        """Function to return Ndarray of the vector"""
         ndarray, _ = sep.read_file(self.vecfile)
         return ndarray
     
     def norm(self, N=2):
-        """Function to compute vector N-norm"""
         if N != 2:
             raise NotImplementedError("Norm different than L2 not currently supported")
         # Running Solver_ops to compute norm value
@@ -79,33 +81,23 @@ class VectorOC(Vector):
         return
     
     def zero(self):
-        """Function to zero out a vector"""
         RunShellCmd("head -c %s </dev/zero > %s" % (self.size * 4, self.binfile),
                     get_stat=False, get_output=False)
         # sys_util.RunShellCmd("Solver_ops file1=%s op=zero"%(self.vecfile),get_stat=False,get_output=False)
         return
     
     def scale(self, sc):
-        """Function to scale a vector"""
         RunShellCmd("Solver_ops file1=%s scale1_r=%s op=scale" % (self.vecfile, sc),
                     get_stat=False, get_output=False)
         return
     
-    def rand(self, snr=1.0):
-        """Fill vector with random number (~U[1,-1]) with a given SNR"""
+    def randn(self, mean: float = 0., std: float = 1.):
         # Computing RMS amplitude of the vector
-        rms = RunShellCmd("Attr < %s want=rms param=1 maxsize=5000" % (self.vecfile), get_stat=False)[0]
-        rms = float(rms.split("=")[1])  # Standard deviation of the signal
-        amp_noise = 1.0
-        if rms != 0.:
-            amp_noise = np.sqrt(3.0 / snr) * rms  # sqrt(3*Power_signal/SNR)
-        # Filling file with random number with the proper scale
         RunShellCmd("Noise file=%s rep=1 type=0 var=0.3333333333; Solver_ops file1=%s scale1_r=%s op=scale" % (
-            self.vecfile, self.vecfile, amp_noise), get_stat=False, get_output=False)
+        self.vecfile, self.vecfile, std), get_stat=False, get_output=False)
         return
     
     def clone(self):
-        """Function to clone (deep copy) a vector or from a space and creating a copy of the associated header file"""
         # First performing a deep copy of the vector
         vec_clone = deepcopy(self)
         if vec_clone.vecfile is None:
@@ -139,7 +131,6 @@ class VectorOC(Vector):
         return vec_clone
     
     def cloneSpace(self):
-        """Function to clone vector space only (vector without actual vector binary file by using None values)"""
         vec_space = VectorOC(self.vecfile)
         # Removing header vector file
         vec_space.vecfile = None
@@ -148,11 +139,9 @@ class VectorOC(Vector):
         return vec_space
     
     def checkSame(self, other):
-        """Function to check dimensionality of vectors"""
         return self.shape == other.shape
     
     def writeVec(self, filename, mode='w'):
-        """Function to write vector to file"""
         # Check writing mode
         if not mode in 'wa':
             raise ValueError("Mode must be appending 'a' or writing 'w' ")
@@ -195,7 +184,6 @@ class VectorOC(Vector):
         return
     
     def copy(self, other):
-        """Function to copy vector from input vector"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorOC):
             raise TypeError("ERROR! Provided input vector not a %s!" % self.whoami)
@@ -208,7 +196,6 @@ class VectorOC(Vector):
         return
     
     def scaleAdd(self, other, sc1=1.0, sc2=1.0):
-        """Function to scale a vector"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorOC):
             raise TypeError("ERROR! Provided input vector not a vectorOC!")
@@ -223,7 +210,6 @@ class VectorOC(Vector):
         return
     
     def dot(self, other):
-        """Function to compute dot product between two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorOC):
             raise TypeError("ERROR! Provided input vector not a %s!" % self.whoami)
@@ -244,7 +230,6 @@ class VectorOC(Vector):
         return float(out_dot)
     
     def multiply(self, other):
-        """Function to multiply element-wise two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorOC):
             raise TypeError("ERROR! Provided input vector not a %s!" % self.whoami)
@@ -261,7 +246,6 @@ class VectorOC(Vector):
         return
     
     def isDifferent(self, other):
-        """Function to check if two vectors are identical using M5 hash scheme"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorOC):
             raise TypeError("ERROR! Provided input vector not a %s!" % self.whoami)

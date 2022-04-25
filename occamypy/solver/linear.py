@@ -1,44 +1,35 @@
-# Module containing Linear Solver classes
 from math import isnan
 import numpy as np
 
-from occamypy.solver import Solver
-from occamypy import problem as P
 
+from occamypy.problem.linear import LeastSquaresSymmetric
+from occamypy.solver.base import Solver
 from occamypy.utils import ZERO
 
 
 class CG(Solver):
-    """Linear-Conjugate Gradient and Steepest-Descent Solver parent object"""
+    """Linear-Conjugate Gradient and Steepest-Descent Solver"""
 
-    # Default class methods/functions
-    def __init__(self, stopper, steepest=False, logger=None):
+    def __init__(self, stopper, steepest=False, **kwargs):
         """
-        Constructor for LCG/SD Solver:
-        :param stopper: Stopper, object to terminate inversion
-        :param steepest: bool, use the steepest-descent instead of conjugate gradient [False]
-        :param logger: Logger, object to write inversion log file [None]
+        CG/SD constructor
+        
+        Args:
+            stopper: Stopper to terminate the inversion
+            steepest: whether to use the steepest-descent instead of conjugate gradient
+            logger: Logger to write inversion log file
         """
-        # Calling parent construction
-        super(CG, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
+        super(CG, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+
         # Whether to run steepest descent or not
         self.steepest = steepest
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
-        # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
 
-    def __del__(self):
-        """Default destructor"""
-        return
+        # print formatting
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %s"
 
     def run(self, problem, verbose=False, restart=False):
-        """Running LCG and steepest-descent solver"""
-        self.create_msg = verbose or self.logger
+        """Run CG/SD solver"""
+        create_msg = verbose or self.logger
 
         # Resetting stopper before running the inversion
         self.stopper.reset()
@@ -46,12 +37,11 @@ class CG(Solver):
         precond = True if "prec" in dir(problem) and problem.prec is not None else False
 
         if not restart:
-            if self.create_msg:
+            if create_msg:
                 msg = 90 * "#" + "\n"
-                msg += "\t\t\t\tPRECONDITIONED " if precond else "\t\t\t\t"
-                msg += "LINEAR %s SOLVER\n" % ("STEEPEST-DESCENT log file" if self.steepest else "CONJUGATE GRADIENT log file")
-                msg += "\tRestart folder: %s\n" % self.restart.restart_folder
-                msg += "\tModeling Operator:\t\t%s\n" % problem.op
+                msg += 12 * " " + ("Preconditioned " if precond else "")
+                msg += "%s Solver log file\n" % ("SD" if self.steepest else "CG")
+                msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
                 msg += 90 * "#" + "\n"
                 if verbose:
                     print(msg.replace(" log file", ""))
@@ -67,7 +57,7 @@ class CG(Solver):
             iiter = 0
         else:
             # Retrieving parameters and vectors to restart the solver
-            if self.create_msg:
+            if create_msg:
                 msg = "Restarting previous solve run from: %s" % self.restart.restart_folder
                 if verbose:
                     print(msg)
@@ -105,12 +95,12 @@ class CG(Solver):
                 initial_obj_value = obj0  # For relative objective function value
                 # Saving initial objective function value
                 self.restart.save_parameter("obj_initial", initial_obj_value)
-                if self.create_msg:
+                if create_msg:
                     msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                            obj0,
                                            problem.get_rnorm(cg_mdl),
                                            problem.get_gnorm(cg_mdl),
-                                           problem.get_fevals())
+                                           str(problem.get_fevals()).zfill(self.stopper.zfill + 1))
                     if verbose:
                         print(msg)
                     # Writing on log file
@@ -150,25 +140,23 @@ class CG(Solver):
                     beta = dot_grad_prec_grad / dot_grad_prec_grad_old
                 # Update search direction
                 cg_dmodl.scaleAdd(cg_prec_grad, beta, 1.0)
-                cg_dmodld = problem.get_dres(cg_mdl, cg_dmodl)  # Project search direction into the data space
+                cg_dmodld = problem.get_pert_res(cg_mdl, cg_dmodl)  # Project search direction into the data space
                 dot_cg_dmodld = cg_dmodld.dot(cg_dmodld)
                 if dot_cg_dmodld == 0.0:
                     success = False
-                    # Writing on log file
                     if self.logger:
-                        self.logger.addToLog(
-                            "Search direction orthogonal to span of linear operator, will terminate solver")
+                        self.logger.addToLog("Search direction orthogonal to span of linear operator, will terminate solver")
                 else:
                     alpha = - dot_grad_prec_grad / dot_cg_dmodld
                     # Writing on log file
                     if beta == 0.:
                         msg = "Steepest-descent step length: %.2e" % alpha
                     else:
-                        msg = "Conjugate alpha, beta: %.2e, %.2e" % (alpha, beta)
+                        msg = "Conjugate alpha = %.2e, beta = %.2e" % (alpha, beta)
                     if self.logger:
                         self.logger.addToLog(msg)
             else:
-                prblm_gradd = problem.get_dres(cg_mdl, prblm_grad)  # Project gradient into the data space
+                prblm_gradd = problem.get_pert_res(cg_mdl, prblm_grad)  # Project gradient into the data space
                 # Computing alpha and beta coefficients
                 if iiter == 0 or self.steepest:
                     # Steepest descent
@@ -178,8 +166,7 @@ class CG(Solver):
                         success = False
                         # Writing on log file
                         if self.logger:
-                            self.logger.addToLog(
-                                "Gradient orthogonal to span of linear operator, will terminate solver")
+                            self.logger.addToLog("Gradient orthogonal to span of linear operator, will terminate solver")
                     else:
                         dot_gradd_res = prblm_gradd.dot(prblm_res)
                         alpha = - np.real(dot_gradd_res) / dot_gradd
@@ -200,7 +187,7 @@ class CG(Solver):
                         determ = dot_gradd * dot_dres - dot_gradd_dres * dot_gradd_dres
                         # Checking if alpha or beta are becoming infinity
                         if abs(determ) < ZERO:
-                            if self.create_msg:
+                            if create_msg:
                                 msg = "Plane-search method fails (zero det: %.2e), will terminate solver" % determ
                                 if verbose:
                                     print(msg)
@@ -211,12 +198,11 @@ class CG(Solver):
                         dot_dres_res = np.real(cg_dres.dot(prblm_res))
                         alpha = -(dot_dres * dot_gradd_res - dot_gradd_dres * dot_dres_res) / determ
                         beta = (dot_gradd_dres * dot_gradd_res - dot_gradd * dot_dres_res) / determ
-                        # Writing on log file
                         if self.logger:
-                            self.logger.addToLog("Conjugate alpha,beta: " + str(alpha) + ", " + str(beta))
+                            self.logger.addToLog("Conjugate alpha = %.2e, beta = %.2e" % (alpha, beta))
 
             if not success:
-                if self.create_msg:
+                if create_msg:
                     msg = "Stepper couldn't find a proper step size, will terminate solver"
                     if verbose:
                         print(msg)
@@ -255,27 +241,27 @@ class CG(Solver):
                 if precond:
                     cg_dmodl.scale(1.0 / alpha)  # Unscaling the search direction
                 else:
-                    # copying previous residuals dres = res_old
+                    # copying previous residuals pert_res = res_old
                     cg_dres.copy(prblm_res)
-                    # Computing actual change in the residual vector dres = res_new - res_old
+                    # Computing actual change in the residual vector pert_res = res_new - res_old
                     prblm_res = problem.get_res(cg_mdl)  # New residual vector
                     cg_dres.scaleAdd(prblm_res, -1.0, 1.0)
             else:
                 # Setting residual vector to avoid its unnecessary computation (if model was not clipped)
                 if precond:
-                    # res = res + alpha * dres
+                    # res = res + alpha * pert_res
                     prblm_res.scaleAdd(cg_dmodld, 1.0, alpha)  # Update residuals
                 else:
-                    # dres  = alpha * gradd + beta * dres
+                    # pert_res  = alpha * gradd + beta * pert_res
                     cg_dres.scaleAdd(prblm_gradd, beta, alpha)  # Update residual step
-                    # res = res + dres
+                    # res = res + pert_res
                     prblm_res.scaleAdd(cg_dres)  # Update residuals
                 problem.set_residual(prblm_res)
 
             # Computing new objective function value
             obj1 = problem.get_obj(cg_mdl)
             if obj1 >= obj0:
-                if self.create_msg:
+                if create_msg:
                     msg = "Objective function didn't reduce, will terminate solver:\n\t" \
                           "obj_new = %.5e\tobj_cur = %.5e" % (obj1, obj0)
                     if verbose:
@@ -298,12 +284,12 @@ class CG(Solver):
             self.restart.save_vector("prblm_res", prblm_res)
 
             # iteration info
-            if self.create_msg:
+            if create_msg:
                 msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                        obj1,
                                        problem.get_rnorm(cg_mdl),
                                        problem.get_gnorm(cg_mdl),
-                                       problem.get_fevals())
+                                       str(problem.get_fevals()).zfill(self.stopper.zfill + 1))
                 if verbose:
                     print(msg)
                 # Writing on log file
@@ -312,15 +298,15 @@ class CG(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(obj1) or isnan(prblm_grad.norm()):
                 raise ValueError("Either gradient norm or objective function value NaN!")
-            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
 
         # Writing last inverted model
         self.save_results(iiter, problem, force_save=True, force_write=True)
-        if self.create_msg:
+        if create_msg:
             msg = 90 * "#" + "\n"
-            msg += "\t\t\t\tPRECONDITIONED " if precond else "\t\t\t\t"
-            msg += "LINEAR %s SOLVER log file end\n" % ("STEEPEST-DESCENT" if self.steepest else "CONJUGATE GRADIENT")
+            msg += 12 * " " + ("Preconditioned " if precond else "")
+            msg += "%s Solver log file end\n" % ("SD" if self.steepest else "CG")
             msg += 90 * "#" + "\n"
             if verbose:
                 print(msg.replace(" log file", ""))
@@ -333,24 +319,24 @@ class CG(Solver):
 
 
 class SD(CG):
-    def __init__(self, stopper, logger=None):
-        super(SD, self).__init__(stopper, steepest=True, logger=logger)
+    def __init__(self, stopper, **kwargs):
+        super(SD, self).__init__(stopper, steepest=True, **kwargs)
     
     
 def _sym_ortho(a, b):
     """
     Stable implementation of Givens rotation.
-    Notes
-    -----
-    The routine 'SymOrtho' was added for numerical stability. This is
-    recommended by S.-C. Choi in [1]_.  It removes the unpleasant potential of
-    ``1/eps`` in some important places (see, for example text following
-    "Compute the next plane rotation Qk" in minres.py).
-    References
-    ----------
-    .. [1] S.-C. Choi, "Iterative Methods for Singular Linear Equations
-           and Least-Squares Problems", Dissertation,
-           http://www.stanford.edu/group/SOL/dissertations/sou-cheng-choi-thesis.pdf
+    
+    Notes:
+        The routine 'SymOrtho' was added for numerical stability. This is
+        recommended by S.-C. Choi in [1]_.  It removes the unpleasant potential of
+        ``1/eps`` in some important places (see, for example text following
+        "Compute the next plane rotation Qk" in minres.py).
+    
+    References:
+        .. [1] S.-C. Choi, "Iterative Methods for Singular Linear Equations
+               and Least-Squares Problems", Dissertation,
+               http://www.stanford.edu/group/SOL/dissertations/sou-cheng-choi-thesis.pdf
     """
     if b == 0.:
         return np.sign(a), 0, np.abs(a)
@@ -371,48 +357,40 @@ def _sym_ortho(a, b):
 
 class LSQR(Solver):
     """
-       LSQR Solver parent object following algorithm in Paige and Saunders (1982)
-       Find the least-squares solution to a large, sparse, linear system
-       of equations.
+    LSQR Solver parent object following algorithm in Paige and Saunders (1982)
+    
+    Notes:
+       Find the least-squares solution to a large, sparse, linear system of equations.
        The function solves Ax = b or min ||b - Ax||^2
        If A is symmetric, LSQR should not be used! Use SymLCGsolver
-       If initial model different than zero the solver will perform the following:
+       If initial domain different than zero the solver will perform the following:
          1. Compute initial residual vector ``r0 = b - A*x0``.
          2. Use LSQR to solve the system  ``A*dx = r0``.
          3. Add the correction dx to obtain a final solution ``x = x0 + dx``.
     """
 
-    def __init__(self, stopper, estimate_cond=False, estimate_var=False, logger=None):
+    def __init__(self, stopper, estimate_cond=False, estimate_var=False, **kwargs):
         """
-        Constructor for LSQR Solver:
-        :param stopper          : Stopper, object to terminate inversion
-        :param estimate_cond    : Boolean, whether the condition number of A is estimated
-                                  access self.acond after solver run [False]
-        :param estimate_var     : Boolean, whether the diagonal of A'A^-1 is estimated or not;
-                                  access self.var after solver run [False]
-        :param logger           : Logger, object to write inversion log file [None]
+        LSQR constructor
+        
+        Args:
+            stopper: Stopper to terminate the inversion
+            estimate_cond: whether the condition number of A is estimated or not (stored in self.acond)
+            estimate_var: whether the diagonal of A'A^-1 is estimated or not (stored in self.var)
+            logger: Logger to write inversion log file
         """
-        # Calling parent construction
-        super(LSQR, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
-        # Logger object to write on log file
-        self.logger = logger
+        super(LSQR, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        
         # Create var variable if estimate var is requested
         self.est_cond = True if estimate_cond or estimate_var else False
         self.var = estimate_var
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, gradnorm = %.2e, feval = %d"
-
-    def __del__(self):
-        """Default destructor"""
-        return
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %s"
 
     def run(self, problem, verbose=False, restart=False):
-        """Running LSQR solver"""
-        self.create_msg = verbose or self.logger
+        """Run LSQR solver"""
+        create_msg = verbose or self.logger
 
         # Resetting stopper before running the inversion
         self.stopper.reset()
@@ -422,11 +400,10 @@ class LSQR(Solver):
         initial_mdl = prblm_mdl.clone()
 
         if not restart:
-            if self.create_msg:
+            if create_msg:
                 msg = 90 * "#" + "\n"
-                msg += "\t\t\t\tLSQR SOLVER log file\n"
-                msg += "\tRestart folder: %s\n" % self.restart.restart_folder
-                msg += "\tModeling Operator:\t\t%s\n" % problem.op
+                msg += 12 * " " + "LSQR Solver log file\n"
+                msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
                 msg += 90 * "#" + "\n"
                 if verbose:
                     print(msg.replace("log file", ""))
@@ -434,8 +411,8 @@ class LSQR(Solver):
                     self.logger.addToLog(msg)
 
             # If initial model different than zero the solver will perform the following:
-            # 1. Compute a residual vector ``r0 = b - A*x0``.
-            # 2. Use LSQR to solve the system  ``A*dx = r0``.
+            # 1. Compute a residual vector ``r0 = b - op*x0``.
+            # 2. Use LSQR to solve the system  ``op*dx = r0``.
             # 3. Add the correction dx to obtain a final solution ``x = x0 + dx``.
             prblm_res = problem.get_res(initial_mdl)  # Initial data residuals
             obj0 = initial_obj_value = problem.get_obj(initial_mdl)  # For relative objective function value
@@ -460,10 +437,10 @@ class LSQR(Solver):
 
             if beta > 0.:
                 u.scale(1. / beta)
-                # A.H * u => gradient with scaled residual vector
+                # op.H * u => gradient with scaled residual vector
                 problem.set_model(x)  # x = 0
                 problem.set_residual(u)  # res = u
-                prblm_grad = problem.get_grad(x)  # g = A.H * u
+                prblm_grad = problem.get_grad(x)  # g = op.H * u
                 v.copy(prblm_grad)  # v = g
                 alpha = v.norm()
             else:
@@ -481,12 +458,12 @@ class LSQR(Solver):
             # Estimating residual and gradient norms
             prblm_res.scale(phibar)
             prblm_grad.scale(alpha*beta)
-            if self.create_msg:
+            if create_msg:
                 msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                        initial_obj_value,
                                        problem.get_rnorm(prblm_mdl),
                                        problem.get_gnorm(prblm_mdl),
-                                       problem.get_fevals())
+                                       str(problem.get_fevals()).zfill(self.stopper.zfill + 1))
                 if verbose:
                     print(msg)
                 # Writing on log file
@@ -498,7 +475,7 @@ class LSQR(Solver):
 
         else:
             # Retrieving parameters and vectors to restart the solver
-            if self.create_msg:
+            if create_msg:
                 msg = "Restarting previous solve run from: %s" % self.restart.restart_folder
                 if verbose:
                     print(msg)
@@ -535,7 +512,7 @@ class LSQR(Solver):
         inv_model = prblm_mdl.clone()  # Inverted model to be saved during the inversion
         # Variables necessary to return inverted model if inversion stops earlier
         prev_x = x.clone().zero()
-        early_stop =False
+        early_stop = False
 
         # Iteration loop
         while True:
@@ -553,13 +530,13 @@ class LSQR(Solver):
             """
                 %     Perform the next step of the bidiagonalization to obtain the
                 %     next  beta, u, alpha, v.  These satisfy the relations
-                %                beta*u  =  A*v   -  alpha*u,
-                %                alpha*v  =  A'*u  -  beta*v.
+                %                beta *u  =  op*v   -  alpha*u,
+                %                alpha*v  =  op'*u  -  beta*v.
             """
 
-            # A.matvec(v) (i.e., projection of v onto the data space)
-            v_prblm = problem.get_dres(x, v)
-            # u = A.matvec(v) - alpha * u
+            # op.matvec(v) (i.e., projection of v onto the data space)
+            v_prblm = problem.get_pert_res(x, v)
+            # u = op.matvec(v) - alpha * u
             u.scaleAdd(v_prblm, -alpha, 1.0)
             beta = u.norm()
 
@@ -568,8 +545,8 @@ class LSQR(Solver):
                 anorm = np.sqrt(anorm ** 2 + alpha ** 2 + beta ** 2)
                 problem.set_model(x)
                 problem.set_residual(u)  # res = u
-                prblm_grad = problem.get_grad(x)  # g = A.H * u
-                # v = A.rmatvec(u) - beta * v
+                prblm_grad = problem.get_grad(x)  # g = op.H * u
+                # v = op.rmatvec(u) - beta * v
                 v.scaleAdd(prblm_grad, -beta, 1.)
                 alpha = v.norm()
                 if alpha > 0.:
@@ -595,8 +572,7 @@ class LSQR(Solver):
                 prblm_grad.zero()
             # New objective function value
             obj1 = problem.get_obj(prblm_mdl)
-
-
+            
             # Update x and w.
             # x = x + t1 * w
             x.scaleAdd(w, 1.0, phi / rho)
@@ -608,7 +584,7 @@ class LSQR(Solver):
 
             # Checking new objective function value
             if obj1 >= obj0:
-                if self.create_msg:
+                if create_msg:
                     msg = "Objective function didn't reduce, will terminate solver:\n\t" \
                           "obj_new = %.5e\tobj_cur = %.5e" % (obj1, obj0)
                     if verbose:
@@ -647,12 +623,12 @@ class LSQR(Solver):
             self.restart.save_vector("v", v)
 
             # iteration info
-            if self.create_msg:
+            if create_msg:
                 msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                        problem.get_obj(prblm_mdl),
                                        problem.get_rnorm(prblm_mdl),
                                        problem.get_gnorm(prblm_mdl),
-                                       problem.get_fevals())
+                                       str(problem.get_fevals()).zfill(self.stopper.zfill + 1))
                 if self.est_cond:
                     msg += ", condition_num =  %.2e, matrix_norm = %.2e" % (self.acond, anorm)
                 if verbose:
@@ -663,7 +639,7 @@ class LSQR(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(problem.get_obj(prblm_mdl)) or isnan(problem.get_gnorm(prblm_mdl)):
                 raise ValueError("Either gradient norm or objective function value NaN!")
-            if self.stopper.run(problem, iiter, initial_obj_value, verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose, initial_obj_value=initial_obj_value):
                 break
 
         # Writing last inverted model
@@ -673,9 +649,9 @@ class LSQR(Solver):
         inv_model.scaleAdd(x)  # x = x0 + dx; Updating inverted model
         self.save_results(iiter, problem, model=inv_model, force_save=True, force_write=True)
         prblm_mdl.copy(inv_model) # Setting inverted model to final one
-        if self.create_msg:
+        if create_msg:
             msg = 90 * "#" + "\n"
-            msg += "\t\t\t\tLSQR SOLVER log file end\n"
+            msg += 12 * " " + "LSQR Solver log file end\n"
             msg += 90 * "#" + "\n"
             if verbose:
                 print(msg.replace("log file ", ""))
@@ -687,39 +663,35 @@ class LSQR(Solver):
 
 
 class CGsym(Solver):
-    """Linear-Conjugate Gradient Solver (for symmetric systems) parent object"""
+    """Linear-Conjugate Gradient and Steepest-Descent Solver for symmetric systems"""
+    
+    def __init__(self, stopper, steepest=False, **kwargs):
+        """
+        CG/SD for symmetric systems constructor
 
-    # Default class methods/functions
-    def __init__(self, stopper, steepest=False, logger=None):
-        """Constructor for LCG Solver for symmetric systems"""
-        # Calling parent construction
-        super(CGsym, self).__init__()
-        # Defining stopper object
-        self.stopper = stopper
+        Args:
+            stopper: Stopper to terminate the inversion
+            steepest: whether to use the steepest-descent instead of conjugate gradient
+            logger: Logger to write inversion log file
+        """
+        super(CGsym, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+
         # Whether to run steepest descent or not
         self.steepest = steepest
-        # Logger object to write on log file
-        self.logger = logger
-        # Overwriting logger of the Stopper object
-        self.stopper.logger = self.logger
+        
         # Setting defaults for saving results
         self.setDefaults()
         # print formatting
-        self.iter_msg = "iter = %s, obj = %.5e, resnorm = %.2e, feval = %d"
-        return
-
-    def __del__(self):
-        """Default destructor"""
-        return
+        self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, feval = %s"
 
     def run(self, problem, verbose=False, restart=False):
-        """Running LCG solver for symmetric systems"""
-        self.create_msg = verbose or self.logger
+        """Run LCG solver for symmetric systems"""
+        create_msg = verbose or self.logger
 
         # Resetting stopper before running the inversion
         self.stopper.reset()
         # Checking if we are solving a linear square problem
-        if not isinstance(problem, P.LeastSquaresSymmetric):
+        if not isinstance(problem, LeastSquaresSymmetric):
             raise TypeError("ERROR! Provided problem object not a linear symmetric problem")
         # Check for preconditioning
         precond = False
@@ -727,15 +699,14 @@ class CGsym(Solver):
             if problem.prec is not None:
                 precond = True
         if not restart:
-            if self.create_msg:
+            if create_msg:
                 msg = 90 * "#" + "\n"
-                msg += "PRECONDITIONED " if precond else ""
-                msg += "LINEAR %s SOLVER FOR SYMMETRIC MATRIX log file" % (
-                    "STEEPEST-DESCENT" if self.steepest else "CONJUGATE GRADIENT")
-                msg += "Restart folder: %s\n" % self.restart.restart_folder
-                msg = 90 * "#" + "\n"
+                msg += 12 * " " + ("Preconditioned " if precond else "")
+                msg += "Symmetric %s Solver log file\n" % ("SD" if self.steepest else "CG")
+                msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 90 * "#" + "\n"
                 if verbose:
-                    print(msg.replace("log file", ""))
+                    print(msg.replace(" log file", ""))
                 if self.logger:
                     self.logger.addToLog(msg)
 
@@ -751,7 +722,7 @@ class CGsym(Solver):
             beta = 0.
         else:
             # Retrieving parameters and vectors to restart the solver
-            if self.create_msg:
+            if create_msg:
                 msg = "Restarting previous solver run from: %s" % self.restart.restart_folder
                 if verbose:
                     print(msg)
@@ -781,11 +752,11 @@ class CGsym(Solver):
             prblm_res = problem.get_res(cg_mdl)  # Compute residuals
             obj0 = problem.get_obj(cg_mdl)  # Compute objective function value
             if iiter == 0:
-                if self.create_msg:
+                if create_msg:
                     msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                            obj0,
                                            problem.get_rnorm(cg_mdl),
-                                           problem.get_fevals())
+                                           str(problem.get_fevals()).zfill(self.stopper.zfill + 1))
                     if verbose:
                         print(msg)
                     msg += "\nrelative data matching (i.e., 1-|Am-b|/|b|): %.1f" \
@@ -807,7 +778,7 @@ class CGsym(Solver):
                 problem.prec.forward(False, prblm_res, cg_prec_res)
             # dmodl = beta * dmodl - res
             cg_dmodl.scaleAdd(cg_prec_res if precond else prblm_res, beta, -1.0)  # Update search direction
-            prblm_ddmodl = problem.get_dres(cg_mdl, cg_dmodl)  # Project search direction in the data space
+            prblm_ddmodl = problem.get_pert_res(cg_mdl, cg_dmodl)  # Project search direction in the data space
 
             dot_dmodl_ddmodl = cg_dmodl.dot(prblm_ddmodl)
             if precond:
@@ -815,7 +786,7 @@ class CGsym(Solver):
             else:
                 dot_res = prblm_res.dot(prblm_res)
             if dot_res == 0.:
-                if self.create_msg:
+                if create_msg:
                     msg = "Residual/Gradient vector vanishes identically"
                     if verbose:
                         print(msg)
@@ -831,7 +802,7 @@ class CGsym(Solver):
                     self.logger.addToLog(msg)
 
             if not success:
-                if self.create_msg:
+                if create_msg:
                     msg = "Stepper couldn't find a proper step size, will terminate solver"
                     if verbose:
                         print(msg)
@@ -867,17 +838,17 @@ class CGsym(Solver):
                 cg_dmodl.scaleAdd(prblm_mdl, 1.0, -1.0)
                 # dmodl is scaled by the inverse of the step length
                 cg_dmodl.scale(1.0 / alpha)
-                # copying previos residuals dres = res_old
+                # copying previos residuals pert_res = res_old
                 prblm_ddmodl.copy(prblm_res)
                 problem.set_model(cg_mdl)
-                # Computing actual change in the residual vector dres = res_new - res_old
+                # Computing actual change in the residual vector pert_res = res_new - res_old
                 prblm_res = problem.get_res(cg_mdl)  # New residual vector
                 prblm_ddmodl.scaleAdd(prblm_res, -1.0, 1.0)
-                # dres is scaled by the inverse of the step length
+                # pert_res is scaled by the inverse of the step length
                 prblm_ddmodl.scale(1.0 / alpha)
             else:
                 # Setting residual vector to avoid its unnecessary computation (if model was not clipped)
-                # res  = res + alpha * dres =  res + alpha * A * dmodl
+                # res  = res + alpha * pert_res =  res + alpha * op * dmodl
                 prblm_res.scaleAdd(prblm_ddmodl, sc2=alpha)  # update residuals
                 problem.set_residual(prblm_res)
                 if iiter == 1:
@@ -900,9 +871,9 @@ class CGsym(Solver):
             else:
                 # If not monotonically changing stop the inversion
                 if not ((obj_old < obj0 < obj1) or (obj_old > obj0 > obj1)):
-                    if self.create_msg:
-                        msg = "Objective function variation not monotonic, will terminate solver:" \
-                              "obj_old=%.5e obj_cur=%.5e obj_new=%.5e" % (obj_old, obj0, obj1)
+                    if create_msg:
+                        msg = "Objective function variation not monotonic, will terminate solver:\n\t" \
+                              "obj_old=%.5e\tobj_cur=%.5e\tobj_new=%.5e" % (obj_old, obj0, obj1)
                         if verbose:
                             print(msg)
                         # Writing on log file
@@ -924,11 +895,11 @@ class CGsym(Solver):
             self.restart.save_vector("prblm_res", prblm_res)
 
             # iteration info
-            if self.create_msg:
+            if create_msg:
                 msg = self.iter_msg % (str(iiter).zfill(self.stopper.zfill),
                                        obj1,
                                        problem.get_rnorm(cg_mdl),
-                                       problem.get_fevals())
+                                       str(problem.get_fevals()).zfill(self.stopper.zfill + 1))
                 if verbose:
                     print(msg)
                 msg += "\nrelative data matching (i.e., 1-|Am-b|/|b|): %.1f" \
@@ -939,19 +910,18 @@ class CGsym(Solver):
             # Check if either objective function value or gradient norm is NaN
             if isnan(obj1):
                 raise ValueError("Error! Objective function value NaN!")
-            if self.stopper.run(problem, iiter, verbose=verbose):
+            if self.stopper.run(problem=problem, iiter=iiter, verbose=verbose):
                 break
 
         # Writing last inverted model
         self.save_results(iiter, problem, force_save=True, force_write=True)
-        if self.create_msg:
+        if create_msg:
             msg = 90 * "#" + "\n"
-            msg += "PRECONDITIONED " if precond else ""
-            msg += "LINEAR %s SOLVER FOR SYMMETRIC MATRIX log file end\n" \
-                   % ("STEEPEST-DESCENT" if self.steepest else "CONJUGATE GRADIENT")
+            msg += 12 * " " + ("Preconditioned " if precond else "")
+            msg += "Symmetric %s Solver log file end\n" % ("SD" if self.steepest else "CG")
             msg += 90 * "#" + "\n"
             if verbose:
-                print(msg.replace("log file ", ""))
+                print(msg.replace(" log file", ""))
             if self.logger:
                 self.logger.addToLog(msg)
         # Clear restart object

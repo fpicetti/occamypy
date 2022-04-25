@@ -1,24 +1,24 @@
-# Module containing generic Solver and Restart definitions
 import atexit
+import datetime
 import os
 import pickle
 import re
-import numpy as np
-from shutil import rmtree
 from copy import deepcopy
-import datetime
+from shutil import rmtree
 
+import numpy as np
+
+from occamypy.vector.base import VectorSet
+from occamypy.vector.out_core import VectorOC
+from occamypy.problem.base import Problem
 from occamypy.utils import mkdir, sep
-from occamypy import problem as P
-from occamypy import VectorSet, VectorOC
+from occamypy.utils.logger import Logger
 
 
 class Solver:
-    """Solver parent object"""
+    """Base solver class"""
     
-    # Default class methods/functions
-    def __init__(self):
-        """Default class constructor for Solver"""
+    def __init__(self, stopper, logger: Logger = None):
         # Parameter for saving results
         self.save_obj = False
         self.save_res = False
@@ -26,8 +26,12 @@ class Solver:
         self.save_model = False
         self.flush_memory = False
         self.overwrite = True  # Flag to overwrite results if first time writing on disk
-        
         self.prefix = None
+        
+        self.logger = logger
+
+        self.stopper = stopper
+        self.stopper.logger = logger
         
         # Iteration axis-sampling parameters
         self.iter_buffer_size = None
@@ -47,14 +51,9 @@ class Solver:
         
         # Set Restart object
         self.restart = Restart()
-        self.create_msg = False
+        create_msg = False
         # Setting defaults for saving results
         self.setDefaults()
-        return
-    
-    def __del__(self):
-        """Default destructor"""
-        return
     
     def setPrefix(self, prefix):
         """Mutator to change prefix and file names for saving inversion results"""
@@ -66,18 +65,18 @@ class Solver:
         """
         Function to set parameters for result saving.
 
-        :param save_obj         : [False] - boolean; Flag to save objective function values into the list self.obj
-        :param save_res         : [False] - boolean; Flag to save residual vectors into the list self.res
-        :param save_grad        : [False] - boolean; Flag to save gradient vectors into the list self.grad
-        :param save_model       : [False] - boolean; Flag to save model vectors into the list self.model.
-                                    It will also say the last inverted model vector into self.inv_model
-        :param prefix           : [None] - string; Prefix of the files in which requested results will be saved;
-                                    If prefix is None, then nothing is going to be saved on disk
-        :param iter_buffer_size : [None] - int; Number of steps to save before flushing results to disk
-                                    (by default the solver waits until all iterations are done)
-        :param iter_sampling    : [1] - int; Sampling of the iteration axis
-        :param flush_memory     : [False] - boolean; Whether to keep results into the object lists or clean those
-                                    once inversion is completed or results have been written on disk
+        Args:
+            save_obj: save objective function values into the list self.obj
+            save_res: save residual vectors into the list self.res
+            save_grad: save gradient vectors into the list self.grad
+            save_model: save domain vectors into the list self.domain.
+                It will also say the last inverted domain vector into self.inv_model
+            prefix: prefix of the files in which requested results will be saved;
+                If prefix is None, then nothing is going to be saved on disk
+            iter_buffer_size: number of steps to save before flushing results to disk
+                (by default the solver waits until all iterations are done)
+            iter_sampling: sampling of the iteration axis
+            flush_memory: keep results into the object lists or clean those once inversion is completed or results have been written on disk
         """
         
         # Parameter for saving results
@@ -121,7 +120,9 @@ class Solver:
     def get_restart(self, log_file):
         """
         Function to retrieve restart folder from log file. It enables the user to use restart flag on self.run().
-        :param log_file: [None] - string;
+        
+        Args:
+             log_file: path to file
         """
         restart_folder = None
         # Obtaining restart folder path
@@ -140,26 +141,29 @@ class Solver:
             print("WARNING! No restart folder's path was found in %s" % log_file)
         return
     
-    def save_results(self, iiter, problem, **kwargs):
+    def save_results(self, iiter, problem, force_save: bool = False, force_write: bool = False, **kwargs):
         """
-        Method to save results
-        :param iiter        : Iteration index
-        :param problem      : Problem that is being solved
-        :param kwargs       :
-        - force_save   : [False]; Flag to ignore iteration sampling
-        - force_write  : [False]; Force writing on disk if necessary (used to handle last iteration)
-        - model : [problem.model] model to be saved and/or written
-        - obj : [problem.obj] objective function to be saved
+        Save results to disk
+        
+        Args:
+            iiter: iteration index
+            problem: problem that is being solved
+            force_save: ignore iteration sampling
+            force_write: force  writing on disk if necessary (e.g., last iteration)
+            **kwargs:
+                domain: problem solution vector to be saved and/or written
+                obj: objective function to be saved
+                obj_terms: if problem objective function has more than one term
         """
-        if not isinstance(problem, P.Problem):
+        if not isinstance(problem, Problem):
             raise TypeError("Input variable is not a Problem object")
-        force_save = kwargs.get("force_save", False)
-        force_write = kwargs.get("force_write", False)
+
         # Getting a model from arguments if provided (necessary to remove preconditioning)
         mod_save = kwargs.get("model", problem.get_model())
         # Obtaining objective function value
         objf_value = kwargs.get("obj", problem.get_obj(problem.get_model()))
         obj_terms = kwargs.get("obj_terms", problem.obj_terms) if "obj_terms" in dir(problem) else None
+        
         # Save if it is forced to or if the solver hits a sampled iteration number
         # The objective function is saved every iteration if requested
         if self.save_obj:
@@ -168,10 +172,10 @@ class Solver:
             if obj_terms is not None:
                 if len(self.obj_terms) == 0:
                     # First time obj_terms are saved
-                    self.obj_terms = np.expand_dims(np.append(self.obj_terms, deepcopy(obj_terms)), axis=0)
+                    self.obj_terms = np.expand_dims(np.append(self.obj_terms, [float(_) for _ in obj_terms]), axis=0)
                 else:
                     self.obj_terms = np.append(self.obj_terms,
-                                               np.expand_dims(np.array(deepcopy(obj_terms)), axis=0),
+                                               np.expand_dims(np.array([float(_) for _ in obj_terms]), axis=0),
                                                axis=0)
         if iiter % self.iter_sampling == 0 or force_save:
             if self.save_model:
@@ -190,7 +194,12 @@ class Solver:
         return
     
     def _write_steps(self, force_write=False):
-        """Method to write inversion results on disk if forced to or if buffer is filled"""
+        """
+        Method to write inversion results on disk if forced to or if buffer is filled
+
+        Args:
+            force_write: True - write every step; False - write whe buffer_size has been fulfilled
+        """
         # Save results if buffer size is hit
         save = True if force_write or (self.iter_buffer_size is not None and max(len(self.modelSet.vecSet),
                                                                                  len(self.resSet.vecSet),
@@ -233,13 +242,27 @@ class Solver:
                 res_file = self.prefix + "_residual.H"  # File name in which the residual vector is saved
                 self.resSet.writeSet(res_file, mode=mode)
     
-    def run(self, prblm):
-        """Dummy Solver running method"""
+    def run(self, problem, verbose: bool = False, restart: bool = False):
+        """
+        Solve the given problem
+        
+        Args:
+            problem: problem to be solved
+            verbose: verbosity flag
+            restart: restart previous inversion from restart folder
+        """
         raise NotImplementedError("Implement run Solver in the derived class.")
 
 
 class Restart:
-    """Class for restarting a solver run"""
+    """
+    Restart a solver.run
+
+    Attributes:
+        par_dict: dictionary containing the solver parameters
+        vec_dict: dictionary containing all the vectors the solver needs
+        restart_folder: path/to/folder where the  previous run has been saved
+    """
     
     def __init__(self):
         """Restart constructor"""
@@ -254,7 +277,7 @@ class Restart:
         atexit.register(self.write_restart)
     
     def save_vector(self, vec_name, vector_in):
-        """Method to save vector for restarting"""
+        """Save vector for restarting"""
         # Deleting the vector if present in the dictionary
         element = self.vec_dict.pop(vec_name, None)
         if element:

@@ -5,28 +5,30 @@ import cupy as cp
 import numpy as np
 from GPUtil import getGPUs, getFirstAvailable
 
-from occamypy import Vector, VectorNumpy
+from occamypy.vector.base import Vector
+from occamypy.numpy.vector import VectorNumpy
 
 
 class VectorCupy(Vector):
+    """Vector class based on cupy.ndarray"""
 
     def __init__(self, in_content, device=None, *args, **kwargs):
         """
         VectorCupy constructor
-        :param in_content: if a cupy vector, the object is build upon the same vector (i.e., same device).
-                       Otherwise, the object is created in the selected device.
-        :param device: int - GPU id (None for CPU, -1 for most available memory)
-        
-        This class stores array with C memory order (i.e., row-wise sorting)
+
+        Args:
+            in_content: numpy.ndarray, cupy.ndarray, tuple or VectorNumpy
+            device: computation device (None for CPU, -1 for least used GPU)
+            *args: list of arguments for Vector construction
+            **kwargs: dict of arguments for Vector construction
         """
-        
         if isinstance(in_content, cp.ndarray) or isinstance(in_content, np.ndarray):
             if cp.isfortran(in_content):
                 raise TypeError('Input array not a C contiguous array!')
             self.arr = cp.array(in_content, copy=False)
         elif isinstance(in_content, tuple):  # Tuple size passed to constructor
             # self.arr = cp.zeros(tuple(reversed(in_content)))
-            self.arr = cp.empty(in_content)
+            self.arr = cp.zeros(in_content)
         elif isinstance(in_content, VectorNumpy):
             self.arr = in_content.getNdArray().copy()
             self.ax_info = in_content.ax_info
@@ -72,41 +74,35 @@ class VectorCupy(Vector):
             else:
                 self.arr = cp.asnumpy(self.arr)
     
-    def printDevice(self):
+    @property
+    def deviceName(self):
         if self.device is None:
-            print('CPU')
+            return "CPU"
         else:
             name = getGPUs()[self.device.id].name
-            print('GPU %d - %s' % (self.device.id, name))
+            return "GPU %d - %s" % (self.device.id, name)
 
     def getNdArray(self):
-        """Function to return Ndarray of the vector"""
         return self.arr
     
     def norm(self, N=2):
-        """Function to compute vector N-norm using Numpy"""
         return cp.linalg.norm(self.getNdArray().ravel(), ord=N)
 
     def zero(self):
-        """Function to zero out a vector"""
         self.getNdArray().fill(0)
         return self
 
     def max(self):
-        """Function to obtain maximum value in the vector"""
         return self.getNdArray().max()
 
     def min(self):
-        """Function to obtain minimum value in the vector"""
         return self.getNdArray().min()
 
     def set(self, val):
-        """Function to set all values in the vector"""
         self.getNdArray().fill(val)
         return self
 
     def scale(self, sc):
-        """Function to scale a vector"""
         self.getNdArray()[:] *= sc
         return self
 
@@ -114,17 +110,17 @@ class VectorCupy(Vector):
         self.getNdArray()[:] += bias
         return self
 
-    def rand(self, snr=1.):
-        """Fill vector with random number (~U[1,-1]) with a given SNR"""
-        rms = cp.sqrt(cp.mean(cp.square(self.getNdArray())))
-        amp_noise = 1.0
-        if rms != 0.:
-            amp_noise = cp.sqrt(3. / snr) * rms  # sqrt(3*Power_signal/SNR)
-        self.getNdArray()[:] = amp_noise * (2. * cp.random.random(self.getNdArray().shape) - 1.)
+    def rand(self, low: float = -1., high: float = 1.):
+        self.zero()
+        self[:] += cp.random.uniform(low=low, high=high, size=self.shape)
+        return self
+
+    def randn(self, mean: float = 0., std: float = 1.):
+        self.zero()
+        self[:] += cp.random.normal(loc=mean, scale=std, size=self.shape)
         return self
 
     def clone(self):
-        """Function to clone (deep copy) a vector from a vector or a Space"""
         vec_clone = deepcopy(self)  # Deep clone of vector
         # Checking if a vector space was provided
         if vec_clone.getNdArray().size == 0:
@@ -132,7 +128,6 @@ class VectorCupy(Vector):
         return vec_clone
 
     def cloneSpace(self):
-        """Function to clone vector space only (vector without actual vector array by using empty array of size 0)"""
         arr = cp.empty(0, dtype=self.getNdArray().dtype)
         vec_space = VectorCupy(arr)
         vec_space.ax_info = self.ax_info
@@ -143,7 +138,6 @@ class VectorCupy(Vector):
         return vec_space
 
     def checkSame(self, other):
-        """Function to check dimensionality of vectors"""
         return self.shape == other.shape
     
     def abs(self):
@@ -177,22 +171,18 @@ class VectorCupy(Vector):
         return self
 
     def pow(self, power):
-        """Compute element-wise power of the vector"""
         self.getNdArray()[:] = self.getNdArray() ** power
         return self
 
     def real(self):
-        """Return the real part of the vector"""
         self.getNdArray()[:] = self.getNdArray().real
         return self
 
     def imag(self,):
-        """Return the imaginary part of the vector"""
         self.getNdArray()[:] = self.getNdArray().imag
         return self
 
     def copy(self, other):
-        """Function to copy vector from input vector"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
@@ -204,7 +194,6 @@ class VectorCupy(Vector):
         return self
 
     def scaleAdd(self, other, sc1=1.0, sc2=1.0):
-        """Function to scale a vector"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
@@ -218,7 +207,6 @@ class VectorCupy(Vector):
         return self
 
     def dot(self, other):
-        """Function to compute dot product between two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
@@ -233,7 +221,6 @@ class VectorCupy(Vector):
         return cp.vdot(self.getNdArray().flatten(), other.getNdArray().flatten())
 
     def multiply(self, other):
-        """Function to multiply element-wise two vectors"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
@@ -250,7 +237,6 @@ class VectorCupy(Vector):
         return self
 
     def isDifferent(self, other):
-        """Function to check if two vectors are identical using built-in hash function"""
         # Checking whether the input is a vector or not
         if not isinstance(other, VectorCupy):
             raise TypeError("Provided input vector not a %s!" % self.whoami)
@@ -271,8 +257,7 @@ class VectorCupy(Vector):
             isDiff = (not cp.equal(self.getNdArray(), other.getNdArray()).all())
         return isDiff
 
-    def clipVector(self, low, high):
-        """Function to bound vector values based on input vectors low and high"""
+    def clip(self, low, high):
         if not isinstance(low, VectorCupy):
             raise TypeError("Provided input low vector not a %s!" % self.whoami)
         if not isinstance(high, VectorCupy):

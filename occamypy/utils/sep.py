@@ -1,9 +1,10 @@
-# Module containing useful function to interact with sep files
-import re
 import os
+import re
+
 import numpy as np
-from .os import RunShellCmd
-from ..vector.axis_info import AxInfo
+
+from occamypy.utils.os import RunShellCmd
+from occamypy.vector.axis_info import AxInfo
 
 # Assigning datapath
 HOME = os.environ["HOME"]
@@ -13,14 +14,14 @@ if "DATAPATH" in os.environ:
     datapath = os.environ["DATAPATH"]
 # Checking local directory
 elif os.path.isfile('.datapath'):
-    out = (RunShellCmd("cat .datapath | head -n 1", check_code=False, get_stat=False)[0]).rstrip()
+    out = (RunShellCmd("cat .datapath | head -N 1", check_code=False, get_stat=False)[0]).rstrip()
     datapath = out.split("=")[1]
 # Checking whether the local host has a datapath
 else:
     if os.path.isfile(HOME + "/.datapath"):
         out = RunShellCmd("cat $HOME/.datapath | grep $HOST", check_code=False, get_stat=False)[0]
         if len(out) == 0:
-            out = (RunShellCmd("cat $HOME/.datapath | head -n 1", check_code=False, get_stat=False)[0]).rstrip()
+            out = (RunShellCmd("cat $HOME/.datapath | head -N 1", check_code=False, get_stat=False)[0]).rstrip()
         datapath = out.split("=")[1]
 
 # Checking if datapath was found

@@ -1,30 +1,35 @@
 from occamypy.utils import get_backend
-from .base import Operator, Vstack
+from occamypy.operator.base import Operator, Vstack
 
 
 class FirstDerivative(Operator):
+    r"""
+    First Derivative with a stencil
+
+        1) 2nd order centered:
+
+        .. math::
+            y[i] = 0.5 (x[i+1] - x[i-1]) / dx
+
+        2) 1st order forward:
+
+        .. math::
+            y[i] = (x[i+1] - x[i]) / dx
+
+        1) 1st order backward:
+
+        .. math::
+            y[i] = 0.5 (x[i] - x[i-1]) / dx
+    """
     def __init__(self, model, sampling=1., axis=0, stencil='centered'):
-        r"""
-        First Derivative with a stencil
-            1) 2nd order centered:
-
-            .. math::
-                y[i] = 0.5 (x[i+1] - x[i-1]) / dx
-
-            2) 1st order forward:
-
-            .. math::
-                y[i] = (x[i+1] - x[i]) / dx
-
-            1) 1st order backward:
-
-            .. math::
-                y[i] = 0.5 (x[i] - x[i-1]) / dx
-
-        :param model    : vector class; domain vector
-        :param sampling : scalar; sampling step [1.]
-        :param axis     : int; axis along which to compute the derivative [0]
-        :param stencil  : str; derivative kind (centered, forward, backward)
+        """
+        FirstDerivative costructor
+        
+        Args:
+            domain: domain vector
+            sampling: sampling step along the differentiation axis
+            axis: axis along which to compute the derivative [0]
+            stencil: derivative kind (centered, forward, backward)
         """
         self.sampling = sampling
         self.dims = model.getNdArray().shape
@@ -51,7 +56,6 @@ class FirstDerivative(Operator):
         return "1stDer_%d" % self.axis
     
     def _forwardF(self, add, model, data):
-        """Forward operator for the 1st order forward stencil"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -68,7 +72,6 @@ class FirstDerivative(Operator):
         return
     
     def _adjointF(self, add, model, data):
-        """Adjoint operator for the 1st order forward stencil"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -87,7 +90,6 @@ class FirstDerivative(Operator):
         return
     
     def _forwardC(self, add, model, data):
-        """Forward operator for the 2nd order centered stencil"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -104,7 +106,6 @@ class FirstDerivative(Operator):
         return
     
     def _adjointC(self, add, model, data):
-        """Adjoint operator for the 2nd order centered stencil"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -123,7 +124,6 @@ class FirstDerivative(Operator):
         return
     
     def _forwardB(self, add, model, data):
-        """Forward operator for the 1st order backward stencil"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -140,7 +140,6 @@ class FirstDerivative(Operator):
         return
     
     def _adjointB(self, add, model, data):
-        """Adjoint operator for the 1st order backward stencil"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -160,16 +159,20 @@ class FirstDerivative(Operator):
 
 
 class SecondDerivative(Operator):
+    r"""
+    Compute 2nd order second derivative
+
+    .. math::
+        y[i] = (x[i+1] - 2x[i] + x[i-1]) / dx^2
+    """
     def __init__(self, model, sampling=1., axis=0):
-        r"""
-        Compute 2nd order second derivative
+        """
+        SecondDerivative constructor
 
-        .. math::
-            y[i] = (x[i+1] - 2x[i] + x[i-1]) / dx^2
-
-        :param model    : vector class; domain vector
-        :param sampling : scalar; sampling step [1.]
-        :param axis     : int; axis along which to compute the derivative [0]
+        Args:
+            domain: domain vector
+            sampling: sampling step along the differentiation axis
+            axis: axis along which to compute the derivative
         """
         self.sampling = sampling
         self.data_tmp = model.clone().zero()
@@ -184,7 +187,6 @@ class SecondDerivative(Operator):
         return "2ndDer_%d" % self.axis
     
     def forward(self, add, model, data):
-        """Forward operator"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -203,7 +205,6 @@ class SecondDerivative(Operator):
         return
     
     def adjoint(self, add, model, data):
-        """Adjoint operator"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -225,13 +226,16 @@ class SecondDerivative(Operator):
 
 
 class Gradient(Operator):
-    def __init__(self, model, sampling=None, stencil=None):
-        r"""
-        N-Dimensional Gradient operator
+    """N-Dimensional Gradient operator"""
 
-        :param model    : vector class; domain vector
-        :param sampling : tuple; sampling step [1]
-        :param stencil  : str or list of str; stencil kind for each direction ['centered']
+    def __init__(self, model, sampling=None, stencil=None):
+        """
+        Gradient constructor
+
+        Args:
+            domain: domain vector
+            sampling: sampling steps
+            stencil: stencil kind for each direction
         """
         self.dims = model.getNdArray().shape
         self.sampling = sampling if sampling is not None else tuple([1] * len(self.dims))
@@ -282,15 +286,22 @@ class Gradient(Operator):
 
 
 class Laplacian(Operator):
-    def __init__(self, model, axis=None, weights=None, sampling=None):
-        r"""
-        Laplacian operator.
-        The input parameters are tailored for >2D, but it works also for 1D.
+    """
+    Laplacian operator.
 
-        :param model    : vector class; domain vector
-        :param axis     : tuple; axis along which to compute the derivative [all]
-        :param weights  : tuple; scalar weights for the axis [1 for each model axis]
-        :param sampling : tuple; sampling step [1 for each model axis]
+    Notes:
+        The input parameters are tailored for >2D, but it works also for 1D.
+    """
+    
+    def __init__(self, model, axis=None, weights=None, sampling=None):
+        """
+        Laplacian constructor
+
+        Args:
+            domain: domain vector
+            axis: axes along which to compute the derivative
+            weights: scalar weights for each axis
+            sampling: sampling steps for each axis
         """
         self.dims = model.getNdArray().shape
         self.axis = axis if axis is not None else tuple(range(len(self.dims)))

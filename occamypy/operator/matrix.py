@@ -1,17 +1,24 @@
-from occamypy import Vector
-from .base import Operator
-from occamypy.utils import get_backend, get_vector_type
+from occamypy.vector.base import Vector
+from occamypy.operator.base import Operator
+from occamypy.utils.backend import get_backend, get_vector_type
 
 
 class Matrix(Operator):
-    """Operator built upon a matrix"""
-    
+    """
+    Linear Operator build upon an explicit matrix
+
+    Attributes:
+        matrix: Vector array that contains the matrix
+    """
     def __init__(self, matrix: Vector, domain: Vector, range: Vector, outcore=False):
-        """Class constructor
-        :param matrix   : matrix to use
-        :param domain   : domain vector
-        :param range    : range vector
-        :param outcore  : use outcore sep operators
+        """
+        Matrix constructor
+
+        Args:
+            matrix: vector that contains the matrix
+            domain: domain vector
+            range: range vector
+            outcore: whether to use out-of-core SEPlib operators
         """
         if not (type(domain) == type(range) == type(matrix)):
             raise TypeError("ERROR! Domain, Range and Matrix have to be the same vector type")
@@ -32,7 +39,6 @@ class Matrix(Operator):
         return "MatrixOp"
     
     def forward(self, add, model, data):
-        """d = A * m"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()
@@ -40,7 +46,6 @@ class Matrix(Operator):
         return
     
     def adjoint(self, add, model, data):
-        """m = A' * d"""
         self.checkDomainRange(model, data)
         if not add:
             model.zero()
@@ -48,4 +53,5 @@ class Matrix(Operator):
         return
     
     def getNdArray(self):
+        """Get the matrix vector"""
         return self.matrix.getNdArray()

@@ -1,19 +1,20 @@
-from typing import Union, List, Tuple
 from itertools import accumulate, product
+from typing import Union, List, Tuple
+
 import numpy as np
 import torch
 
-from occamypy import superVector, Operator, Dstack
-from occamypy.torch.vector import VectorTorch
+from occamypy.operator.base import Operator, Dstack
 from occamypy.torch.back_utils import set_backends
+from occamypy.torch.vector import VectorTorch
+from occamypy.vector.base import superVector
 
 set_backends()
 
 
 def _gaussian_kernel1d(sigma: float, order: int = 0, truncate: float = 4.) -> torch.Tensor:
-    """
-    Computes a 1-D Gaussian convolution kernel.
-    """
+    """Computes a 1-D Gaussian convolution kernel"""
+
     radius = int(truncate * sigma + 0.5)
     if order < 0:
         raise ValueError('order must be non-negative')
@@ -43,35 +44,35 @@ def _gaussian_kernel1d(sigma: float, order: int = 0, truncate: float = 4.) -> to
     
 
 class ConvND(Operator):
-    """
-    ND convolution square operator in the domain space
-
-    :param model  : [no default] - vector class; domain vector
-    :param kernel : [no default] - vector class; kernel vector
-    :return       : Convolution Operator
-    """
+    """ND convolution square operator in the domain space"""
     
-    def __init__(self, model: VectorTorch,  kernel: Union[VectorTorch, torch.Tensor]):
-        
+    def __init__(self, domain: VectorTorch, kernel: Union[VectorTorch, torch.Tensor]):
+        """
+        ConvND (torch) constructor
+
+        Args:
+            domain: domain vector
+            kernel: kernel vector or tensor
+        """
         if isinstance(kernel, VectorTorch):
             self.kernel = kernel.getNdArray().clone()
         elif isinstance(kernel, torch.Tensor):
             self.kernel = kernel.clone()
         
-        if model.ndim != self.kernel.ndim:
+        if domain.ndim != self.kernel.ndim:
             raise ValueError("Domain and kernel number of dimensions mismatch")
         
-        if model.device != self.kernel.device:
+        if domain.device != self.kernel.device:
             raise ValueError("Domain and kernel has to live in the same device")
         
         self.kernel_size = tuple(self.kernel.shape)
         self.pad_size = tuple([k // 2 for k in self.kernel_size])
 
-        if model.ndim == 1:
+        if domain.ndim == 1:
             corr = torch.nn.functional.conv1d
-        elif model.ndim == 2:
+        elif domain.ndim == 2:
             corr = torch.nn.functional.conv2d
-        elif model.ndim == 3:
+        elif domain.ndim == 3:
             corr = torch.nn.functional.conv3d
         else:
             raise ValueError
@@ -85,7 +86,7 @@ class ConvND(Operator):
                                    self.kernel.unsqueeze(0).unsqueeze(0),
                                    padding=self.pad_size).flatten(end_dim=2)
         
-        super(ConvND, self).__init__(model, model)
+        super(ConvND, self).__init__(domain, domain)
     
     def __str__(self):
         return " ConvND "
@@ -106,13 +107,15 @@ class ConvND(Operator):
     
 
 class GaussianFilter(ConvND):
-    def __init__(self, model, sigma):
+    """Gaussian smoothing operator"""
+    
+    def __init__(self, domain, sigma):
         """
-        Gaussian smoothing operator.
-        :param model : vector class;
-            domain vector
-        :param sigma : scalar or sequence of scalars;
-            standard deviation along the model directions
+        GaussianFilter (torch) constructor
+        
+        Args:
+            domain: domain vector
+            sigma: standard deviation along the domain directions
         """
         self.sigma = [sigma] if isinstance(sigma, (float, int)) else sigma
         if not isinstance(self.sigma, (list, tuple)):
@@ -122,45 +125,58 @@ class GaussianFilter(ConvND):
         
         self.kernel = [*accumulate(kernels, lambda a, b: torch.outer(a.flatten(), b))][-1]
         self.kernel.reshape([k.numel() for k in kernels])
-        super(GaussianFilter, self).__init__(model, self.kernel.to(model.device))
+        super(GaussianFilter, self).__init__(domain, self.kernel.to(domain.device))
     
     def __str__(self):
         return "GausFilt"
 
 
-def Padding(model, pad, mode="constant"):
-    if isinstance(model, VectorTorch):
-        return _Padding(model, pad, mode)
-    elif isinstance(model, superVector):
-        # TODO add the possibility to have different padding for each sub-vector
-        return Dstack([_Padding(v, pad, mode) for v in model.vecs])
+def Padding(domain, pad, mode="constant"):
+    """
+    Padding operator
+
+    Notes:
+        To pad 2 values to each side of the first dim, and 3 values to each side of the second dim, use:
+            pad=((2,2), (3,3))
+
+    Args:
+        domain: domain vector
+        pad: number of samples to be added at each end of the dimension, for each dimension
+        mode: padding mode (see https://pytorch.org/docs/1.10/generated/torch.nn.functional.pad.html)
+    """
+    if isinstance(domain, VectorTorch):
+        return _Padding(domain, pad, mode)
+    elif isinstance(domain, superVector):
+        return Dstack([_Padding(v, pad, mode) for v in domain.vecs])
     else:
         raise ValueError("ERROR! Provided domain has to be either vector or superVector")
 
 
-def ZeroPad(model, pad):
-    return Padding(model, pad, mode="constant")
+def ZeroPad(domain, pad):
+    """
+    Zero-Padding operator
+
+    Notes:
+        To pad 2 values to each side of the first dim, and 3 values to each side of the second dim, use:
+            pad=((2,2), (3,3))
+
+    Args:
+        domain: domain vector
+        pad: number of samples to be added at each end of the dimension, for each dimension
+    """
+    return Padding(domain, pad, mode="constant")
 
 
 class _Padding(Operator):
     
-    def __init__(self, model: VectorTorch, pad: Union[int, Tuple[int], List[int]], mode: str = "constant"):
-        """Padding operator.
-
-        To pad 2 values to each side of the first dim, and 3 values to each side of the second dim, use:
-            pad=(2,2,3,3)
-        :param model: VectorTorch class
-        :param pad: scalar or sequence of scalars
-            Number of samples to pad in each dimension.
-            If a single scalar is provided, it is assigned to every dimension.
-        :param mode: str
-            padding mode (see https://pytorch.org/docs/1.10/generated/torch.nn.functional.pad.html)
-        """
-        nd = model.ndim
+    def __init__(self, domain: VectorTorch, pad: Union[int, Tuple[int]], mode: str = "constant"):
         
-        if isinstance(pad, (int, float)):
+        nd = domain.ndim
+        
+        if isinstance(pad, int):
             pad = [int(pad), int(pad)] * nd
         else:
+            pad = np.asarray(pad).ravel().tolist()
             if len(pad) != 2 * nd:
                 raise ValueError("len(pad) has to be 2*nd")
             
@@ -169,9 +185,9 @@ class _Padding(Operator):
         
         self.pad = list(pad)
         
-        self.padded_shape = tuple(np.asarray(model.shape) + [self.pad[i]+self.pad[i+1] for i in range(0, 2*nd, 2)])
+        self.padded_shape = tuple(np.asarray(domain.shape) + [self.pad[i] + self.pad[i + 1] for i in range(0, 2 * nd, 2)])
         
-        super(_Padding, self).__init__(model, VectorTorch(self.padded_shape, device=model.device.index))
+        super(_Padding, self).__init__(domain, VectorTorch(self.padded_shape, device=domain.device.index))
 
         self.inner_idx = [list(torch.arange(start=self.pad[0:-1:2][i], end=self.range.shape[i]-pad[1::2][i])) for i in range(nd)]
         self.mode = mode
@@ -180,7 +196,7 @@ class _Padding(Operator):
         return "Padding "
     
     def forward(self, add, model, data):
-        """padding"""
+        """Pad the domain"""
         self.checkDomainRange(model, data)
         if not add:
             data.zero()

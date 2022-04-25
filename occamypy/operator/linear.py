@@ -1,11 +1,18 @@
 import numpy as np
-from .base import Operator
+from occamypy.operator.base import Operator
 
 
 class Zero(Operator):
     """Zero matrix operator; useful for Jacobian matrices that are zeros"""
     
     def __init__(self, domain, range):
+        """
+        Zero constructor
+
+        Args:
+            domain: domain vector
+            range: range vector
+        """
         super(Zero, self).__init__(domain, range)
     
     def __str__(self):
@@ -26,6 +33,12 @@ class Identity(Operator):
     """Identity operator"""
     
     def __init__(self, domain):
+        """
+        Identity constructor
+
+        Args:
+            domain: domain vector
+        """
         super(Identity, self).__init__(domain, domain)
     
     def __str__(self):
@@ -50,6 +63,13 @@ class Scaling(Operator):
     """scalar multiplication operator"""
     
     def __init__(self, domain, scalar):
+        """
+        Scaling constructor
+
+        Args:
+            domain: domain vector
+            scalar: scaling coefficient
+        """
         super(Scaling, self).__init__(domain, domain)
         if not np.isscalar(scalar):
             raise ValueError('scalar has to be (indeed) a scalar variable')
@@ -71,8 +91,12 @@ class Diagonal(Operator):
     """Diagonal operator for performing element-wise multiplication"""
     
     def __init__(self, diag):
-        # if not isinstance(diag, vector):
-        #     raise TypeError('diag has to be a vector')
+        """
+        Diagonal constructor
+
+        Args:
+            diag: vector to be stored on the diagonal
+        """
         super(Diagonal, self).__init__(diag, diag)
         self.diag = diag
     

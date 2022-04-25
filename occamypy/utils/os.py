@@ -1,13 +1,14 @@
-# Module containing useful function to interact with the system
-import subprocess
-import sys
-import os
 import hashlib
+import os
 import random
 import string
+import subprocess
+import sys
 from importlib.util import find_spec
-from .logger import Logger
+
 import numpy as np
+
+from occamypy.utils.logger import Logger
 
 CUPY_ENABLED = find_spec("cupy") is not None
 
@@ -29,8 +30,14 @@ def mkdir(directory):
 
 
 def rand_name(N: int = 6) -> str:
-    """function returning random sequence of N letters and numbers"""
-    return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(N))
+    """Get a random sequence of N letters and numbers
+    
+    Args:
+        N: desired length of the string
+    Returns:
+        string of length N
+    """
+    return "".join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(N))
 
 
 def hashfile(binfile):

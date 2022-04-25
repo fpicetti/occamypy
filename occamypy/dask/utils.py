@@ -16,7 +16,15 @@ from dask_kubernetes import KubeCluster, make_pod_spec
 
 
 def get_tcp_info(filename):
-    """Function to obtain scheduler tcp information"""
+    """
+    Obtain the scheduler TCP information
+
+    Args:
+        filename: file to read
+
+    Returns:
+        TCP address
+    """
     tcp_info = None
     with open(filename) as json_file:
         data = json.load(json_file)
@@ -27,10 +35,15 @@ def get_tcp_info(filename):
 
 def create_hostnames(machine_names, Nworkers):
     """
-    Function to create hostnames variables (i.e., list of ip addresses)
-    from machine names and number of wokers per machine
+    Create hostnames variables (i.e., list of IP addresses) from machine names and number of wokers per machine
+
+    Args:
+        machine_names: list of host names
+        Nworkers: list of client workers
+
+    Returns:
+        list of host IP addresses
     """
-    
     ip_adds = []
     for host in machine_names:
         ip_adds.append(socket.gethostbyname(host))
@@ -47,7 +60,15 @@ def create_hostnames(machine_names, Nworkers):
 
 def client_startup(cluster, n_jobs: int, total_workers: int):
     """
-    Function to start a dask client
+    Start a dask client
+
+    Args:
+        cluster: Dask cluster
+        n_jobs: number of jobs to submit to the cluster
+        total_workers: number of total workers in the cluster
+
+    Returns:
+        DaskClient instance, list of workers ID
     """
     if n_jobs <= 0:
         raise ValueError("n_jobs must equal or greater than 1!")
@@ -71,40 +92,49 @@ def client_startup(cluster, n_jobs: int, total_workers: int):
 
 class DaskClient:
     """
-    Class useful to construct a Dask Client to be used with Dask vectors and operators
+    Dask Client to be used with Dask vectors and operators
+
+    Notes:
+        The Kubernetes pods are created using the Docker image "ettore88/occamypy:devel".
+        To change the image to be use, provide the item image within the kube_params dictionary.
     """
     
     def __init__(self, **kwargs):
         """
-    Constructor for obtaining a client to be used when Dask is necessary
-    1) Cluster with shared file system and ssh capability:
-    :param hostnames : - list; list of strings containing the host names or IP addresses of the machines that
-    the user wants to use in their cluster/client (First hostname will be running the scheduler!) [None]
-    :param scheduler_file_prefix : string; prefix to used to create dask scheduler-file.
-    :param logging : - boolean; Logging scheduler and worker stdout to files within dask_logs folder [True]
-    Must be a mounted path on all the machines. Necessary if hostnames are provided [$HOME/scheduler-]
-    2) Local cluster:
-    :param local_params : - dict; dictionary containing Local Cluster options (see help(LocalCluster) for help) [None]
-    :param n_wrks: - int; number of workers to start [1]
-    3) PBS cluster:
-    :param pbs_params : - dict; dictionary containing PBS Cluster options (see help(PBSCluster) for help) [None]
-    :param n_jobs : - int; number of jobs to be submitted to the cluster
-    :param n_wrks: - int; number of workers per job [1]
-    4) LSF cluster:
-    :param lfs_params : - dict; dictionary containing LSF Cluster options (see help(LSFCluster) for help) [None]
-    :param n_jobs : - int; number of jobs to be submitted to the cluster
-    :param n_wrks: - int; number of workers per job [1]
-    5) SLURM cluster:
-    :param slurm_params : - dict; dictionary containing SLURM Cluster options (see help(SLURMCluster) for help) [None]
-    :param n_jobs : - int; number of jobs to be submitted to the cluster
-    :param n_wrks: - int; number of workers per job [1]
-    6) Kubernetes cluster:
-    :param kube_params : - dict; dictonary containing KubeCluster options
-     (see help(KubeCluster) and help(make_pod_spec) for help) [None]
-    :param n_wrks: - int; number of workers to scale the cluster
-    Note that by default the Kubernetes pods are created using the Docker image "ettore88/occamypy:devel". To change
-    the image to be use, provide the item image within the kube_params dictionary.
-    """
+        DaskClient constructor.
+
+        Args:
+            1) Cluster with shared file system and ssh capability
+
+                hostnames (list) [None]: host names or IP addresses of the machines that the user wants to use in their cluster/client (First hostname will be running the scheduler!)
+                scheduler_file_prefix (str): prefix to used to create dask scheduler-file.
+                logging (bool) [True]: whether to log scheduler and worker stdout to files within dask_logs folder
+                    Must be a mounted path on all the machines. Necessary if hostnames are provided [$HOME/scheduler-]
+
+            2) Local cluster
+                local_params (dict) [None]: Local Cluster options (see help(LocalCluster) for help)
+                n_wrks (int) [1]: number of workers to start
+
+            3) PBS cluster
+                pbs_params (dict) [None]: PBS Cluster options (see help(PBSCluster) for help)
+                n_jobs (int): number of jobs to be submitted to the cluster
+                n_wrks (int) [1]: number of workers per job
+
+            4) LSF cluster
+                lfs_params (dict) [None]: LSF Cluster options (see help(LSFCluster) for help)
+                n_jobs (int): number of jobs to be submitted to the cluster
+                n_wrks (int) [1]: number of workers per job
+
+            5) SLURM cluster
+                slurm_params (dict) [None]: SLURM Cluster options (see help(SLURMCluster) for help)
+                n_jobs (int): number of jobs to be submitted to the cluster
+                n_wrks (int) [1]: number of workers per job
+
+            6) Kubernetes cluster
+                kube_params (dict): KubeCluster options
+                 (see help(KubeCluster) and help(make_pod_spec) for help) [None]
+                n_wrks (int) [1]: number of workers per job
+        """
         hostnames = kwargs.get("hostnames", None)
         local_params = kwargs.get("local_params", None)
         pbs_params = kwargs.get("pbs_params", None)
@@ -112,6 +142,7 @@ class DaskClient:
         slurm_params = kwargs.get("slurm_params", None)
         kube_params = kwargs.get("kube_params", None)
         logging = kwargs.get("logging", True)
+        
         ClusterInit = None
         cluster_params = None
         if local_params:
@@ -219,23 +250,9 @@ class DaskClient:
         else:
             raise ValueError("Either hostnames or local_params or pbs/lsf/slurm_params or kube_params must be "
                              "provided!")
+
+        self.num_workers = len(self.WorkerIds)
+        self.dashboard_link = self.cluster.dashboard_link
+        
         # Closing dask processes
         atexit.register(self.client.shutdown)
-    
-    def getClient(self):
-        """
-    Accessor for obtaining the client object
-    """
-        return self.client
-    
-    def getWorkerIds(self):
-        """
-    Accessor for obtaining the worker IDs
-    """
-        return self.WorkerIds
-    
-    def getNworkers(self):
-        """
-    Accessor for obtaining the number of workers
-    """
-        return len(self.getWorkerIds())

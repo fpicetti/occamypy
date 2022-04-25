@@ -1,0 +1,20 @@
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - jupyter
+  - numpy>=1.15
+  - scipy>=1.4
+  - numba
+  - matplotlib
+  - imageio
+  - dask
+  - dask-jobqueue
+  - dask-kubernetes
+  - bokeh>=2.1.1
+  - pylops
+  - pip
+  - pip:
+      - gputil
+      - torch>=1.7 # here for automatic cuda installation
+      - functorch
