@@ -1,6 +1,6 @@
 ![occamypy](readme_img/logo192.png)
 
-# OccamyPy: an object-oriented optimization library for small- and large-scale problems
+# OccamyPy: an object-oriented optimization framework for small- and large-scale problems
 
 We present an object-oriented optimization framework that can be employed to solve
 small- and large-scale problems based on the concept of vectors and operators.
