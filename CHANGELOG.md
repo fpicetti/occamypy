@@ -1,3 +1,8 @@
+# 0.2.0
+* Added a `name` attribute to Operator, Problem, and Solver classes (useful for printing/logging)
+* Changed to version v0.2.0 after v0.1.5 as it is more appropriate (hello developers!)
+* Added CG comparison to [Devito-based LS-RTM](tutorials/2D%20LS-RTM%20with%20devito,%20dask,%20and%20regularizers.ipynb) tutorial
+
 # 0.1.5
 * Moved `set_seed_everywhere` in the main utils submodule
 * Signal processing operators are called directly from occamypy init (no cupy/torch submodule needed)
