@@ -56,6 +56,7 @@ Additionally, it allows to restart an optimization method from an intermetdiate 
 written as serialized objects on permanent computer memory.
 We have a number of linear and nonlinear solver, along with some stepper algorithms.
 See the [`solver`](./occamypy/solver) subpackage for details and implementations.
+Solvers come with a Logger object that we found helpful for saving large-scale inversions. Check it out in the tutorials!
 
 ### Features at a glance
 
@@ -90,6 +91,13 @@ Check out the [tutorial](https://curvenote.com/@swung/transform-2022-occamypy-an
 ### Contributing
 Follow the following instructions and read carefully the [CONTRIBUTING](CONTRIBUTING.md) file before getting started.
 
+We have a lot of ideas that might be helpful to scientists!
+We are currently working on:
+* wrapping linear operators to PyTorch optimizers: see the [LS-RTM tutorial](./tutorials/2D%20LS-RTM%20with%20devito%20and%20Automatic%20Differentiation.ipynb)!
+This can be useful for using neural networks and operators (i.e., deep priors and physical modeling).
+* using PyTorch's [functorch](https://github.com/pytorch/functorch) library to compute the Jacobian-vector product of nonlinear operators: see the [first step](tutorials/Automatic%20Differentiation%20for%20nonlinear%20operators.ipynb)!
+* implement computation-demanding operators natively in OccamyPy, so that they can be used on CPU/GPU and HPC clusters. 
+
 ### Authors
  - [Ettore Biondi](https://github.com/biondiettore)
  - [Guillame Barnier](https://github.com/gbarnier)
@@ -109,3 +117,10 @@ Follow the following instructions and read carefully the [CONTRIBUTING](CONTRIBU
   doi = {https://doi.org/10.1016/j.cageo.2021.104790},
 }
 ```
+
+### Publications using OccamyPy
+
+* E. Biondi, G. Barnier, R. G. Clapp, F. Picetti, and S. Farris. "Object-Oriented Optimization for Small- and Large-Scale Seismic Inversion Procedures", in _European Association of Geophysicists and Engineers (EAGE) Workshop on High Performance Computing for Upstream_, 2021. [link](https://doi.org/10.3997/2214-4609.202181003).
+* E. Biondi, G. Barnier, R. G. Clapp, F. Picetti, and S. Farris. "Object-oriented optimization for large-scale seismic inversion of ocean-bottom-node pressure data", in _International Conference on Parallel Computational Fluid Dynamics (ParCFD)_, 2021. [link](https://parcfd2020.sciencesconf.org/345756).
+
+If you have one to add, reach us out!
