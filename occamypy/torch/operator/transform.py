@@ -55,10 +55,8 @@ class FFT(Operator):
         self.inner_idx = [torch.arange(0, domain.shape[i]) for i in range(len(dims_fft))]
         
         super(FFT, self).__init__(domain=VectorTorch(torch.zeros(domain.shape).type(torch.double)),
-                                  range=VectorTorch(torch.zeros(dims_fft).type(torch.complex128)))
-    
-    def __str__(self):
-        return 'torchFFT'
+                                  range=VectorTorch(torch.zeros(dims_fft).type(torch.complex128)),
+                                  name="FFT")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)

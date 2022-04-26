@@ -219,9 +219,7 @@ class DaskOperator(Operator):
                 if not isinstance(self.SprdAux, DaskSpread):
                     raise TypeError("Provided spread_op_aux not a DaskSpreadOp class!")
                 self.tmp_aux = self.SprdAux.getRange().clone()
-
-    def __str__(self):
-        return " DaskOp "
+        self.name = "DaskOperator"
 
     def forward(self, add, model, data):
         if not isinstance(model, DaskVector):
@@ -326,10 +324,7 @@ class DaskSpread(Operator):
         self.dask_client = dask_client
         self.client = self.dask_client.client
         self.chunks = chunks
-        self.setDomainRange(domain, DaskVector(self.dask_client, vector_template=domain, chunks=chunks))
-    
-    def __str__(self):
-        return "DaskSprd"
+        super(DaskSpread, self).__init__(domain=domain, range=DaskVector(self.dask_client, vector_template=domain, chunks=chunks), name="DaskSpread")
     
     def forward(self, add, model, data):
         """Distribute local domain through dask"""
@@ -405,7 +400,7 @@ class DaskCollect(Operator):
             raise TypeError("range is not a vector-derived object!")
         if domain.size != range.size:
             raise ValueError("number of elements in domain and range is not equal!")
-        super(DaskCollect, self).__init__(domain, range)
+        super(DaskCollect, self).__init__(domain, range, name="DaskCollects")
     
     def forward(self, add, model, data):
         """Collect dask vector arrays to local one"""

@@ -22,10 +22,7 @@ class GaussianFilter(Operator):
         """
         self.sigma = sigma
         self.scaling = np.sqrt(np.prod(np.array(self.sigma) / np.pi))  # in order to have the max amplitude 1
-        super(GaussianFilter, self).__init__(domain, domain)
-    
-    def __str__(self):
-        return "GausFilt"
+        super(GaussianFilter, self).__init__(domain, domain, name="GaussFilt")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -79,10 +76,7 @@ class ConvND(Operator):
             raise ValueError("method has to be auto, direct or fft")
         self.method = method
         
-        super(ConvND, self).__init__(domain, domain)
-    
-    def __str__(self):
-        return "ConvScipy"
+        super(ConvND, self).__init__(domain=domain, range=domain, name="Convolve")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -159,10 +153,7 @@ class _Padding(Operator):
             raise ValueError('Padding must be positive or zero')
         self.pad = pad
         self.mode = mode
-        super(_Padding, self).__init__(domain, _pad_VectorNumpy(domain, self.pad))
-    
-    def __str__(self):
-        return "Padding "
+        super(_Padding, self).__init__(domain, _pad_VectorNumpy(domain, self.pad), name="Padding")
     
     def forward(self, add, model, data):
         """Pad the domain"""

@@ -58,7 +58,7 @@ class Bounds:
 class Problem:
     """Base problem class"""
 
-    def __init__(self, model, data, minBound=None, maxBound=None, boundProj=None):
+    def __init__(self, model, data, minBound=None, maxBound=None, boundProj=None, name: str = "Problem"):
         """
         Problem constructor
 
@@ -68,6 +68,7 @@ class Problem:
             minBound: vector containing minimum values of the domain vector
             maxBound: vector containing maximum values of the domain vector
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
+            name: problem name
         """
         self.minBound = minBound
         self.maxBound = maxBound
@@ -97,7 +98,11 @@ class Problem:
         self.gevals = 0
         self.counter = 0
         self.linear = False
-
+        self.name = str(name)
+    
+    def __str__(self):
+        return self.name
+    
     def setDefaults(self):
         """Default common variables for any inverse problem"""
         self.obj_updated = False

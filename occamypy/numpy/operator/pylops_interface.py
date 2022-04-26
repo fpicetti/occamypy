@@ -32,13 +32,9 @@ class FromPylops(Operator):
         if op.shape[1] != domain.size:
             raise ValueError("Domain and operator columns mismatch")
         
-        self.name = op.__str__()
         self.op = op
         
-        super(FromPylops, self).__init__(domain, range)
-    
-    def __str__(self):
-        return self.name.replace("<", "").replace(">", "")
+        super(FromPylops, self).__init__(domain, range, name=op.__str__().replace("<", "").replace(">", ""))
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -80,6 +76,7 @@ class ToPylops(pylops.LinearOperator):
         # these are just temporary vectors, used by forward and adjoint computations
         self.domain = op.domain.clone()
         self.range = op.range.clone()
+        self._name = op.name
     
     def _matvec(self, x: np.ndarray) -> np.ndarray:
         x_ = self.domain.clone()

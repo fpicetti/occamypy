@@ -44,10 +44,8 @@ class FFT(Operator):
             dims_fft[a] = n
         
         super(FFT, self).__init__(domain=VectorNumpy(np.zeros(domain.shape, dtype=complex)),
-                                  range=VectorNumpy(np.zeros(shape=dims_fft, dtype=complex)))
-    
-    def __str__(self):
-        return 'numpyFFT'
+                                  range=VectorNumpy(np.zeros(shape=dims_fft, dtype=complex)),
+                                  name="FFT")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)

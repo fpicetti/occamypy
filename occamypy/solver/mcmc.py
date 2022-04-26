@@ -28,7 +28,7 @@ class MCMC(Solver):
             min_step: lower bound if prop_distr="u"
         """
         
-        super(MCMC, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(MCMC, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="MCMC")
         
         # Proposal distribution parameters
         self.prop_dist = prop_distr.lower()
@@ -108,6 +108,7 @@ class MCMC(Solver):
                 msg = 90 * "#" + "\n"
                 msg += 12 * " " + "MCMC Solver log file\n"
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 msg += 90 * "#" + "\n"
                 if verbose:
                     print(msg.replace("log file", ""))

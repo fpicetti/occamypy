@@ -16,11 +16,11 @@ class Operator:
     Args:
         domain: domain vector
         range: range vector
+        name: string that describes the operator
 
     Attributes:
         domain: domain vector space
         range: range vector space
-        name: string that describes the operator
         H: hermitian operator
 
     Methods:
@@ -34,7 +34,7 @@ class Operator:
         forward: forward operation
         adjoint: adjoint (conjugate-tranpose) operation
     """
-    def __init__(self, domain, range):
+    def __init__(self, domain, range, name: str = "Operator"):
         """
         Operator constructor
 
@@ -44,12 +44,10 @@ class Operator:
         """
         self.domain = domain.cloneSpace()
         self.range = range.cloneSpace()
+        self.name = str(name)
     
     def __str__(self):
-        return "Operator"
-    
-    def __repr__(self):
-        return self.__str__()
+        return self.name
     
     def __add__(self, other):  # self + other
         if isinstance(other, Operator):
@@ -359,7 +357,7 @@ class Operator:
 class _Hermitian(Operator):
     
     def __init__(self, op):
-        super(_Hermitian, self).__init__(op.range, op.domain)
+        super(_Hermitian, self).__init__(op.range, op.domain, name=op.name)
         self.op = op
     
     def forward(self, add, model, data):
@@ -425,10 +423,7 @@ class Vstack(Operator):
                     raise ValueError('Domain incompatibility between Op %d and Op %d' % (idx, idx + 1))
             op_range += [self.ops[idx].range]
         
-        super(Vstack, self).__init__(domain=self.ops[0].domain, range=superVector(op_range))
-    
-    def __str__(self):
-        return " VStack "
+        super(Vstack, self).__init__(domain=self.ops[0].domain, range=superVector(op_range), name="Vstack")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -473,10 +468,7 @@ class Hstack(Operator):
                 if not self.ops[idx].range.checkSame(self.ops[idx + 1].range):
                     raise ValueError('Range incompatibility between Op %d and Op %d' % (idx, idx + 1))
             domain += [self.ops[0].domain]
-        super(Hstack, self).__init__(domain=superVector(domain), range=self.ops[0].range)
-    
-    def __str__(self):
-        return " HStack "
+        super(Hstack, self).__init__(domain=superVector(domain), range=self.ops[0].range, name="Hstack")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -522,10 +514,7 @@ class Dstack(Operator):
             op_domain += [self.ops[idx].domain]
             op_range += [self.ops[idx].range]
         
-        super(Dstack, self).__init__(domain=superVector(op_domain), range=superVector(op_range))
-    
-    def __str__(self):
-        return " DStack "
+        super(Dstack, self).__init__(domain=superVector(op_domain), range=superVector(op_range), name="Dstack")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -551,11 +540,8 @@ class _sumOperator(Operator):
         if not A.range.checkSame(B.range) or not A.domain.checkSame(B.domain):
             raise ValueError('Cannot add operators: shape mismatch')
         
-        super(_sumOperator, self).__init__(A.domain, A.range)
+        super(_sumOperator, self).__init__(A.domain, A.range, name=A.name+"+"+B.name)
         self.args = (A, B)
-    
-    def __str__(self):
-        return self.args[0].__str__()[:3] + "+" + self.args[1].__str__()[:4]
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -580,12 +566,9 @@ class _prodOperator(Operator):
             raise TypeError('Both operands have to be a Operator')
         if not A.domain.checkSame(B.range):
             raise ValueError('Cannot multiply operators: shape mismatch')
-        super(_prodOperator, self).__init__(B.domain, A.range)
+        super(_prodOperator, self).__init__(B.domain, A.range, name=A.name+"*"+B.name)
         self.args = (A, B)
         self.temp = B.getRange().clone()
-    
-    def __str__(self):
-        return self.args[0].__str__()[:3] + "*" + self.args[1].__str__()[:4]
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -613,18 +596,9 @@ class _scaledOperator(Operator):
             raise TypeError('Operator expected as op')
         if not type(const) in [int, float]:
             raise ValueError('scalar expected as const')
-        super(_scaledOperator, self).__init__(op.domain, op.range)
+        super(_scaledOperator, self).__init__(op.domain, op.range, name="sc"+op.name)
         self.const = const
         self.op = op
-    
-    def __str__(self):
-        op_name = self.op.__str__().replace(" ", "")
-        op_name_len = len(op_name)
-        if op_name_len <= 6:
-            name = "sc" + op_name + "" * (6 - op_name_len)
-        else:
-            name = "sc" + op_name[:6]
-        return name
     
     def forward(self, add, model, data):
         self.op.forward(add, model.clone().scale(self.const), data)

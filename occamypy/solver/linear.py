@@ -19,11 +19,13 @@ class CG(Solver):
             steepest: whether to use the steepest-descent instead of conjugate gradient
             logger: Logger to write inversion log file
         """
-        super(CG, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(CG, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="Conjugate Gradient")
 
         # Whether to run steepest descent or not
         self.steepest = steepest
-
+        if steepest:
+            self.name = "Steepest Descent"
+        
         # print formatting
         self.iter_msg = "iter = %s, obj = %.5e, rnorm = %.2e, gnorm = %.2e, feval = %s"
 
@@ -42,6 +44,7 @@ class CG(Solver):
                 msg += 12 * " " + ("Preconditioned " if precond else "")
                 msg += "%s Solver log file\n" % ("SD" if self.steepest else "CG")
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 msg += 90 * "#" + "\n"
                 if verbose:
                     print(msg.replace(" log file", ""))
@@ -321,8 +324,9 @@ class CG(Solver):
 class SD(CG):
     def __init__(self, stopper, **kwargs):
         super(SD, self).__init__(stopper, steepest=True, **kwargs)
+        name = "Steepest Descent"
     
-    
+
 def _sym_ortho(a, b):
     """
     Stable implementation of Givens rotation.
@@ -379,7 +383,7 @@ class LSQR(Solver):
             estimate_var: whether the diagonal of A'A^-1 is estimated or not (stored in self.var)
             logger: Logger to write inversion log file
         """
-        super(LSQR, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(LSQR, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="LSQR")
         
         # Create var variable if estimate var is requested
         self.est_cond = True if estimate_cond or estimate_var else False
@@ -404,6 +408,7 @@ class LSQR(Solver):
                 msg = 90 * "#" + "\n"
                 msg += 12 * " " + "LSQR Solver log file\n"
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 msg += 90 * "#" + "\n"
                 if verbose:
                     print(msg.replace("log file", ""))
@@ -674,11 +679,13 @@ class CGsym(Solver):
             steepest: whether to use the steepest-descent instead of conjugate gradient
             logger: Logger to write inversion log file
         """
-        super(CGsym, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(CGsym, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="Conjugate Gradient for Symmetric Systems")
 
         # Whether to run steepest descent or not
         self.steepest = steepest
-        
+        if steepest:
+            self.name = "Steepest Descent for Symmetric Systems"
+            
         # Setting defaults for saving results
         self.setDefaults()
         # print formatting
@@ -704,6 +711,7 @@ class CGsym(Solver):
                 msg += 12 * " " + ("Preconditioned " if precond else "")
                 msg += "Symmetric %s Solver log file\n" % ("SD" if self.steepest else "CG")
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 msg += 90 * "#" + "\n"
                 if verbose:
                     print(msg.replace(" log file", ""))

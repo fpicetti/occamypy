@@ -13,10 +13,7 @@ class Zero(Operator):
             domain: domain vector
             range: range vector
         """
-        super(Zero, self).__init__(domain, range)
-    
-    def __str__(self):
-        return "  Zero  "
+        super(Zero, self).__init__(domain, range, name="Zero")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -39,10 +36,7 @@ class Identity(Operator):
         Args:
             domain: domain vector
         """
-        super(Identity, self).__init__(domain, domain)
-    
-    def __str__(self):
-        return "Identity"
+        super(Identity, self).__init__(domain, domain, name="Identity")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -70,13 +64,10 @@ class Scaling(Operator):
             domain: domain vector
             scalar: scaling coefficient
         """
-        super(Scaling, self).__init__(domain, domain)
+        super(Scaling, self).__init__(domain, domain, name="Scaling")
         if not np.isscalar(scalar):
             raise ValueError('scalar has to be (indeed) a scalar variable')
         self.scalar = scalar
-    
-    def __str__(self):
-        return "Scaling "
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -97,11 +88,8 @@ class Diagonal(Operator):
         Args:
             diag: vector to be stored on the diagonal
         """
-        super(Diagonal, self).__init__(diag, diag)
+        super(Diagonal, self).__init__(diag, diag, name="Diagonal")
         self.diag = diag
-    
-    def __str__(self):
-        return "Diagonal"
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)

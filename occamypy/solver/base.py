@@ -18,7 +18,7 @@ from occamypy.utils.logger import Logger
 class Solver:
     """Base solver class"""
     
-    def __init__(self, stopper, logger: Logger = None):
+    def __init__(self, stopper, logger: Logger = None, name: str = "Solver"):
         # Parameter for saving results
         self.save_obj = False
         self.save_res = False
@@ -49,11 +49,16 @@ class Solver:
         self.inv_model = None
         self.iter_written = 0
         
+        self.name = name
+        
         # Set Restart object
         self.restart = Restart()
         create_msg = False
         # Setting defaults for saving results
         self.setDefaults()
+    
+    def __str__(self):
+        return self.name
     
     def setPrefix(self, prefix):
         """Mutator to change prefix and file names for saving inversion results"""

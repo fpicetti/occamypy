@@ -68,7 +68,7 @@ class ISTA(Solver):
             fast: use the Fast-ISTA implementation
             logger: Logger to write inversion log file
         """
-        super(ISTA, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(ISTA, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="ISTA")
         
         # Setting the fast flag
         self.fast = fast
@@ -94,6 +94,7 @@ class ISTA(Solver):
                 msg += 12 * " " + ("FAST-" if self.fast else "")
                 msg += "ISTA Solver log file\n"
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 msg += 4 * " " + "Regularization weight: %.2e\n" % problem.lambda_value
                 msg += 90 * "#" + "\n"
                 if verbose:
@@ -245,6 +246,7 @@ class FISTA(ISTA):
             logger: Logger to write inversion log file
         """
         super(FISTA, self).__init__(stopper=stopper, logger=logger, fast=True)
+        self.name = "Fast-ISTA"
 
 
 class ISTC(Solver):
@@ -262,7 +264,7 @@ class ISTC(Solver):
             logger: Logger to write inversion log file
         """
         
-        super(ISTC, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(ISTC, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="Cooled ISTA")
 
         self.iter_msg = "Inner_iter = %s, obj = %.5e, rnorm = %.2e, gnorm= %.2e, feval = %s"
         
@@ -293,6 +295,7 @@ class ISTC(Solver):
                 msg = 90 * "#" + "\n"
                 msg += 12 * " " + "ISTC Solver log file\n"
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 msg += 4 * " " + "Regularization weight: %.2e\n" % problem.lambda_value
                 msg += 90 * "#" + "\n"
                 if verbose:
@@ -491,7 +494,7 @@ class SplitBregman(Solver):
             warm_start: run linear solver from previous solution of inner problem
             mod_tol: stop criterion for relative change of domain norm
         """
-        super(SplitBregman, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(SplitBregman, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="Split-Bregman")
         
         # Model norm change stop criterion
         self.mod_tol = mod_tol
@@ -580,6 +583,7 @@ class SplitBregman(Solver):
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
                 msg += 4 * " " + "Inner iterations: %d\n" % self.niter_inner
                 msg += 4 * " " + "Solver iterations: %d\n" % self.niter_solver
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 msg += 4 * " " + "L1 Regularizer weight: %.2e\n" % problem.eps
                 msg += 4 * " " + "Bregman update weight: %.2e\n" % self.breg_weight
                 if self.warm_start:

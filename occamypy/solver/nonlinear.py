@@ -172,7 +172,7 @@ class NLCG(Solver):
             logger: Logger to write inversion log file
         """
         
-        super(NLCG, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(NLCG, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="Nonlinear CG")
         
         # Defining stepper object
         self.stepper = stepper
@@ -217,6 +217,7 @@ class NLCG(Solver):
                 msg = 90 * "#" + "\n"
                 msg += 12 * " " + "Nonlinear %s Solver log file\n" % ("SD" if self.beta_type == "SD" else "CG")
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 if self.beta_type != "SD":
                     msg += 4 * " " + "Conjugate method used: %s\n" % self.beta_type
                 msg += 90 * "#" + "\n"
@@ -445,7 +446,7 @@ class LBFGS(Solver):
             save_est: save inverse Hessian estimate vectors (self.prefix must not be None)
         """
         
-        super(LBFGS, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(LBFGS, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="L-BFGS")
         
         # Defining stepper object
         self.stepper = stepper if stepper is not None else CvSrchStep()
@@ -583,6 +584,7 @@ class LBFGS(Solver):
                     msg += 12 * " " + "BFGS Solver log file\n"
                 # Printing restart folder
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 msg += 90 * "#" + "\n"
                 if verbose:
                     print(msg.replace("log file", ""))
@@ -818,7 +820,7 @@ class LBFGSB(Solver):
             m_steps: maximum number of steps to store to estimate the inverse Hessian (by default it runs BFGS method)
             logger: Logger to write inversion log file
         """
-        super(LBFGSB, self).__init__(stopper=stopper, logger=kwargs.get("logger", None))
+        super(LBFGSB, self).__init__(stopper=stopper, logger=kwargs.get("logger", None), name="L-BFGS-B")
         
         # Defining stepper object
         self.stepper = stepper
@@ -1144,6 +1146,7 @@ class LBFGSB(Solver):
                     msg += 12 * " " + "BFGS-B Solver log file\n"
                 # Printing restart folder
                 msg += 4 * " " + "Restart folder: %s\n" % self.restart.restart_folder
+                msg += 4 * " " + "Problem: %s\n" % problem.name
                 msg += 90 * "#" + "\n"
                 if verbose:
                     print(msg.replace("log file", ""))

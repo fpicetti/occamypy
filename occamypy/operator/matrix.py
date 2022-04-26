@@ -28,15 +28,12 @@ class Matrix(Operator):
         if matrix.shape[0] != range.size:
             raise ValueError
         
-        super(Matrix, self).__init__(domain=domain, range=range)
+        super(Matrix, self).__init__(domain=domain, range=range, name="Matrix")
         self.backend = get_backend(matrix)
         self.matrix_type = get_vector_type(matrix)
         
         self.matrix = matrix
         self.outcore = outcore
-    
-    def __str__(self):
-        return "MatrixOp"
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)

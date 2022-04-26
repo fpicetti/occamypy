@@ -86,10 +86,7 @@ class ConvND(Operator):
                                    self.kernel.unsqueeze(0).unsqueeze(0),
                                    padding=self.pad_size).flatten(end_dim=2)
         
-        super(ConvND, self).__init__(domain, domain)
-    
-    def __str__(self):
-        return " ConvND "
+        super(ConvND, self).__init__(domain, domain, name="Convolve")
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
@@ -126,9 +123,7 @@ class GaussianFilter(ConvND):
         self.kernel = [*accumulate(kernels, lambda a, b: torch.outer(a.flatten(), b))][-1]
         self.kernel.reshape([k.numel() for k in kernels])
         super(GaussianFilter, self).__init__(domain, self.kernel.to(domain.device))
-    
-    def __str__(self):
-        return "GausFilt"
+        self.name = "GaussFilt"
 
 
 def Padding(domain, pad, mode="constant"):
@@ -187,14 +182,11 @@ class _Padding(Operator):
         
         self.padded_shape = tuple(np.asarray(domain.shape) + [self.pad[i] + self.pad[i + 1] for i in range(0, 2 * nd, 2)])
         
-        super(_Padding, self).__init__(domain, VectorTorch(self.padded_shape, device=domain.device.index))
+        super(_Padding, self).__init__(domain, VectorTorch(self.padded_shape, device=domain.device.index), name="Paddding")
 
         self.inner_idx = [list(torch.arange(start=self.pad[0:-1:2][i], end=self.range.shape[i]-pad[1::2][i])) for i in range(nd)]
         self.mode = mode
         
-    def __str__(self):
-        return "Padding "
-    
     def forward(self, add, model, data):
         """Pad the domain"""
         self.checkDomainRange(model, data)

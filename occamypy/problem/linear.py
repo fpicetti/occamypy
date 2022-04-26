@@ -30,7 +30,7 @@ class LeastSquares(Problem):
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(LeastSquares, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        super(LeastSquares, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj, name="Least Squares")
 
         # Gradient vector
         self.grad = self.pert_model.clone()
@@ -131,7 +131,8 @@ class LeastSquaresSymmetric(Problem):
         if not model.checkSame(data) and not op.domain.checkSame(op.range):
             raise ValueError("Data and model vector live in different spaces!")
 
-        super(LeastSquaresSymmetric, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        super(LeastSquaresSymmetric, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj,
+                                                    name="Symmetric Least Squares")
        
         # Gradient vector is equal to the residual vector
         self.grad = self.res
@@ -217,7 +218,8 @@ class LeastSquaresRegularized(Problem):
             maxBound: upper bound vector
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
-        super(LeastSquaresRegularized, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        super(LeastSquaresRegularized, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj,
+                                                      name="Regularized Least Squares")
         
         # Gradient vector
         self.grad = self.pert_model.clone()
@@ -406,7 +408,8 @@ class Lasso(Problem):
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(Lasso, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        super(Lasso, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj,
+                                    name="Lasso")
         
         # Gradient vector
         self.grad = self.pert_model.clone()
@@ -515,7 +518,8 @@ class GeneralizedLasso(Problem):
             maxBound: upper bound vector
             boundProj: class with a method `apply(input_vec)` to project input_vec onto some convex set
         """
-        super(GeneralizedLasso, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        super(GeneralizedLasso, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj,
+                                               name="Generalized Lasso")
         
         self.grad = self.pert_model.clone()
         self.op = op

@@ -30,7 +30,8 @@ class NonlinearLeastSquares(Problem):
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(NonlinearLeastSquares, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        super(NonlinearLeastSquares, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj,
+                                                    name="Nonlinear Least Squares")
         
         # Gradient vector
         self.grad = self.pert_model.clone()
@@ -136,7 +137,8 @@ class NonlinearLeastSquaresRegularized(Problem):
             boundProj: class with a function "apply(input_vec)" to project input_vec onto some convex set
         """
         # Setting the bounds (if any)
-        super(NonlinearLeastSquaresRegularized, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        super(NonlinearLeastSquaresRegularized, self).__init__(model=model, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj,
+                                                               name="Regularized Nonlinear Least Squares")
         
         # Gradient vector
         self.grad = self.pert_model.clone()
@@ -367,7 +369,8 @@ class VarProRegularized(Problem):
         if not isinstance(h_op, VarProOperator):
             raise TypeError("ERROR! Not provided an operator class for the variable projection problem")
         # Setting the bounds (if any)
-        super(VarProRegularized, self).__init__(model=model_nl, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj)
+        super(VarProRegularized, self).__init__(model=model_nl, data=data, minBound=minBound, maxBound=maxBound, boundProj=boundProj,
+                                                name="Regularized Variable Projection")
         
         # Linear component of the inverted model
         self.lin_model = lin_model
