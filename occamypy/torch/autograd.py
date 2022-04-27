@@ -82,7 +82,7 @@ class _Function(torch.autograd.Function):
             data = ctx.fwd(ctx.vec_class(model.clone().to(ctx.op_dev)))[:].to(model.device)
         else:
             # operator is not torch-compatible, so we move the domain to CPU to the same vec_class of the operator
-            data = ctx.fwd(ctx.vec_class(model.detach().numpy()))
+            data = ctx.fwd(ctx.vec_class(model.detach().cpu().numpy()))
             data = torch.from_numpy(data[:]).to(model.device)
         return data
     
@@ -94,7 +94,7 @@ class _Function(torch.autograd.Function):
             model = ctx.adj(ctx.vec_class(data.to(ctx.op_dev)))[:].to(data.device)
         else:
             # operator is not torch-compatible, so we move the domain to CPU
-            model = ctx.adj(data.detach().numpy())
+            model = ctx.adj(data.detach().cpu().numpy())
             model = torch.from_numpy(model[:]).to(data.device)
         return model, None, None, None, None, None
 
@@ -193,11 +193,21 @@ if __name__ == "__main__":
     del y, y_, sig_y_, y_sig
     
     # now try a numpy-based operator on a tensor with requires_grad=True
-    x = VectorAD(x)
-    T = AutogradFunction(o.GaussianFilter(o.VectorNumpy((x.size,)), 1))
+    x = o.VectorAD(x)
+    T = o.AutogradFunction(o.GaussianFilter(o.VectorNumpy((x.size,)), 1))
     y_ = T(x)
     sig_y_ = S(T(x))
     y_sig = T(S(x[:]))
     y = T * x
+    
+    # now try a numpy-based operator on a tensor with requires_grad=True on GPU
+    # like: we have a tensor that comes from a GPU (cnn) and we want to apply a numpy-based operator like devito
+    x = o.VectorAD(torch.Tensor([0., 1., 0.]), device=0)
+    T = o.AutogradFunction(o.GaussianFilter(o.VectorNumpy((x.size,)), 1))
+    y_ = T(x)
+    sig_y_ = S(T(x))
+    y_sig = T(S(x[:]))
+    y = T * x
+    del y, y_, sig_y_, y_sig
     
     print(0)
