@@ -170,7 +170,7 @@ class DaskClient:
                 # Obtaining IP address of host for the started worker (necessary to resort workers)
                 worker_ips.append(
                     subprocess.check_output(
-                        ["ssh"] + [hostname] + ["hostname -I"] + ["| awk '{print $1}'"]).rstrip().decode("utf-8"))
+                        ["ssh"] + [hostname] + ["hostname -i"] + ["| awk '{print $1}'"]).rstrip().decode("utf-8"))
             # Waiting until all the requested workers are up and running
             workers = 0
             requested = len(hostnames)
