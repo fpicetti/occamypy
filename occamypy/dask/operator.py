@@ -436,7 +436,7 @@ class DaskCollect(Operator):
         for idx, shape in enumerate(shapes):
             n_elem = np.prod(shape)
             wrkId = list(client.who_has(model.vecDask[idx]).values())[0]
-            arrD = client.scatter(np.reshape(dataNd[idx_el:idx_el + n_elem], shape), workers=wrkId)
+            arrD = scatter_large_data(np.reshape(dataNd[idx_el:idx_el + n_elem], shape), wrkId[0], client)
             daskD.wait(arrD)
             daskD.wait(client.submit(_add_from_NdArray, model.vecDask[idx], arrD, pure=False))
             idx_el += n_elem
