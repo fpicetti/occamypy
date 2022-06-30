@@ -228,6 +228,8 @@ class NonlinearLeastSquaresRegularized(Problem):
                 raise ValueError(msg)
             # model=model+alpha*grad
             prblm_mdl.scaleAdd(prblm_grad, 1.0, alpha)
+            if "bounds" in dir(self):
+                self.bounds.apply(prblm_mdl)
             prblm_res = self.res_func(prblm_mdl)
             # Recompute the new objective function terms
             res_data_norm = prblm_res.vecs[0].norm()
