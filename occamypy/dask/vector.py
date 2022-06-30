@@ -347,18 +347,15 @@ class DaskVector(Vector):
                         self.vecDask.append(
                             self.client.submit(call_constr_hyper, vec.getHyper().axes, workers=[wrkId], pure=False))
                         # Copying values from NdArray (Cannot scatter SepVector)
-                        daskD.wait(self.vecDask[-1])
-                        if copy:
-                            arrD = self.client.scatter(vec.getNdArray(), workers=[wrkId])
-                            daskD.wait(arrD)
-                            daskD.wait(
-                                self.client.submit(_copy_from_NdArray, self.vecDask[-1], arrD, pure=False))
                     else:
-                        if copy:
-                            self.vecDask.append(self.client.scatter(vec, workers=[wrkId]))
-                        else:
-                            self.vecDask.append(
+                        self.vecDask.append(
                                 self.client.submit(_call_clone, vec.cloneSpace(), workers=[wrkId], pure=False))
+                    daskD.wait(self.vecDask[-1])
+                    if copy:
+                        arrD = self.client.scatter(vec.getNdArray(), workers=[wrkId])
+                        daskD.wait(arrD)
+                        daskD.wait(
+                            self.client.submit(_copy_from_NdArray, self.vecDask[-1], arrD, pure=False))
         elif "dask_vectors" in kwargs:
             dask_vectors = kwargs.get("dask_vectors")
             for dask_vec in dask_vectors:
