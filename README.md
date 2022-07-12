@@ -19,7 +19,10 @@ pip install occamypy
 In order to have Cupy-based vectors and operators, you should install also [Cupy](https://docs.cupy.dev/en/stable/install.html#install-cupy) and [cuSIGNAL](https://github.com/rapidsai/cusignal#installation).
 They are not included in this installation as they are dependent on the target CUDA device and compiler.
 
-As this library strongly relies on Numpy, we suggest installing OccamyPy in a conda environment like [this](./envs/env.yml).
+As this library strongly relies on Numpy, we suggest installing OccamyPy in a conda environment like [this](./envs/env.yml) with:
+```bash
+conda env create -n MYENV -f env.yml
+```
 
 ### History
 This library was initially developed at
@@ -52,7 +55,7 @@ See the [`problem`](./occamypy/problem) subpackage for details and implementatio
 
 - **solver** class: it aims at finding the solution to a problem by employing methods
 defined within the vector, operator and problem classes.
-Additionally, it allows to restart an optimization method from an intermetdiate result
+Additionally, it allows to restart an optimization method from an intermediate result
 written as serialized objects on permanent computer memory.
 We have a number of linear and nonlinear solver, along with some stepper algorithms.
 See the [`solver`](./occamypy/solver) subpackage for details and implementations.
@@ -96,7 +99,7 @@ We are currently working on:
 * wrapping linear operators to PyTorch optimizers: see the [LS-RTM tutorial](./tutorials/2D%20LS-RTM%20with%20devito%20and%20Automatic%20Differentiation.ipynb)!
 This can be useful for using neural networks and operators (i.e., deep priors and physical modeling).
 * using PyTorch's [functorch](https://github.com/pytorch/functorch) library to compute the Jacobian-vector product of nonlinear operators: see the [first step](tutorials/Automatic%20Differentiation%20for%20nonlinear%20operators.ipynb)!
-* implement computation-demanding operators natively in OccamyPy, so that they can be used on CPU/GPU and HPC clusters. 
+* implement computation-demanding operators natively in OccamyPy, so that they can be used on CPU/GPU and HPC clusters.
 
 ### Authors
  - [Ettore Biondi](https://github.com/biondiettore)
