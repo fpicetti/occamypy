@@ -763,8 +763,9 @@ class ParabolicStep(Stepper):
                 problem.bounds.apply(model_step)
             if modl.isDifferent(model_step):
                 # Computing true scaled search direction dm = m_new_clipped - m_current
-                dmodl.copy(model_step)
-                dmodl.scaleAdd(modl, 1.0, -1.0)
+                modl.scaleAdd(dmodl, sc2=-self.alpha) # m_current = m_new - alpha*dmodl
+                dmodl.copy(modl) # m_current
+                dmodl.scaleAdd(model_step, -1.0, 1.0) # dm = m_new_clipped - m_current
                 # Scaled by the inverse of the step length
                 dmodl.scale(1.0 / self.alpha)
             # Setting model and residual vectors to c1 or c2 point if parabola minimum is not picked
@@ -973,8 +974,9 @@ class ParabolicStepConst(Stepper):
                 problem.bounds.apply(model_step)
             if modl.isDifferent(model_step):
                 # Computing true scaled search direction dm = m_new_clipped - m_current
-                dmodl.copy(model_step)
-                dmodl.scaleAdd(modl, 1.0, -1.0)
+                modl.scaleAdd(dmodl, sc2=-self.alpha) # m_current = m_new - alpha*dmodl
+                dmodl.copy(modl) # m_current
+                dmodl.scaleAdd(model_step, -1.0, 1.0) # dm = m_new_clipped - m_current
                 # Scaled by the inverse of the step length
                 dmodl.scale(1.0 / self.alpha)
             # Setting model and residual vectors to c1 or c2 point if parabola minimum is not picked
