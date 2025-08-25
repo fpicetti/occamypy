@@ -442,7 +442,7 @@ class CvSrchStep(Stepper):
                 if logger:
                     logger.addToLog("\tRelative width of the interval of uncertainty is at most xtol of %.2e" % self.xtol)
                 break
-            if phi_alpha <= phi_test1 and abs(dphi_test) <= self.gtol * (-dphi_init) and phi_alpha < phi_init:
+            if phi_alpha <= phi_test1 and abs(dphi_alpha) <= self.gtol * (-dphi_init) and phi_alpha < phi_init:
                 success = True
                 if logger:
                     logger.addToLog("\tThe sufficient decrease condition and the directional derivative condition hold "
@@ -763,8 +763,9 @@ class ParabolicStep(Stepper):
                 problem.bounds.apply(model_step)
             if modl.isDifferent(model_step):
                 # Computing true scaled search direction dm = m_new_clipped - m_current
-                dmodl.copy(model_step)
-                dmodl.scaleAdd(modl, 1.0, -1.0)
+                modl.scaleAdd(dmodl, sc2=-self.alpha) # m_current = m_new - alpha*dmodl
+                dmodl.copy(modl) # m_current
+                dmodl.scaleAdd(model_step, -1.0, 1.0) # dm = m_new_clipped - m_current
                 # Scaled by the inverse of the step length
                 dmodl.scale(1.0 / self.alpha)
             # Setting model and residual vectors to c1 or c2 point if parabola minimum is not picked
@@ -973,8 +974,9 @@ class ParabolicStepConst(Stepper):
                 problem.bounds.apply(model_step)
             if modl.isDifferent(model_step):
                 # Computing true scaled search direction dm = m_new_clipped - m_current
-                dmodl.copy(model_step)
-                dmodl.scaleAdd(modl, 1.0, -1.0)
+                modl.scaleAdd(dmodl, sc2=-self.alpha) # m_current = m_new - alpha*dmodl
+                dmodl.copy(modl) # m_current
+                dmodl.scaleAdd(model_step, -1.0, 1.0) # dm = m_new_clipped - m_current
                 # Scaled by the inverse of the step length
                 dmodl.scale(1.0 / self.alpha)
             # Setting model and residual vectors to c1 or c2 point if parabola minimum is not picked
