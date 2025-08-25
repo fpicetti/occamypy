@@ -442,7 +442,7 @@ class CvSrchStep(Stepper):
                 if logger:
                     logger.addToLog("\tRelative width of the interval of uncertainty is at most xtol of %.2e" % self.xtol)
                 break
-            if phi_alpha <= phi_test1 and abs(dphi_test) <= self.gtol * (-dphi_init) and phi_alpha < phi_init:
+            if phi_alpha <= phi_test1 and abs(dphi_alpha) <= self.gtol * (-dphi_init) and phi_alpha < phi_init:
                 success = True
                 if logger:
                     logger.addToLog("\tThe sufficient decrease condition and the directional derivative condition hold "
