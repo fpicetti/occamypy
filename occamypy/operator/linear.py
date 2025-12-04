@@ -93,10 +93,9 @@ class Diagonal(Operator):
     
     def forward(self, add, model, data):
         self.checkDomainRange(model, data)
-        data.scaleAdd(model, 1. if add else 0.)
-        data.multiply(self.diag)
-    
+        modelTmp = model.clone()
+        modelTmp.multiply(self.diag)
+        data.scaleAdd(modelTmp, 1. if add else 0.)
+
     def adjoint(self, add, model, data):
-        self.checkDomainRange(model, data)
-        model.scaleAdd(data, 1. if add else 0.)
-        model.multiply(self.diag)
+        self.forward(add, data, model)
